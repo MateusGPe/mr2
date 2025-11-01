@@ -1,266 +1,258 @@
 import json
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock, patch, ANY
 
-# Importe as classes e exceções do seu projeto
+# Importe as classes e exceções do seu projeto com o novo modelo
 from registro.nucleo.facade import RegistroFacade
-from registro.nucleo.exceptions import NoActiveSessionError, SessionError
-from registro.nucleo.models import Base, Students, Reserve, Session as SessionModel
+from registro.nucleo.exceptions import (
+    NoActiveSessionError, SessionError, GoogleAPIError, RegistrationCoreError
+)
 from registro.nucleo.utils import SESSION as SessionData
 
-# Mock para a função create_engine para usar um banco de dados em memória
-# Isso garante que os testes não toquem em arquivos reais do disco
-
-
-@patch('registro.nucleo.models.create_engine')
-def test_facade_initialization(mock_create_engine):
-    """Testa se a fachada é inicializada corretamente."""
-    from sqlalchemy import create_engine as sa_create_engine
-    # Configura o mock para retornar um engine de SQLite em memória
-    mock_create_engine.return_value = sa_create_engine("sqlite:///:memory:")
-
-    # Patch para evitar que a função real seja chamada durante o init
-    with patch('registro.nucleo.facade.create_database_and_tables') as mock_create_db:
-        facade = RegistroFacade()
-
-        # Verifica se a criação do banco de dados foi chamada
-        mock_create_db.assert_called_once()
-
-        # Verifica se os repositórios foram instanciados
-        assert facade._student_repo is not None
-        assert facade._reserve_repo is not None
-        assert facade._session_repo is not None
-
-        # Verifica o estado inicial
-        assert facade.active_session_id is None
-        facade.close()
-
-# Um fixture do pytest para criar uma fachada limpa para cada teste
-
+# --- Fixtures Reutilizáveis ---
 
 @pytest.fixture
 def facade_instance():
-    """Cria uma instância da RegistroFacade com um DB em memória para testes."""
-    with patch('registro.nucleo.facade.create_database_and_tables'), \
-            patch('registro.nucleo.models.create_engine') as mock_create_engine:
+    """
+    Cria uma instância da RegistroFacade para cada teste, garantindo isolamento.
+    Usa um banco de dados em memória e mocka a criação das tabelas.
+    """
+    # Patch para que create_engine use um DB em memória, isolando os testes.
+    with patch('registro.nucleo.models.create_engine') as mock_create_engine, \
+            patch('registro.nucleo.facade.create_database_and_tables'):
 
         from sqlalchemy import create_engine as sa_create_engine
         mock_create_engine.return_value = sa_create_engine("sqlite:///:memory:")
 
         facade = RegistroFacade()
-        # Garante que o banco seja fechado após o teste
         yield facade
         facade.close()
 
 
-# --- Testes para Gerenciamento de Sessão ---
-
-@patch('registro.nucleo.facade.service_logic')
-def test_start_new_session(mock_service, facade_instance):
+@pytest.fixture
+def active_facade(facade_instance):
     """
-    Testa o início de uma nova sessão.
-    Verifica se a lógica de serviço é chamada e se o ID da sessão ativa é definido.
+    Fixture que retorna uma instância da fachada com uma sessão já ativa (ID 123).
+    Útil para todos os testes que requerem este estado.
     """
-    # Configura o mock para retornar um ID de sessão
-    mock_service.start_new_session.return_value = 123
+    facade_instance.active_session_id = 123
+    return facade_instance
 
-    session_data: SessionData = {
-        "refeição": "Almoço", "lanche": "", "período": "Integral",
-        "data": "2025-11-20", "hora": "12:00",
-        "turmas_com_reserva": ["3A INFO"], "turmas_sem_reserva": ["2B AGRO"]
-    }
+# --- Suítes de Testes ---
 
-    session_id = facade_instance.start_new_session(session_data)
+class TestFacadeLifecycle:
+    """Testa a criação, destruição e o comportamento como gerenciador de contexto."""
 
-    # Verifica se a função de serviço foi chamada com os argumentos corretos
-    mock_service.start_new_session.assert_called_once_with(
-        facade_instance._db_session,
-        facade_instance._session_repo,
-        facade_instance._reserve_repo,
-        facade_instance._student_repo,
-        session_data
-    )
-    # Verifica se o ID retornado está correto e se o estado da fachada foi atualizado
-    assert session_id == 123
-    assert facade_instance.active_session_id == 123
+    def test_facade_initialization(self, facade_instance):
+        """Verifica se o estado inicial e os novos repositórios da fachada estão corretos."""
+        assert facade_instance._estudante_repo is not None
+        assert facade_instance._grupo_repo is not None
+        assert facade_instance._reserva_repo is not None
+        assert facade_instance._sessao_repo is not None
+        assert facade_instance._consumo_repo is not None
+        assert facade_instance.active_session_id is None
+        assert facade_instance._db_session.is_active
 
+    def test_facade_as_context_manager(self):
+        """Testa o uso da fachada com 'with', garantindo que 'close' é chamado."""
+        with patch('registro.nucleo.facade.create_database_and_tables'), \
+                patch('registro.nucleo.models.create_engine') as mock_create_engine:
 
-@patch('registro.nucleo.facade.service_logic')
-def test_list_all_sessions(mock_service, facade_instance):
-    """Testa a listagem de todas as sessões."""
-    mock_service.list_all_sessions.return_value = [{"id": 1}, {"id": 2}]
+            from sqlalchemy import create_engine as sa_create_engine
+            mock_create_engine.return_value = sa_create_engine("sqlite:///:memory:")
 
-    sessions = facade_instance.list_all_sessions()
-
-    mock_service.list_all_sessions.assert_called_once_with(facade_instance._session_repo)
-    assert sessions == [{"id": 1}, {"id": 2}]
+            with patch('registro.nucleo.facade.RegistroFacade.close') as mock_close:
+                with RegistroFacade():
+                    pass
+                mock_close.assert_called_once()
 
 
 @patch('registro.nucleo.facade.service_logic')
-def test_set_active_session(mock_service, facade_instance):
-    """Testa a definição de uma sessão ativa."""
-    # O mock de get_session_details não precisa retornar nada,
-    # apenas existir para provar que a validação foi chamada.
+class TestFacadeSessionManagement:
+    """Testa a criação, listagem e definição de sessões."""
 
-    facade_instance.set_active_session(99)
+    def test_start_new_session_updates_state(self, mock_service, facade_instance):
+        """Verifica se iniciar uma sessão atualiza o active_session_id."""
+        mock_service.start_new_session.return_value = 456
+        session_data: SessionData = {
+            "refeicao": "lanche",
+            "item_servido": "Biscoito e suco",
+            "periodo": "Matutino",
+            "data": "2025-11-20",
+            "hora": "09:30",
+            "grupos": ["1A INFO", "1B AGRO"]
+        }
 
-    mock_service.get_session_details.assert_called_once_with(facade_instance._session_repo, 99)
-    assert facade_instance.active_session_id == 99
+        session_id = facade_instance.start_new_session(session_data)
+
+        assert session_id == 456
+        assert facade_instance.active_session_id == 456
+        mock_service.start_new_session.assert_called_once_with(
+            facade_instance._sessao_repo,
+            facade_instance._grupo_repo,
+            session_data
+        )
+
+    def test_list_all_sessions_passthrough(self, mock_service, facade_instance):
+        """Verifica se a fachada repassa corretamente os dados do serviço."""
+        expected_list = [{"id": 1}, {"id": 2, "data": "2025-11-20"}]
+        mock_service.list_all_sessions.return_value = expected_list
+
+        assert facade_instance.list_all_sessions() == expected_list
+        mock_service.list_all_sessions.assert_called_once_with(facade_instance._sessao_repo)
+
+    def test_set_active_session_updates_state(self, mock_service, facade_instance):
+        """Caminho feliz: definir uma sessão ativa."""
+        facade_instance.set_active_session(99)
+        assert facade_instance.active_session_id == 99
+        mock_service.get_session_details.assert_called_once_with(facade_instance._sessao_repo, 99)
+
+    def test_set_active_session_propagates_error(self, mock_service, facade_instance):
+        """Se a sessão não existe, a exceção do serviço é repassada."""
+        mock_service.get_session_details.side_effect = SessionError("Sessão 999 não encontrada.")
+
+        with pytest.raises(SessionError, match="Sessão 999 não encontrada."):
+            facade_instance.set_active_session(999)
+        assert facade_instance.active_session_id is None
 
 
 @patch('registro.nucleo.facade.service_logic')
-def test_set_active_session_raises_error_if_not_found(mock_service, facade_instance):
-    """Testa se um erro é levantado ao tentar ativar uma sessão inexistente."""
-    mock_service.get_session_details.side_effect = SessionError("Não encontrada")
+class TestFacadeActiveSessionOperations:
+    """Testa todos os métodos que requerem uma sessão ativa."""
 
-    with pytest.raises(SessionError, match="Não encontrada"):
-        facade_instance.set_active_session(999)
+    def test_get_active_session_details_data_transformation(self, mock_service, active_facade):
+        """Verifica a transformação de dados do novo modelo para o dicionário de resposta."""
+        # Mock para os grupos relacionados
+        mock_grupo1 = MagicMock()
+        mock_grupo1.nome = "3A INFO"
+        mock_grupo2 = MagicMock()
+        mock_grupo2.nome = "3B AGRO"
 
-    assert facade_instance.active_session_id is None
+        mock_model = MagicMock()
+        mock_model.id = 123
+        mock_model.refeicao, mock_model.periodo = "lanche", "Vespertino"
+        mock_model.data, mock_model.hora = "2025-11-21", "15:30"
+        mock_model.item_servido = "Pão com geleia"
+        mock_model.grupos = [mock_grupo1, mock_grupo2]
 
-
-# --- Testes para Métodos que Requerem Sessão Ativa ---
-
-class TestFacadeWithActiveSession:
-
-    @pytest.fixture
-    def active_facade(self, facade_instance):
-        """Fixture que cria uma fachada e já define uma sessão ativa."""
-        facade_instance.active_session_id = 1
-        return facade_instance
-
-    @patch('registro.nucleo.facade.service_logic')
-    def test_get_active_session_details(self, mock_service, active_facade):
-        """Testa a obtenção de detalhes da sessão ativa."""
-        mock_session_model = MagicMock()
-        mock_session_model.id = 1
-        mock_session_model.refeicao = "Almoço"
-        mock_session_model.periodo = "Integral"
-        mock_session_model.data = "2025-11-20"
-        mock_session_model.hora = "12:00"
-        # O modelo do banco de dados armazena um JSON como string
-        mock_session_model.turmas_config = json.dumps({
-            "com_reserva": ["3A INFO"], "sem_reserva": []
-        })
-
-        mock_service.get_session_details.return_value = mock_session_model
+        mock_service.get_session_details.return_value = mock_model
 
         details = active_facade.get_active_session_details()
 
-        mock_service.get_session_details.assert_called_once_with(active_facade._session_repo, 1)
-        expected_details = {
-            "id": 1, "refeicao": "Almoço", "periodo": "Integral",
-            "data": "2025-11-20", "hora": "12:00",
-            "turmas_com_reserva": ["3A INFO"], "turmas_sem_reserva": []
+        expected = {
+            "id": 123, "refeicao": "lanche", "periodo": "Vespertino",
+            "data": "2025-11-21", "hora": "15:30",
+            "item_servido": "Pão com geleia",
+            "grupos": ["3A INFO", "3B AGRO"]
         }
-        assert details == expected_details
+        assert details == expected
 
-    # Testando as combinações de filtro para get_students_for_session
-    @pytest.mark.parametrize("consumed_filter, expected_call_arg", [
-        (None, None),
-        (True, True),
-        (False, False),
-    ])
-    @patch('registro.nucleo.facade.service_logic')
-    def test_get_students_for_session_combinations(
-            self, mock_service, active_facade, consumed_filter, expected_call_arg):
-        """Testa a busca de estudantes com diferentes filtros de consumo."""
-        mock_service.get_students_for_session.return_value = [{"nome": "Aluno Teste"}]
-
-        students = active_facade.get_students_for_session(consumed=consumed_filter)
-
+    @pytest.mark.parametrize("consumed_filter", [True, False, None])
+    def test_get_students_for_session(self, mock_service, active_facade, consumed_filter):
+        """Testa a chamada para buscar estudantes, verificando os novos argumentos."""
+        active_facade.get_students_for_session(consumed=consumed_filter)
         mock_service.get_students_for_session.assert_called_once_with(
-            active_facade._reserve_repo,
-            active_facade._session_repo,
-            1,  # active_session_id
-            expected_call_arg
-        )
-        assert students == [{"nome": "Aluno Teste"}]
-
-    @patch('registro.nucleo.facade.service_logic')
-    def test_update_session_turmas_config(self, mock_service, active_facade):
-        """Testa a atualização da configuração de turmas."""
-        com_reserva = ["Nova Turma A"]
-        sem_reserva = ["Nova Turma B"]
-
-        active_facade.update_session_turmas_config(com_reserva, sem_reserva)
-
-        mock_service.update_session_turmas_config.assert_called_once_with(
-            active_facade._db_session,
-            active_facade._session_repo,
-            1,
-            com_reserva,
-            sem_reserva
+            session_repo=active_facade._sessao_repo,
+            estudante_repo=active_facade._estudante_repo,
+            reserva_repo=active_facade._reserva_repo,
+            consumo_repo=active_facade._consumo_repo,
+            session_id=123,
+            consumed=consumed_filter
         )
 
-    @patch('registro.nucleo.facade.service_logic')
+    def test_register_consumption(self, mock_service, active_facade):
+        """Testa o registro de consumo com a nova assinatura (prontuario)."""
+        prontuario_aluno = "SP123456"
+        expected_response = {"autorizado": True, "motivo": "Reserva encontrada"}
+        mock_service.register_consumption.return_value = expected_response
+
+        response = active_facade.register_consumption(prontuario_aluno)
+
+        assert response == expected_response
+        mock_service.register_consumption.assert_called_once_with(
+            session_repo=active_facade._sessao_repo,
+            estudante_repo=active_facade._estudante_repo,
+            reserva_repo=active_facade._reserva_repo,
+            consumo_repo=active_facade._consumo_repo,
+            session_id=123,
+            prontuario=prontuario_aluno
+        )
+
+    def test_update_session_groups(self, mock_service, active_facade):
+        """Testa a atualização de grupos (substituto de 'turmas_config')."""
+        novos_grupos = ["1A INFO", "1B INFO"]
+        active_facade.update_session_groups(novos_grupos)
+        mock_service.update_session_groups.assert_called_once_with(
+            active_facade._sessao_repo,
+            active_facade._grupo_repo,
+            123,
+            novos_grupos
+        )
+
+    def test_export_session_to_xlsx(self, mock_service, active_facade):
+        """Testa a exportação com os novos repositórios."""
+        active_facade.export_session_to_xlsx()
+        mock_service.export_session_to_xlsx.assert_called_once_with(
+            active_facade._sessao_repo,
+            active_facade._consumo_repo,
+            123
+        )
+
     def test_sync_to_google_sheets(self, mock_service, active_facade):
-        """Testa a sincronização para o Google Sheets."""
+        """Testa a sincronização 'para' o Google Sheets com os novos repositórios."""
         active_facade.sync_to_google_sheets()
         mock_service.sync_to_google_sheets.assert_called_once_with(
-            active_facade._reserve_repo, active_facade._session_repo, 1
+            active_facade._sessao_repo,
+            active_facade._consumo_repo,
+            123
         )
-
-    @patch('registro.nucleo.facade.service_logic')
-    def test_export_session_to_xlsx(self, mock_service, active_facade):
-        """Testa a exportação para XLSX."""
-        mock_service.export_session_to_xlsx.return_value = "/path/to/file.xlsx"
-
-        filepath = active_facade.export_session_to_xlsx()
-
-        mock_service.export_session_to_xlsx.assert_called_once_with(
-            active_facade._reserve_repo, active_facade._session_repo, 1
-        )
-        assert filepath == "/path/to/file.xlsx"
-
-# --- Testes para Métodos que NÃO Requerem Sessão Ativa (mas podem falhar sem ela) ---
 
 
 @patch('registro.nucleo.facade.service_logic')
-def test_sync_from_google_sheets(mock_service, facade_instance):
-    """Testa a sincronização do Google Sheets."""
-    facade_instance.sync_from_google_sheets()
-    mock_service.sync_from_google_sheets.assert_called_once_with(
-        facade_instance._db_session,
-        facade_instance._student_repo,
-        facade_instance._reserve_repo
-    )
+class TestFacadeStateIndependentOperations:
+    """Testa métodos que não dependem diretamente do estado active_session_id."""
+
+    def test_undo_consumption(self, mock_service, facade_instance):
+        """Testa o cancelamento de consumo com a nova assinatura (consumo_id)."""
+        consumo_id_para_remover = 987
+        facade_instance.undo_consumption(consumo_id_para_remover)
+        mock_service.undo_consumption.assert_called_once_with(
+            facade_instance._consumo_repo,
+            consumo_id_para_remover
+        )
+
+    def test_sync_from_google_sheets(self, mock_service, facade_instance):
+        """Testa a sincronização 'do' Google Sheets com o novo repositório de grupo."""
+        facade_instance.sync_from_google_sheets()
+        mock_service.sync_from_google_sheets.assert_called_once_with(
+            facade_instance._estudante_repo,
+            facade_instance._reserva_repo,
+            facade_instance._grupo_repo
+        )
+
+    def test_sync_from_google_sheets_propagates_error(self, mock_service, facade_instance):
+        """Testa a propagação de erro na sincronização 'do' Google."""
+        mock_service.sync_from_google_sheets.side_effect = RegistrationCoreError("Erro de importação")
+        with pytest.raises(RegistrationCoreError, match="Erro de importação"):
+            facade_instance.sync_from_google_sheets()
 
 
-@patch('registro.nucleo.facade.service_logic')
-def test_register_and_undo_consumption(mock_service, facade_instance):
-    """Testa o registro e o cancelamento de consumo."""
-    reserve_id = 42
-
-    # Teste de registro
-    facade_instance.register_consumption(reserve_id)
-    mock_service.register_consumption.assert_called_once_with(
-        facade_instance._db_session, facade_instance._reserve_repo, reserve_id
-    )
-
-    # Teste de cancelamento
-    facade_instance.undo_consumption(reserve_id)
-    mock_service.undo_consumption.assert_called_once_with(
-        facade_instance._db_session, facade_instance._reserve_repo, reserve_id
-    )
-
-
-# --- Testes de Erro para Métodos que Requerem Sessão Ativa ---
+# --- Teste Final de Robustez ---
 
 @pytest.mark.parametrize("method_name, args", [
     ("get_active_session_details", ()),
     ("get_students_for_session", ()),
-    ("update_session_turmas_config", ([], [])),
+    ("update_session_groups", ([],)),
     ("export_session_to_xlsx", ()),
     ("sync_to_google_sheets", ()),
+    ("register_consumption", ("some-prontuario",)), # Adicionado, pois agora requer sessão
 ])
-def test_methods_raise_no_active_session_error(facade_instance, method_name, args):
+def test_all_active_methods_raise_no_active_session_error(facade_instance, method_name, args):
     """
-    Testa de forma parametrizada se todos os métodos que precisam de uma
-    sessão ativa levantam NoActiveSessionError quando nenhuma está definida.
+    Teste parametrizado que garante que TODOS os métodos que precisam de uma sessão
+    ativa falham de forma previsível quando ela não existe.
     """
-    # Garante que não há sessão ativa
-    facade_instance.active_session_id = None
+    facade_instance.active_session_id = None  # Garante o estado inicial
 
     method_to_test = getattr(facade_instance, method_name)
 

@@ -4,19 +4,44 @@ lógica de processamento e inserção no banco de dados.
 """
 
 import csv
+from typing import Dict
 
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 
 from registro.nucleo.exceptions import DataImportError
-from registro.nucleo.repository import ReserveRepository, StudentRepository
-from registro.nucleo.utils import adjust_keys, find_best_matching_pair
+from registro.nucleo.repository import (EstudanteRepository, GrupoRepository,
+                                        ReservaRepository)
+from registro.nucleo.utils import adjust_keys
 
 
-def import_students_csv(student_repo: StudentRepository, csv_file_path: str) -> int:
-    """Importa novos estudantes de um arquivo CSV para o banco de dados."""
+def _get_or_create_groups(db_session: Session, group_names: set) -> Dict[str, int]:
+    """Busca ou cria grupos e retorna um mapeamento de nome para ID."""
+    grupo_repo = GrupoRepository(db_session)
+    existing_grupos = grupo_repo.read_filtered(GrupoRepository.model.nome.in_(group_names))
+    existing_map = {g.nome: g.id for g in existing_grupos}
+
+    new_group_names = group_names - set(existing_map.keys())
+    if new_group_names:
+        new_rows = [{'nome': name} for name in new_group_names]
+        grupo_repo.bulk_create(new_rows)
+        # Re-fetch all to get new IDs
+        all_grupos = grupo_repo.read_filtered(GrupoRepository.model.nome.in_(group_names))
+        return {g.nome: g.id for g in all_grupos}
+    return existing_map
+
+
+def import_students_csv(
+    estudante_repo: EstudanteRepository, grupo_repo: GrupoRepository, csv_file_path: str
+) -> int:
+    """Importa novos estudantes e suas associações com grupos de um arquivo CSV."""
     try:
-        existing_pronts = {s.pront for s in student_repo.read_all()}
         new_students = []
+        student_group_relations = []
+        all_group_names = set()
+
+        # Lê todos os estudantes existentes para evitar duplicatas
+        existing_pronts = {s.prontuario for s in estudante_repo.read_all()}
 
         with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
@@ -25,14 +50,42 @@ def import_students_csv(student_repo: StudentRepository, csv_file_path: str) -> 
                 pront = row.get('pront')
                 if pront and pront not in existing_pronts:
                     new_students.append({
-                        'pront': pront,
+                        'prontuario': pront,
                         'nome': row.get('nome', ''),
-                        'turma': row.get('turma', '')
                     })
-                    existing_pronts.add(pront)
+                    existing_pronts.add(pront)  # Garante unicidade dentro do próprio CSV
+
+                if pront and row.get('turma'):
+                    turma = row['turma']
+                    all_group_names.add(turma)
+                    student_group_relations.append({'prontuario': pront, 'grupo_nome': turma})
 
         if new_students:
-            student_repo.bulk_create(new_students)
+            estudante_repo.bulk_create(new_students)
+
+        # Processa grupos e associações
+        if student_group_relations:
+            # Garante que todos os grupos existam no DB
+            grupo_map = _get_or_create_groups(grupo_repo.get_session(), all_group_names)
+
+            # Garante que todos os estudantes existam no DB
+            all_pronts = {rel['prontuario'] for rel in student_group_relations}
+            student_map = {s.prontuario: s for s in estudante_repo.read_filtered(
+                estudante_repo.model.prontuario.in_(all_pronts)
+            )}
+
+            # Associa estudantes a grupos
+            for rel in student_group_relations:
+                student = student_map.get(rel['prontuario'])
+                group_id = grupo_map.get(rel['grupo_nome'])
+                if student and group_id:
+                    # Evita adicionar associações duplicadas
+                    if not any(g.id == group_id for g in student.grupos):
+                        grupo = grupo_repo.read_one(group_id)
+                        if grupo:
+                            student.grupos.append(grupo)
+
+        estudante_repo.get_session().commit()
         return len(new_students)
 
     except (FileNotFoundError, csv.Error, KeyError, SQLAlchemyError) as e:
@@ -40,104 +93,33 @@ def import_students_csv(student_repo: StudentRepository, csv_file_path: str) -> 
 
 
 def import_reserves_csv(
-    student_repo: StudentRepository, reserve_repo: ReserveRepository, csv_file_path: str
+    estudante_repo: EstudanteRepository, reserva_repo: ReservaRepository, csv_file_path: str
 ) -> int:
-    """Importa reservas de um arquivo CSV para o banco de dados."""
+    """Importa reservas de almoço de um arquivo CSV para o banco de dados."""
     try:
-        all_students = student_repo.read_all()
-        existing_students_map = {s.pront: s for s in all_students}
-        student_tuples = {(s.pront, s.nome) for s in all_students}
-
-        new_students_data = {}
-        csv_reserves_data = []
-        unique_dates = set()
-        reserved_data_pront_pairs = set()
+        student_map = {s.prontuario: s.id for s in estudante_repo.read_all()}
+        reserves_to_insert = []
 
         with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
             reader = csv.DictReader(csvfile)
             for row in reader:
                 row = adjust_keys(row)
-                pront, nome, data = row['pront'], row['nome'], row['data']
+                pront = row.get('pront')
+                student_id = student_map.get(pront)
 
-                unique_dates.add(data)
-                reserved_data_pront_pairs.add((data, pront))
-
-                if pront not in existing_students_map and pront not in new_students_data:
-                    pair, ratio = find_best_matching_pair((pront, nome), list(student_tuples))
-                    if ratio >= 95:
-                        (pront, nome) = pair
-                    else:
-                        new_students_data[pront] = {
-                            'pront': pront,
-                            'nome': nome,
-                            'turma': row['turma']
-                        }
-                csv_reserves_data.append(
-                    {
-                        'pront': pront,
-                        'prato': row['prato'],
-                        'data': data,
-                        'snacks': False,
-                        'reserved': True
+                if student_id:
+                    reserves_to_insert.append({
+                        'estudante_id': student_id,
+                        'prato': row.get('prato', 'Não especificado'),
+                        'data': row.get('data'),
+                        'cancelada': False
                     })
 
-        if new_students_data:
-            student_repo.bulk_create(list(new_students_data.values()))
-            all_students = student_repo.read_all()
-            existing_students_map = {s.pront: s for s in all_students}
-
-        not_in_reserve_entries = [
-            {
-                'pront': student.pront,
-                'prato': 'Sem Reserva',
-                'data': date,
-                'snacks': False,
-                'reserved': False
-            }
-            for student in all_students
-            for date in unique_dates
-            if (date, student.pront) not in reserved_data_pront_pairs
-        ]
-
-        all_reserves_data = csv_reserves_data + not_in_reserve_entries
-        reserves_to_insert = [
-            {
-                'student_id': existing_students_map.get(r_info['pront']).id,
-                'prato': r_info.get('prato'),
-                'data': r_info['data'],
-                'reserved': r_info['reserved'],
-                'snacks': r_info['snacks']
-            }
-            for r_info in all_reserves_data if existing_students_map.get(r_info['pront'])
-        ]
-
         if reserves_to_insert:
-            reserve_repo.bulk_create(reserves_to_insert)
+            reserva_repo.bulk_create(reserves_to_insert)
+
+        reserva_repo.get_session().commit()
         return len(reserves_to_insert)
 
     except (FileNotFoundError, csv.Error, KeyError, SQLAlchemyError) as e:
         raise DataImportError(f"Falha ao importar reservas de '{csv_file_path}': {e}") from e
-
-
-def reserve_snacks_for_all(
-    student_repo: StudentRepository, reserve_repo: ReserveRepository, data: str, prato: str
-) -> int:
-    """Cria uma reserva de lanche para todos os estudantes em uma data."""
-    try:
-        students = student_repo.read_all()
-        reserves_to_insert = [
-            {
-                'student_id': student.id,
-                'prato': prato,
-                'data': data,
-                'reserved': True,
-                'snacks': True
-            }
-            for student in students
-        ]
-        if reserves_to_insert:
-            reserve_repo.bulk_create(reserves_to_insert)
-        return len(reserves_to_insert)
-
-    except SQLAlchemyError as e:
-        raise DataImportError(f"Falha ao reservar lanches: {e}") from e

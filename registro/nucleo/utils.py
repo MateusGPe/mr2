@@ -19,14 +19,22 @@ SHGFP_TYPE_CURRENT: int = 0
 SESSION = TypedDict(
     'SESSION',
     {
-        'refeição': Literal["Lanche", "Almoço"],
-        'lanche': str,
-        'período': Literal["Integral", "Matutino", "Vespertino", "Noturno"],
+        'refeicao': Literal["lanche", "almoço"],
+        'item_servido': Optional[str],
+        'periodo': Literal["Integral", "Matutino", "Vespertino", "Noturno"],
         'data': str,
         'hora': str,
-        'turmas_com_reserva': List[str],
-        'turmas_sem_reserva': List[str]
+        'grupos': List[str],
     })
+TRANSLATE_DICT = str.maketrans("0123456789Xx", "abcdefghijkk")
+REMOVE_IQ = re.compile(r"[Ii][Qq]\d0+")
+
+
+def to_code(text: str) -> dict[str, str]:
+    """Traduz o prontuário para um código de busca simplificado."""
+    text = REMOVE_IQ.sub("", text)
+    translated = text.translate(TRANSLATE_DICT)
+    return {"id": " ".join(translated)}
 
 
 def get_documents_path() -> str:
@@ -119,7 +127,7 @@ def adjust_keys(input_dict: dict) -> dict:
             if isinstance(value, str):
                 value = value.strip()
 
-            if key in ["nome", "prato"]:
+            if key in ["nome", "prato", "turma"]:
                 value = " ".join(capitalize(v) for v in value.split(" "))
             elif key == "pront":
                 value = re.sub(r'IQ\d{2}', 'IQ30', value.upper())

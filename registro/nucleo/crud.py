@@ -27,6 +27,10 @@ class CRUD(Generic[MODEL]):
         pk_name = model.__mapper__.primary_key[0].name
         self._primary_key_column = getattr(self._model, pk_name)
 
+    def get_session(self) -> DBSession:
+        """Retorna a sessão do banco de dados associada."""
+        return self._db_session
+
     def create(self: Self, data: Dict) -> MODEL:
         """
         Cria um novo registro, o adiciona à sessão e atualiza seu estado.
