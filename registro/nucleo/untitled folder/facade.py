@@ -71,7 +71,7 @@ class RegistroFacade:
         """Retorna um dicionário com os detalhes da sessão ativa."""
         if self.active_session_id is None:
             raise NoActiveSessionError("Nenhuma sessão ativa definida.")
-        session_model = service_logic.get_session_details(self._session_repo,
+        session_model = service_logic.get_session_details(self._repo,
                                                           self.active_session_id)
         turmas_config = json.loads(session_model.turmas_config)
         return {
