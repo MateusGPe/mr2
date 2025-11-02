@@ -15,6 +15,14 @@ class EstudanteRepository(CRUD[Estudante]):
     def __init__(self, session: Session):
         super().__init__(session, Estudante)
 
+    def por_id(self, ids: set[int]) -> list[Estudante]:
+        """Retorna uma lista de estudantes cujos IDs estão na coleção fornecida."""
+        return self._db_session.query(Estudante).filter(Estudante.id.in_(ids)).all()
+
+    def por_prontuario(self, ids: set[str]) -> list[Estudante]:
+        """Retorna uma lista de estudantes cujos IDs estão na coleção fornecida."""
+        return self._db_session.query(Estudante).filter(Estudante.prontuario.in_(ids)).all()
+
 
 class ReservaRepository(CRUD[Reserva]):
     """Repositório para operações CRUD com o modelo Reserva."""
@@ -42,3 +50,7 @@ class GrupoRepository(CRUD[Grupo]):
 
     def __init__(self, session: Session):
         super().__init__(session, Grupo)
+
+    def por_nomes(self, nomes: set[str]) -> list[Grupo]:
+        """Retorna uma lista de grupos cujos nomes estão na coleção fornecida."""
+        return self._db_session.query(Grupo).filter(Grupo.nome.in_(nomes)).all()

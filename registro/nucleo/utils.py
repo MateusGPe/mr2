@@ -127,10 +127,12 @@ def adjust_keys(input_dict: dict) -> dict:
             if isinstance(value, str):
                 value = value.strip()
 
-            if key in ["nome", "prato", "turma"]:
+            if key in ["nome", "prato"]:
                 value = " ".join(capitalize(v) for v in value.split(" "))
             elif key == "pront":
                 value = re.sub(r'IQ\d{2}', 'IQ30', value.upper())
+            else:
+                value = value.strip()
 
             adjusted_dict[key] = value
         else:

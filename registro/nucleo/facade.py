@@ -11,12 +11,14 @@ from typing import Any, Dict, List, Optional
 
 from registro.nucleo import service_logic
 from registro.nucleo.exceptions import NoActiveSessionError
-from registro.nucleo.models import (Consumo, Estudante, Grupo, Reserva, Sessao,
-                                    SessionLocal,
-                                    create_database_and_tables)
-from registro.nucleo.repository import (ConsumoRepository, EstudanteRepository,
-                                        GrupoRepository, ReservaRepository,
-                                        SessaoRepository)
+from registro.nucleo.models import SessionLocal, create_database_and_tables
+from registro.nucleo.repository import (
+    ConsumoRepository,
+    EstudanteRepository,
+    GrupoRepository,
+    ReservaRepository,
+    SessaoRepository,
+)
 from registro.nucleo.utils import SESSION as SessionData
 
 
@@ -74,8 +76,9 @@ class RegistroFacade:
         """Retorna um dicionário com os detalhes da sessão ativa."""
         if self.active_session_id is None:
             raise NoActiveSessionError("Nenhuma sessão ativa definida.")
-        session_model = service_logic.get_session_details(self._sessao_repo,
-                                                          self.active_session_id)
+        session_model = service_logic.get_session_details(
+            self._sessao_repo, self.active_session_id
+        )
         return {
             "id": session_model.id,
             "refeicao": session_model.refeicao,
@@ -83,8 +86,100 @@ class RegistroFacade:
             "data": session_model.data,
             "hora": session_model.hora,
             "item_servido": session_model.item_servido,
-            "grupos": [g.nome for g in session_model.grupos]
+            "grupos": [g.nome for g in session_model.grupos],
         }
+
+    def get_searchable_students_for_session(self) -> List[Dict[str, str]]:
+        """
+        Retorna uma lista simplificada de estudantes elegíveis para a busca,
+        contendo apenas prontuário e nome. Otimizado para autocomplete.
+        """
+        if self.active_session_id is None:
+            # Retorna uma lista vazia se não houver sessão para evitar erros na UI
+            return []
+
+        # Busca apenas os estudantes que ainda não consumiram na sessão ativa
+        all_eligible = service_logic.get_students_for_session(
+            session_repo=self._sessao_repo,
+            estudante_repo=self._estudante_repo,
+            reserva_repo=self._reserva_repo,
+            consumo_repo=self._consumo_repo,
+            session_id=self.active_session_id,
+            consumed=False
+        )
+
+        # Retorna uma lista de dicionários simples, ideal para a busca
+        return [
+            {"pront": student["pront"], "nome": student["nome"]}
+            for student in all_eligible
+        ]
+
+    def cancel_reservation(self, reserva_id: int):
+        """Cancela uma reserva de refeição."""
+        service_logic.update_cancel_reserve(self._reserva_repo, reserva_id, True)
+
+    def undo_cancel_reservation(self, reserva_id: int):
+        """Cancela uma reserva de refeição."""
+        service_logic.update_cancel_reserve(self._reserva_repo, reserva_id, False)
+
+    def set_student_active_status(self, student_id: int, is_active: bool):
+        """Ativa ou desativa um estudante."""
+        self.update_student(student_id, {"ativo": is_active})
+
+    def delete_active_session(self):
+        """Deleta a sessão ativa e todos os seus consumos associados."""
+        if self.active_session_id is None:
+            raise NoActiveSessionError("Nenhuma sessão ativa definida.")
+        service_logic.delete_session(self._sessao_repo, self.active_session_id)
+        self.active_session_id = None
+
+    def delete_session(self, session_id: int):
+        """Deleta uma sessão específica e todos os seus consumos associados."""
+        service_logic.delete_session(self._sessao_repo, session_id)
+        if self.active_session_id == session_id:
+            self.active_session_id = None
+
+    def update_session_details(self, session_id: int, session_data: Dict[str, Any]):
+        """
+        Atualiza os detalhes de uma sessão (data, hora, etc.).
+        Para atualizar os grupos, use o método `update_session_groups`.
+        """
+        service_logic.update_session(self._sessao_repo, session_id, session_data)
+
+    def create_student(self, prontuario: str, nome: str) -> Dict[str, Any]:
+        """Cria um novo estudante no banco de dados."""
+        # Adicionar verificação para evitar duplicatas
+        existing = self._estudante_repo.read_filtered(prontuario=prontuario)
+        if existing:
+            raise ValueError(f"Estudante com prontuário {prontuario} já existe.")
+
+        new_student = self._estudante_repo.create(
+            {"prontuario": prontuario, "nome": nome}
+        )
+        self._db_session.commit()
+        return {
+            "id": new_student.id,
+            "prontuario": new_student.prontuario,
+            "nome": new_student.nome,
+        }
+
+    def update_student(self, student_id: int, data: Dict[str, Any]) -> bool:
+        """Atualiza os dados de um estudante (ex: nome)."""
+        student = self._estudante_repo.update(student_id, data)
+        if student:
+            self._db_session.commit()
+            return True
+        return False
+
+    def delete_student(self, student_id: int) -> bool:
+        """Remove um estudante do banco de dados."""
+        # CUIDADO: Deletar um estudante pode causar erros se ele tiver
+        # consumos ou reservas, devido às restrições de chave estrangeira.
+        # A melhor abordagem é usar o campo 'ativo'.
+        if self._estudante_repo.delete(student_id):
+            self._db_session.commit()
+            return True
+        return False
 
     def get_students_for_session(self, consumed: Optional[bool] = None) -> List[Dict]:
         """Retorna estudantes para a sessão ativa, com opção de filtro por consumo."""
@@ -96,7 +191,7 @@ class RegistroFacade:
             reserva_repo=self._reserva_repo,
             consumo_repo=self._consumo_repo,
             session_id=self.active_session_id,
-            consumed=consumed
+            consumed=consumed,
         )
 
     def register_consumption(self, prontuario: str) -> Dict[str, Any]:
@@ -109,7 +204,7 @@ class RegistroFacade:
             reserva_repo=self._reserva_repo,
             consumo_repo=self._consumo_repo,
             session_id=self.active_session_id,
-            prontuario=prontuario
+            prontuario=prontuario,
         )
 
     def undo_consumption(self, consumo_id: int):
@@ -121,8 +216,7 @@ class RegistroFacade:
         if self.active_session_id is None:
             raise NoActiveSessionError("Nenhuma sessão ativa definida.")
         service_logic.update_session_groups(
-            self._sessao_repo, self._grupo_repo, self.active_session_id,
-            grupos
+            self._sessao_repo, self._grupo_repo, self.active_session_id, grupos
         )
 
     def export_session_to_xlsx(self) -> str:

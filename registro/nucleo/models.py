@@ -10,10 +10,23 @@ Grupos (Turmas), Reservas, Sessoes e Consumos.
 """
 from typing import List, Optional
 
-from sqlalchemy import (Boolean, Column, ForeignKey, Integer, String, Table,
-                        UniqueConstraint, create_engine)
-from sqlalchemy.orm import (DeclarativeBase, Mapped, mapped_column,
-                            relationship, sessionmaker)
+from sqlalchemy import (
+    Boolean,
+    Column,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    UniqueConstraint,
+    create_engine,
+)
+from sqlalchemy.orm import (
+    DeclarativeBase,
+    Mapped,
+    mapped_column,
+    relationship,
+    sessionmaker,
+)
 
 
 class Base(DeclarativeBase):
@@ -89,6 +102,7 @@ class Estudante(Base):
         String(20), unique=True, nullable=False, index=True
     )
     nome: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
 
     grupos: Mapped[List["Grupo"]] = relationship(
         secondary=associacao_estudante_grupo, back_populates="estudantes", lazy="select"
@@ -161,7 +175,9 @@ class Sessao(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint("refeicao", "data", "hora", name="_sessao_data_hora_refeicao_uc"),
+        UniqueConstraint(
+            "refeicao", "data", "hora", name="_sessao_data_hora_refeicao_uc"
+        ),
     )
 
     def __repr__(self) -> str:
@@ -192,9 +208,7 @@ class Consumo(Base):
     estudante: Mapped["Estudante"] = relationship(
         back_populates="consumos", lazy="joined"
     )
-    sessao: Mapped["Sessao"] = relationship(
-        back_populates="consumos", lazy="joined"
-    )
+    sessao: Mapped["Sessao"] = relationship(back_populates="consumos", lazy="joined")
     reserva: Mapped[Optional["Reserva"]] = relationship(
         back_populates="consumo", lazy="select"
     )
