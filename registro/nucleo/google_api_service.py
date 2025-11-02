@@ -1,10 +1,12 @@
+# --- Arquivo: registro/nucleo/google_api_service.py ---
+
 """
 Módulo funcional para interagir com as APIs do Google, especificamente
 Google Sheets, para sincronização de dados.
 """
 
 import json
-import os.path
+from pathlib import Path
 from typing import Any, List
 
 import gspread
@@ -14,85 +16,88 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
 from gspread.utils import ValueInputOption
 
-from registro.nucleo.exceptions import GoogleAPIError
+from registro.nucleo.exceptions import ErroAPIGoogle
 
 SCOPES = [
     'https://www.googleapis.com/auth/spreadsheets',
     'https://www.googleapis.com/auth/drive'
 ]
+CAMINHO_CONFIG = Path("./config")
 
-
-def get_credentials(
-    token_path: str = "./config/token.json",
-    creds_path: str = "./config/credentials.json"
-) -> Credentials | Any:
+def obter_credenciais(
+    caminho_token: Path = CAMINHO_CONFIG / "token.json",
+    caminho_credenciais: Path = CAMINHO_CONFIG / "credentials.json"
+) -> Credentials:
     """Gerencia a autenticação e retorna credenciais válidas."""
-    creds = None
-    if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+    credenciais = None
+    if caminho_token.exists():
+        credenciais = Credentials.from_authorized_user_file(str(caminho_token), SCOPES)
 
-    if creds and creds.valid:
-        return creds
+    if credenciais and credenciais.valid:
+        return credenciais
 
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
+    if not credenciais or not credenciais.valid:
+        if credenciais and credenciais.expired and credenciais.refresh_token:
             try:
-                creds.refresh(Request())
+                credenciais.refresh(Request())
             except Exception as e:
-                raise GoogleAPIError(f"Falha ao atualizar token: {e}") from e
+                raise ErroAPIGoogle(f"Falha ao atualizar token: {e}") from e
         else:
             try:
                 flow = InstalledAppFlow.from_client_secrets_file(
-                    creds_path, SCOPES
+                    str(caminho_credenciais), SCOPES
                 )
-                creds = flow.run_local_server(port=0)
+                credenciais = flow.run_local_server(port=0)
             except FileNotFoundError as e:
-                raise GoogleAPIError(
-                    f"Arquivo de credenciais não encontrado em: {creds_path}") from e
-        with open(token_path, "w", encoding="utf-8") as token:
-            token.write(creds.to_json())
-    return creds
+                raise ErroAPIGoogle(
+                    f"Arquivo de credenciais não encontrado em: {caminho_credenciais}") from e
+        
+        caminho_token.parent.mkdir(parents=True, exist_ok=True)
+        with open(caminho_token, "w", encoding="utf-8") as token:
+            token.write(credenciais.to_json())
+            
+    return credenciais
 
 
-def get_spreadsheet(config_file: str = "./config/spreadsheet.json") -> gspread.Spreadsheet:
+def obter_planilha(arquivo_config: Path = CAMINHO_CONFIG / "spreadsheet.json") -> gspread.Spreadsheet:
     """
     Inicializa o cliente gspread e abre a planilha especificada no arquivo de config.
     """
     try:
-        creds = get_credentials()
-        client = gspread.authorize(creds)
-        with open(config_file, 'r', encoding='utf-8') as f:
+        credenciais = obter_credenciais()
+        cliente = gspread.authorize(credenciais)
+        with open(arquivo_config, 'r', encoding='utf-8') as f:
             config = json.load(f)
-        return client.open_by_key(config['key'])
+        return cliente.open_by_key(config['key'])
     except (FileNotFoundError, json.JSONDecodeError, SpreadsheetNotFound) as e:
-        raise GoogleAPIError(f"Falha ao inicializar SpreadSheet: {e}") from e
+        raise ErroAPIGoogle(f"Falha ao inicializar planilha: {e}") from e
     except Exception as e:
-        raise GoogleAPIError(f"Erro inesperado ao conectar ao Google Sheets: {e}") from e
+        raise ErroAPIGoogle(f"Erro inesperado ao conectar ao Google Sheets: {e}") from e
 
 
-def fetch_sheet_values(spreadsheet: gspread.Spreadsheet, sheet_name: str) -> List[List[str]]:
+def buscar_valores_aba(planilha: gspread.Spreadsheet, nome_aba: str) -> List[List[str]]:
     """Busca todos os valores de uma aba específica de uma planilha."""
     try:
-        worksheet = spreadsheet.worksheet(sheet_name)
-        return worksheet.get_all_values()
+        aba = planilha.worksheet(nome_aba)
+        return aba.get_all_values()
     except (WorksheetNotFound, APIError) as e:
-        raise GoogleAPIError(f"Falha ao buscar dados da aba '{sheet_name}': {e}") from e
+        raise ErroAPIGoogle(f"Falha ao buscar dados da aba '{nome_aba}': {e}") from e
 
 
-def append_unique_rows(spreadsheet: gspread.Spreadsheet, rows: List[List[str]],
-                       sheet_name: str) -> int:
+def anexar_linhas_unicas(planilha: gspread.Spreadsheet, linhas: List[List[str]],
+                         nome_aba: str) -> int:
     """Adiciona apenas as linhas que ainda não existem em uma aba."""
     try:
-        worksheet = spreadsheet.worksheet(sheet_name)
-        existing_data = set(tuple(row) for row in worksheet.get_all_values())
-        new_rows_set = set(tuple(row) for row in rows)
+        aba = planilha.worksheet(nome_aba)
+        dados_existentes = set(tuple(row) for row in aba.get_all_values())
+        novas_linhas_set = set(tuple(row) for row in linhas)
 
-        unique_rows_to_add = [list(row) for row in new_rows_set - existing_data]
+        linhas_unicas_para_adicionar = [list(row) for row in novas_linhas_set - dados_existentes]
 
-        if unique_rows_to_add:
-            worksheet.append_rows(
-                unique_rows_to_add, value_input_option=ValueInputOption.user_entered
+        if linhas_unicas_para_adicionar:
+            aba.append_rows(
+                linhas_unicas_para_adicionar, value_input_option=ValueInputOption.user_entered
             )
-        return len(unique_rows_to_add)
+        return len(linhas_unicas_para_adicionar)
     except (WorksheetNotFound, APIError) as e:
-        raise GoogleAPIError(f"Falha ao adicionar linhas em '{sheet_name}': {e}") from e
+        raise ErroAPIGoogle(f"Falha ao adicionar linhas em '{nome_aba}': {e}") from e

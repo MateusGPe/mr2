@@ -1,34 +1,46 @@
-import customtkinter as ctk
-import tkinter as tk
-from tkinter import ttk, messagebox
-from datetime import datetime
-from typing import Optional, List, Dict
+# --- Arquivo: gui.py ---
 
-# Importa a biblioteca de busca
+import re
+import tkinter as tk
+from datetime import datetime
+from tkinter import messagebox, ttk
+from typing import Dict, List, Optional
+
+import customtkinter as ctk
 from fuzzywuzzy import process
 
-# Importa a sua camada de negócio
-from registro.nucleo.facade import RegistroFacade
-from registro.nucleo.exceptions import NoActiveSessionError, RegistrationCoreError
+from registro.nucleo.exceptions import ErroNucleoRegistro, ErroSessaoNaoAtiva
+
+# Importa a fachada refatorada
+from registro.nucleo.facade import FachadaRegistro
 
 # Configurações visuais
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
 
-class AutocompleteEntry(ctk.CTkEntry):
+class CampoBusca(ctk.CTkEntry):
     """
-    Um widget CTkEntry com uma Listbox de sugestões, busca fuzzy e
-    navegação por teclado.
+    Uma versão otimizada do widget de Autocomplete.
+    Pré-processa os dados para uma busca fuzzy instantânea e inteligente.
     """
 
-    def __init__(self, master, register_callback, **kwargs):
+    def __init__(self, master, callback_registro, **kwargs):
         super().__init__(master, **kwargs)
 
-        self.register_callback = register_callback
-        self._display_map: Dict[str, str] = {}
+        self.callback_registro = callback_registro
+        self._padrao_prontuario = re.compile(r"^[A-Za-z]{0,2}\d{0,8}$")
+        self._padrao_prontuario_limpo = re.compile(r"^[A-Za-z]{0,2}\d0*")
 
-        self.suggestions_listbox = tk.Listbox(
+        # --- Estruturas de Dados Pré-processadas para Performance ---
+        self._lista_prontuarios: List[str] = []
+        self._lista_nomes: List[str] = []
+        self._mapa_prontuarios: Dict[str, Dict] = {}
+        self._mapa_nomes: Dict[str, Dict] = {}
+        self._mapa_exibicao: Dict[str, str] = {}
+        # -----------------------------------------------------------
+
+        self.caixa_sugestoes = tk.Listbox(
             master,
             background="#2a2d2e",
             foreground="white",
@@ -40,109 +52,128 @@ class AutocompleteEntry(ctk.CTkEntry):
         )
 
         # --- Eventos ---
-        self.bind("<KeyRelease>", self._on_key_release)
-        self.bind("<FocusOut>", self._on_focus_out)
-        self.bind("<Down>", self._move_selection)
-        self.bind("<Up>", self._move_selection)
-        self.bind("<Return>", self._on_enter_key)
-        self.suggestions_listbox.bind("<ButtonRelease-1>", self._on_suggestion_click)
+        self.bind("<KeyRelease>", self._ao_liberar_tecla)
+        self.bind("<FocusOut>", self._ao_perder_foco)
+        self.bind("<Down>", self._mover_selecao)
+        self.bind("<Up>", self._mover_selecao)
+        self.bind("<Return>", self._ao_teclar_enter)
+        self.caixa_sugestoes.bind("<ButtonRelease-1>", self._ao_clicar_sugestao)
 
-    def set_data(self, data_list: List[Dict[str, str]]):
-        """Define a lista de dados (dicionários de estudantes) para a busca."""
-        self._display_map = {
-            f"{s['pront']} - {s['nome']}": s["pront"] for s in data_list
-        }
+    def definir_dados(self, lista_dados: List[Dict[str, str]]):
+        """
+        Pré-processa e armazena os dados dos estudantes para busca otimizada.
+        """
+        self._lista_prontuarios.clear()
+        self._lista_nomes.clear()
+        self._mapa_prontuarios.clear()
+        self._mapa_nomes.clear()
+        self._mapa_exibicao.clear()
 
-    def _on_key_release(self, event):
-        """Atualiza a lista de sugestões a cada tecla pressionada."""
-        # Ignora teclas de navegação para não re-filtrar a lista desnecessariamente
+        for estudante in lista_dados:
+            pront = self._padrao_prontuario_limpo.sub("", estudante["pront"])
+            nome = estudante["nome"]
+
+            self._lista_prontuarios.append(pront)
+            self._lista_nomes.append(nome)
+            self._mapa_prontuarios[pront] = estudante
+            self._mapa_nomes[nome] = estudante
+
+            texto_exibicao = f"{estudante['pront']} - {nome}"
+            self._mapa_exibicao[texto_exibicao] = estudante["pront"]
+
+    def _ao_liberar_tecla(self, event):
+        """Atualiza a lista de sugestões de forma otimizada."""
         if event.keysym in ("Up", "Down", "Return", "Enter"):
             return
 
-        query = self.get().strip()
-        if not query:
-            self.suggestions_listbox.place_forget()
+        consulta = self.get().strip()
+        if not consulta:
+            self.caixa_sugestoes.place_forget()
             return
 
-        self.suggestions_listbox.delete(0, tk.END)
-        choices = self._display_map.keys()
-        matches = process.extract(query, choices, limit=5)
+        self.caixa_sugestoes.delete(0, tk.END)
+        estudantes_encontrados = []
 
-        found = False
-        for match, score in matches:
-            if score > 65:  # Limite de confiança um pouco mais permissivo
-                self.suggestions_listbox.insert(tk.END, match)
-                found = True
+        if self._padrao_prontuario.fullmatch(consulta.upper()):
+            matches = process.extract(
+                consulta.upper(), self._lista_prontuarios, limit=5
+            )
+            for pront, pontuacao in matches:
+                if pontuacao > 70:
+                    estudantes_encontrados.append(self._mapa_prontuarios[pront])
+        else:
+            matches = process.extract(consulta, self._lista_nomes, limit=5)
+            for nome, pontuacao in matches:
+                if pontuacao > 70:
+                    estudantes_encontrados.append(self._mapa_nomes[nome])
 
-        if found:
-            self.suggestions_listbox.place(
+        if estudantes_encontrados:
+            for estudante in estudantes_encontrados:
+                texto_exibicao = f"{estudante['pront']} - {estudante['nome']}"
+                self.caixa_sugestoes.insert(tk.END, texto_exibicao)
+
+            self.caixa_sugestoes.place(
                 x=self.winfo_x(),
                 y=self.winfo_y() + self.winfo_height(),
                 width=self.winfo_width(),
             )
-            self.suggestions_listbox.lift()
+            self.caixa_sugestoes.lift()
         else:
-            self.suggestions_listbox.place_forget()
+            self.caixa_sugestoes.place_forget()
 
-    def _move_selection(self, event):
-        """Move a seleção na listbox com as setas do teclado."""
-        if not self.suggestions_listbox.winfo_viewable():
+    def _mover_selecao(self, event):
+        if not self.caixa_sugestoes.winfo_viewable():
             return
 
-        current_selection_index = self.suggestions_listbox.curselection()
-        new_index = 0
+        indice_atual_selecao = self.caixa_sugestoes.curselection()
+        novo_indice = 0
 
-        if current_selection_index:
-            current_index = current_selection_index[0]
+        if indice_atual_selecao:
+            indice_atual = indice_atual_selecao[0]
             if event.keysym == "Down":
-                new_index = current_index + 1
+                novo_indice = indice_atual + 1
             elif event.keysym == "Up":
-                new_index = current_index - 1
+                novo_indice = indice_atual - 1
 
-        # Garante que o novo índice está dentro dos limites da lista
-        if 0 <= new_index < self.suggestions_listbox.size():
-            self.suggestions_listbox.selection_clear(0, tk.END)
-            self.suggestions_listbox.selection_set(new_index)
-            self.suggestions_listbox.activate(new_index)
+        if 0 <= novo_indice < self.caixa_sugestoes.size():
+            self.caixa_sugestoes.selection_clear(0, tk.END)
+            self.caixa_sugestoes.selection_set(novo_indice)
+            self.caixa_sugestoes.activate(novo_indice)
 
-    def _on_enter_key(self, event):
-        """Confirma a seleção ou o registro ao pressionar Enter."""
+    def _ao_teclar_enter(self, event):
         if (
-            self.suggestions_listbox.winfo_viewable()
-            and self.suggestions_listbox.curselection()
+            self.caixa_sugestoes.winfo_viewable()
+            and self.caixa_sugestoes.curselection()
         ):
-            self._confirm_selection()
+            self._confirmar_selecao()
         else:
-            self.register_callback()
+            self.callback_registro()
 
-    def _on_suggestion_click(self, event):
-        """Confirma a seleção ao clicar em um item."""
-        if self.suggestions_listbox.curselection():
-            self._confirm_selection()
+    def _ao_clicar_sugestao(self, event):
+        if self.caixa_sugestoes.curselection():
+            self._confirmar_selecao()
 
-    def _confirm_selection(self):
-        """Preenche o campo com a seleção e executa o registro."""
-        if not self.suggestions_listbox.curselection():
+    def _confirmar_selecao(self):
+        if not self.caixa_sugestoes.curselection():
             return
 
-        selected_display_text = self.suggestions_listbox.get(
-            self.suggestions_listbox.curselection()
+        texto_exibicao_selecionado = self.caixa_sugestoes.get(
+            self.caixa_sugestoes.curselection()
         )
-        prontuario = self._display_map.get(selected_display_text)
+        prontuario = self._mapa_exibicao.get(texto_exibicao_selecionado)
 
         if prontuario:
             self.delete(0, tk.END)
             self.insert(0, prontuario)
-            self.suggestions_listbox.place_forget()
+            self.caixa_sugestoes.place_forget()
             self.focus()
-            self.register_callback()
+            self.callback_registro()
 
-    def _on_focus_out(self, event):
-        """Esconde a lista de sugestões quando o widget perde o foco."""
-        self.after(200, self.suggestions_listbox.place_forget)
+    def _ao_perder_foco(self, event):
+        self.after(200, self.caixa_sugestoes.place_forget)
 
 
-class NewSessionWindow(ctk.CTkToplevel):
+class JanelaNovaSessao(ctk.CTkToplevel):
     """Janela para criar uma nova sessão de refeição."""
 
     def __init__(self, master):
@@ -158,87 +189,89 @@ class NewSessionWindow(ctk.CTkToplevel):
         ctk.CTkLabel(self, text="Refeição:").grid(
             row=0, column=0, padx=20, pady=10, sticky="w"
         )
-        self.refeicao_var = ctk.StringVar(value="almoço")
-        self.refeicao_menu = ctk.CTkOptionMenu(
-            self, variable=self.refeicao_var, values=["almoço", "lanche"]
+        self.var_refeicao = ctk.StringVar(value="almoço")
+        self.menu_refeicao = ctk.CTkOptionMenu(
+            self, variable=self.var_refeicao, values=["almoço", "lanche"]
         )
-        self.refeicao_menu.grid(row=0, column=1, padx=20, pady=10, sticky="ew")
+        self.menu_refeicao.grid(row=0, column=1, padx=20, pady=10, sticky="ew")
 
         ctk.CTkLabel(self, text="Período:").grid(
             row=1, column=0, padx=20, pady=10, sticky="w"
         )
-        self.periodo_var = ctk.StringVar(value="Integral")
-        self.periodo_menu = ctk.CTkOptionMenu(
+        self.var_periodo = ctk.StringVar(value="Integral")
+        self.menu_periodo = ctk.CTkOptionMenu(
             self,
-            variable=self.periodo_var,
+            variable=self.var_periodo,
             values=["Integral", "Matutino", "Vespertino", "Noturno"],
         )
-        self.periodo_menu.grid(row=1, column=1, padx=20, pady=10, sticky="ew")
+        self.menu_periodo.grid(row=1, column=1, padx=20, pady=10, sticky="ew")
 
         ctk.CTkLabel(self, text="Item Servido (Lanche):").grid(
             row=2, column=0, padx=20, pady=10, sticky="w"
         )
-        self.item_servido_entry = ctk.CTkEntry(self, placeholder_text="Opcional")
-        self.item_servido_entry.grid(row=2, column=1, padx=20, pady=10, sticky="ew")
+        self.campo_item_servido = ctk.CTkEntry(self, placeholder_text="Opcional")
+        self.campo_item_servido.grid(row=2, column=1, padx=20, pady=10, sticky="ew")
 
         ctk.CTkLabel(self, text="Data (dd/mm/aaaa):").grid(
             row=3, column=0, padx=20, pady=10, sticky="w"
         )
-        self.data_entry = ctk.CTkEntry(self)
-        self.data_entry.insert(0, datetime.now().strftime("%d/%m/%Y"))
-        self.data_entry.grid(row=3, column=1, padx=20, pady=10, sticky="ew")
+        self.campo_data = ctk.CTkEntry(self)
+        self.campo_data.insert(0, datetime.now().strftime("%d/%m/%Y"))
+        self.campo_data.grid(row=3, column=1, padx=20, pady=10, sticky="ew")
 
         ctk.CTkLabel(self, text="Hora (hh:mm):").grid(
             row=4, column=0, padx=20, pady=10, sticky="w"
         )
-        self.hora_entry = ctk.CTkEntry(self)
-        self.hora_entry.insert(0, datetime.now().strftime("%H:%M"))
-        self.hora_entry.grid(row=4, column=1, padx=20, pady=10, sticky="ew")
+        self.campo_hora = ctk.CTkEntry(self)
+        self.campo_hora.insert(0, datetime.now().strftime("%H:%M"))
+        self.campo_hora.grid(row=4, column=1, padx=20, pady=10, sticky="ew")
 
         ctk.CTkLabel(self, text="Grupos de Exceção:").grid(
             row=5, column=0, padx=20, pady=10, sticky="w"
         )
-        self.grupos_entry = ctk.CTkEntry(
+        self.campo_grupos = ctk.CTkEntry(
             self, placeholder_text="Ex: 3A INFO (separados por vírgula)"
         )
-        self.grupos_entry.grid(row=5, column=1, padx=20, pady=10, sticky="ew")
+        self.campo_grupos.grid(row=5, column=1, padx=20, pady=10, sticky="ew")
 
-        self.create_button = ctk.CTkButton(
-            self, text="Criar Sessão", command=self.create_session
+        self.botao_criar = ctk.CTkButton(
+            self, text="Criar Sessão", command=self.criar_sessao
         )
-        self.create_button.grid(row=6, column=1, padx=20, pady=20, sticky="e")
-        self.cancel_button = ctk.CTkButton(
+        self.botao_criar.grid(row=6, column=1, padx=20, pady=20, sticky="e")
+        self.botao_cancelar = ctk.CTkButton(
             self, text="Cancelar", command=self.destroy, fg_color="gray"
         )
-        self.cancel_button.grid(row=6, column=0, padx=20, pady=20, sticky="w")
+        self.botao_cancelar.grid(row=6, column=0, padx=20, pady=20, sticky="w")
 
-    def create_session(self):
-        grupos = [g.strip() for g in self.grupos_entry.get().split(",") if g.strip()]
-        session_data = {
-            "refeicao": self.refeicao_var.get(),
-            "periodo": self.periodo_var.get(),
-            "item_servido": self.item_servido_entry.get() or None,
-            "data": self.data_entry.get(),
-            "hora": self.hora_entry.get(),
+    def criar_sessao(self):
+        grupos = [
+            g.strip().upper() for g in self.campo_grupos.get().split(",") if g.strip()
+        ]
+        dados_sessao = {
+            "refeicao": self.var_refeicao.get(),
+            "periodo": self.var_periodo.get(),
+            "item_servido": self.campo_item_servido.get() or None,
+            "data": self.campo_data.get(),
+            "hora": self.campo_hora.get(),
             "grupos": grupos,
         }
         try:
-            self.master.facade.start_new_session(session_data)
+            self.master.fachada.iniciar_nova_sessao(dados_sessao)
             messagebox.showinfo("Sucesso", "Nova sessão criada com sucesso!")
-            self.master.refresh_sessions_list()
+            self.master.atualizar_lista_sessoes()
             self.destroy()
         except Exception as e:
             messagebox.showerror("Erro", f"Não foi possível criar a sessão:\n{e}")
 
 
-class App(ctk.CTk):
+class Aplicativo(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Sistema de Registro de Refeições")
         self.geometry("1000x600")
 
         try:
-            self.facade = RegistroFacade()
+            self.fachada = FachadaRegistro()
         except Exception as e:
             messagebox.showerror(
                 "Erro Crítico", f"Não foi possível iniciar o back-end:\n{e}"
@@ -246,147 +279,149 @@ class App(ctk.CTk):
             self.destroy()
             return
 
-        self.active_session_id: Optional[int] = None
-        self.current_student_filter = "Não Consumiram"
+        self.id_sessao_ativa: Optional[int] = None
+        self.filtro_estudante_atual = "Não Consumiram"
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
 
-        self.header_frame = ctk.CTkFrame(self, corner_radius=0, height=40)
-        self.header_frame.grid(row=0, column=0, sticky="ew", pady=(0, 5))
-        self.header_frame.grid_columnconfigure(0, weight=1)
-        self.active_session_label = ctk.CTkLabel(
-            self.header_frame,
+        self.frame_cabecalho = ctk.CTkFrame(self, corner_radius=0, height=40)
+        self.frame_cabecalho.grid(row=0, column=0, sticky="ew", pady=(0, 5))
+        self.frame_cabecalho.grid_columnconfigure(0, weight=1)
+        self.rotulo_sessao_ativa = ctk.CTkLabel(
+            self.frame_cabecalho,
             text="Nenhuma sessão ativa",
             font=ctk.CTkFont(size=16, weight="bold"),
         )
-        self.active_session_label.grid(row=0, column=0, padx=20, pady=10)
+        self.rotulo_sessao_ativa.grid(row=0, column=0, padx=20, pady=10)
 
-        self.tab_view = ctk.CTkTabview(self)
-        self.tab_view.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
-        self.tab_view.add("Registro")
-        self.tab_view.add("Sessões")
-        self.tab_view.add("Administração")
+        self.view_abas = ctk.CTkTabview(self)
+        self.view_abas.grid(row=1, column=0, padx=10, pady=5, sticky="nsew")
+        self.view_abas.add("Registro")
+        self.view_abas.add("Sessões")
+        self.view_abas.add("Administração")
 
-        self.create_registration_tab()
-        self.create_sessions_tab()
-        self.create_admin_tab()
+        self.criar_aba_registro()
+        self.criar_aba_sessoes()
+        self.criar_aba_admin()
 
-        self.protocol("WM_DELETE_WINDOW", self.on_closing)
+        self.protocol("WM_DELETE_WINDOW", self.ao_fechar)
 
-    def on_closing(self):
+    def ao_fechar(self):
         if messagebox.askokcancel("Sair", "Deseja fechar a aplicação?"):
-            self.facade.close()
+            self.fachada.fechar_conexao()
             self.destroy()
 
-    def create_registration_tab(self):
-        tab = self.tab_view.tab("Registro")
-        tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(2, weight=1)
+    def criar_aba_registro(self):
+        aba = self.view_abas.tab("Registro")
+        aba.grid_columnconfigure(0, weight=1)
+        aba.grid_rowconfigure(2, weight=1)
 
-        input_frame = ctk.CTkFrame(tab)
-        input_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-        input_frame.grid_columnconfigure(0, weight=1)
+        frame_entrada = ctk.CTkFrame(aba)
+        frame_entrada.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        frame_entrada.grid_columnconfigure(0, weight=1)
 
-        self.prontuario_entry = AutocompleteEntry(
-            input_frame,
-            register_callback=self.register_student,
+        self.campo_prontuario = CampoBusca(
+            frame_entrada,
+            callback_registro=self.registrar_estudante,
             placeholder_text="Digite nome ou prontuário do estudante...",
             font=ctk.CTkFont(size=14),
         )
-        self.prontuario_entry.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
+        self.campo_prontuario.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
 
-        self.register_button = ctk.CTkButton(
-            input_frame, text="Registrar Consumo", command=self.register_student
+        self.botao_registrar = ctk.CTkButton(
+            frame_entrada, text="Registrar Consumo", command=self.registrar_estudante
         )
-        self.register_button.grid(row=0, column=1, padx=10, pady=10)
+        self.botao_registrar.grid(row=0, column=1, padx=10, pady=10)
 
-        self.status_label = ctk.CTkLabel(
-            input_frame, text="", text_color="green", font=ctk.CTkFont(size=14)
+        self.rotulo_status = ctk.CTkLabel(
+            frame_entrada, text="", text_color="green", font=ctk.CTkFont(size=14)
         )
-        self.status_label.grid(row=1, column=0, columnspan=2, padx=10, sticky="w")
+        self.rotulo_status.grid(row=1, column=0, columnspan=2, padx=10, sticky="w")
 
-        list_frame = ctk.CTkFrame(tab)
-        list_frame.grid(row=1, column=0, rowspan=2, padx=10, pady=10, sticky="nsew")
-        list_frame.grid_columnconfigure(0, weight=1)
-        list_frame.grid_rowconfigure(1, weight=1)
+        frame_lista = ctk.CTkFrame(aba)
+        frame_lista.grid(row=1, column=0, rowspan=2, padx=10, pady=10, sticky="nsew")
+        frame_lista.grid_columnconfigure(0, weight=1)
+        frame_lista.grid_rowconfigure(1, weight=1)
 
-        filter_frame = ctk.CTkFrame(list_frame, fg_color="transparent")
-        filter_frame.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
+        frame_filtro = ctk.CTkFrame(frame_lista, fg_color="transparent")
+        frame_filtro.grid(row=0, column=0, padx=10, pady=5, sticky="ew")
 
-        ctk.CTkLabel(filter_frame, text="Mostrar:").pack(side="left")
-        self.filter_segmented_button = ctk.CTkSegmentedButton(
-            filter_frame,
+        ctk.CTkLabel(frame_filtro, text="Mostrar:").pack(side="left")
+        self.botao_segmentado_filtro = ctk.CTkSegmentedButton(
+            frame_filtro,
             values=["Não Consumiram", "Consumiram", "Todos"],
-            command=self.on_filter_change,
+            command=self.ao_mudar_filtro,
         )
-        self.filter_segmented_button.set("Não Consumiram")
-        self.filter_segmented_button.pack(side="left", padx=10)
+        self.botao_segmentado_filtro.set("Não Consumiram")
+        self.botao_segmentado_filtro.pack(side="left", padx=10)
 
-        self.undo_button = ctk.CTkButton(
-            filter_frame,
+        self.botao_desfazer = ctk.CTkButton(
+            frame_filtro,
             text="Desfazer Registro Selecionado",
-            command=self.undo_consumption,
+            command=self.desfazer_consumo,
             fg_color="darkred",
         )
-        self.undo_button.pack(side="right")
+        self.botao_desfazer.pack(side="right")
 
-        style = ttk.Style()
-        style.theme_use("default")
-        style.configure(
+        estilo = ttk.Style()
+        estilo.theme_use("default")
+        estilo.configure(
             "Treeview",
             background="#2a2d2e",
             foreground="white",
             fieldbackground="#343638",
             borderwidth=0,
         )
-        style.map("Treeview", background=[("selected", "#24527d")])
+        estilo.map("Treeview", background=[("selected", "#24527d")])
 
-        self.student_tree = ttk.Treeview(
-            list_frame,
+        self.tabela_estudantes = ttk.Treeview(
+            frame_lista,
             columns=("Prontuário", "Nome", "Turma", "Status", "Hora"),
             show="headings",
         )
-        self.student_tree.heading("Prontuário", text="Prontuário")
-        self.student_tree.heading("Nome", text="Nome")
-        self.student_tree.heading("Turma", text="Turma")
-        self.student_tree.heading("Status", text="Status")
-        self.student_tree.heading("Hora", text="Hora Consumo")
-        self.student_tree.column("Prontuário", width=120)
-        self.student_tree.column("Nome", width=300)
-        self.student_tree.column("Turma", width=150)
-        self.student_tree.column("Status", width=150)
-        self.student_tree.column("Hora", width=100)
-        self.student_tree.grid(row=1, column=0, sticky="nsew")
+        self.tabela_estudantes.heading("Prontuário", text="Prontuário")
+        self.tabela_estudantes.heading("Nome", text="Nome")
+        self.tabela_estudantes.heading("Turma", text="Turma")
+        self.tabela_estudantes.heading("Status", text="Status")
+        self.tabela_estudantes.heading("Hora", text="Hora Consumo")
+        self.tabela_estudantes.column("Prontuário", width=120)
+        self.tabela_estudantes.column("Nome", width=300)
+        self.tabela_estudantes.column("Turma", width=150)
+        self.tabela_estudantes.column("Status", width=150)
+        self.tabela_estudantes.column("Hora", width=100)
+        self.tabela_estudantes.grid(row=1, column=0, sticky="nsew")
 
-    def _update_autocomplete_data(self):
+    def _atualizar_dados_autocomplete(self):
         try:
-            searchable_students = self.facade.get_searchable_students_for_session()
-            self.prontuario_entry.set_data(searchable_students)
+            estudantes_pesquisaveis = (
+                self.fachada.obter_estudantes_pesquisaveis_para_sessao()
+            )
+            self.campo_prontuario.definir_dados(estudantes_pesquisaveis)
         except Exception as e:
             print(f"Erro ao atualizar autocomplete: {e}")
-            self.prontuario_entry.set_data([])
+            self.campo_prontuario.definir_dados([])
 
-    def register_student(self):
-        prontuario = self.prontuario_entry.get().strip()
+    def registrar_estudante(self):
+        prontuario = self.campo_prontuario.get().strip()
         if not prontuario:
             return
 
         try:
-            result = self.facade.register_consumption(prontuario)
-            if result.get("autorizado"):
-                self.status_label.configure(
-                    text=f"✅ {result.get('aluno')} autorizado(a). Motivo: {result.get('motivo')}",
+            resultado = self.fachada.registrar_consumo(prontuario)
+            if resultado.get("autorizado"):
+                self.rotulo_status.configure(
+                    text=f"✅ {resultado.get('aluno')} autorizado(a). Motivo: {resultado.get('motivo')}",
                     text_color="green",
                 )
-                self.refresh_student_list()
-                self._update_autocomplete_data()
+                self.atualizar_lista_estudantes()
+                self._atualizar_dados_autocomplete()
             else:
-                self.status_label.configure(
-                    text=f"❌ Acesso Negado. Motivo: {result.get('motivo')}",
+                self.rotulo_status.configure(
+                    text=f"❌ Acesso Negado. Motivo: {resultado.get('motivo')}",
                     text_color="red",
                 )
-        except NoActiveSessionError:
+        except ErroSessaoNaoAtiva:
             messagebox.showwarning(
                 "Aviso",
                 "Nenhuma sessão ativa. Por favor, selecione uma na aba 'Sessões'.",
@@ -394,31 +429,35 @@ class App(ctk.CTk):
         except Exception as e:
             messagebox.showerror("Erro", f"Ocorreu um erro ao registrar:\n{e}")
 
-        self.prontuario_entry.delete(0, "end")
-        self.prontuario_entry.focus()
+        self.campo_prontuario.delete(0, "end")
+        self.campo_prontuario.focus()
 
-    def refresh_student_list(self):
-        for item in self.student_tree.get_children():
-            self.student_tree.delete(item)
-        if not self.active_session_id:
+    def atualizar_lista_estudantes(self):
+        for item in self.tabela_estudantes.get_children():
+            self.tabela_estudantes.delete(item)
+        if not self.id_sessao_ativa:
             return
 
         try:
-            consumed_map = {"Não Consumiram": False, "Consumiram": True, "Todos": None}
-            students = self.facade.get_students_for_session(
-                consumed=consumed_map.get(self.current_student_filter)
+            mapa_consumido = {
+                "Não Consumiram": False,
+                "Consumiram": True,
+                "Todos": None,
+            }
+            estudantes = self.fachada.obter_estudantes_para_sessao(
+                consumido=mapa_consumido.get(self.filtro_estudante_atual)
             )
-            for student in students:
-                self.student_tree.insert(
+            for estudante in estudantes:
+                self.tabela_estudantes.insert(
                     "",
                     "end",
-                    iid=student.get("consumo_id"),
+                    iid=estudante.get("id_consumo"),
                     values=(
-                        student.get("pront"),
-                        student.get("nome"),
-                        student.get("turma"),
-                        student.get("status"),
-                        student.get("registro_time"),
+                        estudante.get("pront"),
+                        estudante.get("nome"),
+                        estudante.get("turma"),
+                        estudante.get("status"),
+                        estudante.get("hora_registro"),
                     ),
                 )
         except Exception as e:
@@ -426,252 +465,251 @@ class App(ctk.CTk):
                 "Erro", f"Não foi possível carregar a lista de estudantes:\n{e}"
             )
 
-    def on_filter_change(self, value):
-        self.current_student_filter = value
-        self.refresh_student_list()
+    def ao_mudar_filtro(self, valor):
+        self.filtro_estudante_atual = valor
+        self.atualizar_lista_estudantes()
 
-    def undo_consumption(self):
-        selected_items = self.student_tree.selection()
-        if not selected_items:
+    def desfazer_consumo(self):
+        itens_selecionados = self.tabela_estudantes.selection()
+        if not itens_selecionados:
             messagebox.showwarning(
                 "Aviso", "Selecione um registro de consumo na lista para desfazer."
             )
             return
 
-        consumo_id_str = selected_items[0]
-        if not consumo_id_str or not consumo_id_str.isdigit():
+        id_consumo_str = itens_selecionados[0]
+        if not id_consumo_str or not id_consumo_str.isdigit():
             messagebox.showwarning(
                 "Aviso",
                 "Este estudante ainda não consumiu. Não há registro para desfazer.",
             )
             return
 
-        consumo_id = int(consumo_id_str)
+        id_consumo = int(id_consumo_str)
         if messagebox.askyesno(
             "Confirmar", "Tem certeza que deseja desfazer este registro de consumo?"
         ):
             try:
-                self.facade.undo_consumption(consumo_id)
-                self.status_label.configure(
-                    text=f"✅ Registro desfeito com sucesso.", text_color="green"
+                self.fachada.desfazer_consumo(id_consumo)
+                self.rotulo_status.configure(
+                    text="✅ Registro desfeito com sucesso.", text_color="green"
                 )
-                self.refresh_student_list()
-                self._update_autocomplete_data()
+                self.atualizar_lista_estudantes()
+                self._atualizar_dados_autocomplete()
             except Exception as e:
                 messagebox.showerror(
                     "Erro", f"Não foi possível desfazer o registro:\n{e}"
                 )
 
-    def create_sessions_tab(self):
-        tab = self.tab_view.tab("Sessões")
-        tab.grid_columnconfigure(0, weight=1)
-        tab.grid_rowconfigure(0, weight=1)
+    def criar_aba_sessoes(self):
+        aba = self.view_abas.tab("Sessões")
+        aba.grid_columnconfigure(0, weight=1)
+        aba.grid_rowconfigure(0, weight=1)
 
-        sessions_frame = ctk.CTkFrame(tab)
-        sessions_frame.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
-        sessions_frame.grid_columnconfigure(0, weight=1)
-        sessions_frame.grid_rowconfigure(0, weight=1)
+        frame_sessoes = ctk.CTkFrame(aba)
+        frame_sessoes.grid(row=0, column=0, padx=10, pady=10, sticky="nsew")
+        frame_sessoes.grid_columnconfigure(0, weight=1)
+        frame_sessoes.grid_rowconfigure(0, weight=1)
 
-        self.sessions_tree = ttk.Treeview(
-            sessions_frame,
+        self.tabela_sessoes = ttk.Treeview(
+            frame_sessoes,
             columns=("ID", "Refeição", "Data", "Hora", "Item", "Grupos"),
             show="headings",
         )
-        self.sessions_tree.heading("ID", text="ID")
-        self.sessions_tree.heading("Refeição", text="Refeição")
-        self.sessions_tree.heading("Data", text="Data")
-        self.sessions_tree.heading("Hora", text="Hora")
-        self.sessions_tree.heading("Item", text="Item Servido")
-        self.sessions_tree.heading("Grupos", text="Grupos de Exceção")
-        self.sessions_tree.column("ID", width=50)
-        self.sessions_tree.grid(row=0, column=0, columnspan=2, sticky="nsew")
+        self.tabela_sessoes.heading("ID", text="ID")
+        self.tabela_sessoes.heading("Refeição", text="Refeição")
+        self.tabela_sessoes.heading("Data", text="Data")
+        self.tabela_sessoes.heading("Hora", text="Hora")
+        self.tabela_sessoes.heading("Item", text="Item Servido")
+        self.tabela_sessoes.heading("Grupos", text="Grupos de Exceção")
+        self.tabela_sessoes.column("ID", width=50)
+        self.tabela_sessoes.grid(row=0, column=0, columnspan=2, sticky="nsew")
 
-        buttons_frame = ctk.CTkFrame(tab)
-        buttons_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+        frame_botoes = ctk.CTkFrame(aba)
+        frame_botoes.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
-        self.new_session_button = ctk.CTkButton(
-            buttons_frame, text="Nova Sessão", command=self.open_new_session_window
+        self.botao_nova_sessao = ctk.CTkButton(
+            frame_botoes, text="Nova Sessão", command=self.abrir_janela_nova_sessao
         )
-        self.new_session_button.pack(side="left", padx=10, pady=10)
+        self.botao_nova_sessao.pack(side="left", padx=10, pady=10)
 
-        self.set_active_button = ctk.CTkButton(
-            buttons_frame,
+        self.botao_definir_ativa = ctk.CTkButton(
+            frame_botoes,
             text="Definir como Sessão Ativa",
-            command=self.set_active_session,
+            command=self.definir_sessao_ativa,
         )
-        self.set_active_button.pack(side="left", padx=10, pady=10)
+        self.botao_definir_ativa.pack(side="left", padx=10, pady=10)
 
-        self.refresh_sessions_button = ctk.CTkButton(
-            buttons_frame,
+        self.botao_atualizar_sessoes = ctk.CTkButton(
+            frame_botoes,
             text="Atualizar Lista",
-            command=self.refresh_sessions_list,
+            command=self.atualizar_lista_sessoes,
             fg_color="gray",
         )
-        self.refresh_sessions_button.pack(side="right", padx=10, pady=10)
+        self.botao_atualizar_sessoes.pack(side="right", padx=10, pady=10)
 
-        self.refresh_sessions_list()
+        self.atualizar_lista_sessoes()
 
-    def refresh_sessions_list(self):
-        for item in self.sessions_tree.get_children():
-            self.sessions_tree.delete(item)
+    def atualizar_lista_sessoes(self):
+        for item in self.tabela_sessoes.get_children():
+            self.tabela_sessoes.delete(item)
         try:
-            sessions = self.facade.list_all_sessions()
-            for session in sorted(
-                sessions, key=lambda s: (s["data"], s["hora"]), reverse=True
+            sessoes = self.fachada.listar_todas_sessoes()
+            for sessao in sorted(
+                sessoes, key=lambda s: (s["data"], s["hora"]), reverse=True
             ):
-                grupos_str = ", ".join(session.get("grupos", []))
-                self.sessions_tree.insert(
+                grupos_str = ", ".join(sessao.get("grupos", []))
+                self.tabela_sessoes.insert(
                     "",
                     "end",
-                    iid=session["id"],
+                    iid=sessao["id"],
                     values=(
-                        session["id"],
-                        session["refeicao"].capitalize(),
-                        session["data"],
-                        session["hora"],
-                        session.get("item_servido", "N/A"),
+                        sessao["id"],
+                        sessao["refeicao"].capitalize(),
+                        sessao["data"],
+                        sessao["hora"],
+                        sessao.get("item_servido", "N/A"),
                         grupos_str,
                     ),
                 )
         except Exception as e:
             messagebox.showerror("Erro", f"Não foi possível carregar as sessões:\n{e}")
 
-    def set_active_session(self):
-        selected_items = self.sessions_tree.selection()
-        if not selected_items:
+    def definir_sessao_ativa(self):
+        itens_selecionados = self.tabela_sessoes.selection()
+        if not itens_selecionados:
             messagebox.showwarning("Aviso", "Selecione uma sessão na lista.")
             return
 
-        session_id = int(selected_items[0])
+        id_sessao = int(itens_selecionados[0])
         try:
-            self.facade.set_active_session(session_id)
-            self.active_session_id = session_id
-            details = self.facade.get_active_session_details()
-            self.active_session_label.configure(
-                text=f"Sessão Ativa: {details['refeicao'].capitalize()} de {details['data']} às {details['hora']} (ID: {details['id']})"
+            self.fachada.definir_sessao_ativa(id_sessao)
+            self.id_sessao_ativa = id_sessao
+            detalhes = self.fachada.obter_detalhes_sessao_ativa()
+            self.rotulo_sessao_ativa.configure(
+                text=f"Sessão Ativa: {detalhes['refeicao'].capitalize()} de {detalhes['data']} às {detalhes['hora']} (ID: {detalhes['id']})"
             )
-
-            self._update_autocomplete_data()
-
+            self._atualizar_dados_autocomplete()
             messagebox.showinfo("Sucesso", "Sessão definida como ativa!")
-            self.refresh_student_list()
-            self.tab_view.set("Registro")
+            self.atualizar_lista_estudantes()
+            self.view_abas.set("Registro")
         except Exception as e:
             messagebox.showerror(
                 "Erro", f"Não foi possível definir a sessão ativa:\n{e}"
             )
 
-    def open_new_session_window(self):
-        NewSessionWindow(self)
+    def abrir_janela_nova_sessao(self):
+        JanelaNovaSessao(self)
 
-    def create_admin_tab(self):
-        tab = self.tab_view.tab("Administração")
-        tab.grid_columnconfigure(0, weight=1)
+    def criar_aba_admin(self):
+        aba = self.view_abas.tab("Administração")
+        aba.grid_columnconfigure(0, weight=1)
 
-        google_frame = ctk.CTkFrame(tab)
-        google_frame.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
-        google_frame.grid_columnconfigure(0, weight=1)
+        frame_google = ctk.CTkFrame(aba)
+        frame_google.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
+        frame_google.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
-            google_frame,
+            frame_google,
             text="Sincronização com Google Sheets",
             font=ctk.CTkFont(size=16, weight="bold"),
         ).grid(row=0, column=0, columnspan=2, pady=10)
 
-        self.sync_from_google_button = ctk.CTkButton(
-            google_frame,
+        self.botao_sincronizar_de = ctk.CTkButton(
+            frame_google,
             text="Baixar Dados (Estudantes e Reservas)",
-            command=self.sync_from_google,
+            command=self.sincronizar_do_google,
         )
-        self.sync_from_google_button.grid(
-            row=1, column=0, padx=10, pady=10, sticky="ew"
-        )
-        self.sync_to_google_button = ctk.CTkButton(
-            google_frame,
-            text="Enviar Consumo da Sessão Ativa",
-            command=self.sync_to_google,
-        )
-        self.sync_to_google_button.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
+        self.botao_sincronizar_de.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
-        export_frame = ctk.CTkFrame(tab)
-        export_frame.grid(row=1, column=0, padx=20, pady=20, sticky="ew")
-        export_frame.grid_columnconfigure(0, weight=1)
+        self.botao_sincronizar_para = ctk.CTkButton(
+            frame_google,
+            text="Enviar Consumo da Sessão Ativa",
+            command=self.sincronizar_para_google,
+        )
+        self.botao_sincronizar_para.grid(row=1, column=1, padx=10, pady=10, sticky="ew")
+
+        frame_exportar = ctk.CTkFrame(aba)
+        frame_exportar.grid(row=1, column=0, padx=20, pady=20, sticky="ew")
+        frame_exportar.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(
-            export_frame,
+            frame_exportar,
             text="Exportação Local",
             font=ctk.CTkFont(size=16, weight="bold"),
         ).grid(row=0, column=0, columnspan=2, pady=10)
 
-        self.export_button = ctk.CTkButton(
-            export_frame,
+        self.botao_exportar = ctk.CTkButton(
+            frame_exportar,
             text="Exportar Sessão Ativa para Excel (.xlsx)",
-            command=self.export_to_excel,
+            command=self.exportar_para_excel,
         )
-        self.export_button.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
+        self.botao_exportar.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
 
-        self.admin_status_label = ctk.CTkLabel(tab, text="")
-        self.admin_status_label.grid(row=2, column=0, padx=20, pady=10, sticky="w")
+        self.rotulo_status_admin = ctk.CTkLabel(aba, text="")
+        self.rotulo_status_admin.grid(row=2, column=0, padx=20, pady=10, sticky="w")
 
-    def sync_from_google(self):
+    def sincronizar_do_google(self):
         if not messagebox.askyesno(
             "Confirmar",
             "Isso irá baixar e atualizar os dados de estudantes e reservas. Deseja continuar?",
         ):
             return
 
-        self.admin_status_label.configure(
+        self.rotulo_status_admin.configure(
             text="Sincronizando... Isso pode levar um momento."
         )
         self.update_idletasks()
         try:
-            self.facade.sync_from_google_sheets()
+            self.fachada.sincronizar_do_google_sheets()
             messagebox.showinfo(
                 "Sucesso", "Dados baixados e sincronizados com sucesso!"
             )
-            self.admin_status_label.configure(text="Sincronização concluída.")
+            self.rotulo_status_admin.configure(text="Sincronização concluída.")
         except Exception as e:
             messagebox.showerror("Erro", f"Falha na sincronização:\n{e}")
-            self.admin_status_label.configure(text="Falha na sincronização.")
+            self.rotulo_status_admin.configure(text="Falha na sincronização.")
 
-    def sync_to_google(self):
-        if not self.active_session_id:
+    def sincronizar_para_google(self):
+        if not self.id_sessao_ativa:
             messagebox.showwarning(
                 "Aviso",
                 "Nenhuma sessão ativa. Selecione uma sessão para enviar os dados de consumo.",
             )
             return
 
-        self.admin_status_label.configure(text="Enviando dados para o Google Sheets...")
+        self.rotulo_status_admin.configure(
+            text="Enviando dados para o Google Sheets..."
+        )
         self.update_idletasks()
         try:
-            self.facade.sync_to_google_sheets()
+            self.fachada.sincronizar_para_google_sheets()
             messagebox.showinfo(
                 "Sucesso", "Dados de consumo da sessão ativa enviados com sucesso!"
             )
-            self.admin_status_label.configure(text="Envio concluído.")
-        except RegistrationCoreError as e:
+            self.rotulo_status_admin.configure(text="Envio concluído.")
+        except ErroNucleoRegistro as e:
             messagebox.showerror("Erro", f"Falha no envio:\n{e}")
-            self.admin_status_label.configure(text="Falha no envio.")
+            self.rotulo_status_admin.configure(text="Falha no envio.")
 
-    def export_to_excel(self):
-        if not self.active_session_id:
+    def exportar_para_excel(self):
+        if not self.id_sessao_ativa:
             messagebox.showwarning(
                 "Aviso", "Nenhuma sessão ativa. Selecione uma sessão para exportar."
             )
             return
 
-        self.admin_status_label.configure(text="Exportando para Excel...")
+        self.rotulo_status_admin.configure(text="Exportando para Excel...")
         self.update_idletasks()
         try:
-            filepath = self.facade.export_session_to_xlsx()
+            caminho_arquivo = self.fachada.exportar_sessao_para_xlsx()
             messagebox.showinfo(
-                "Sucesso", f"Arquivo Excel salvo com sucesso em:\n{filepath}"
+                "Sucesso", f"Arquivo Excel salvo com sucesso em:\n{caminho_arquivo}"
             )
-            self.admin_status_label.configure(text="Exportação concluída.")
+            self.rotulo_status_admin.configure(text="Exportação concluída.")
         except Exception as e:
             messagebox.showerror("Erro", f"Falha na exportação:\n{e}")
-            self.admin_status_label.configure(text="Falha na exportação.")
+            self.rotulo_status_admin.configure(text="Falha na exportação.")
 
 
 if __name__ == "__main__":
-    app = App()
+    app = Aplicativo()
     app.mainloop()

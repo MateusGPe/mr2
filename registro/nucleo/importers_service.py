@@ -1,146 +1,149 @@
+# --- Arquivo: registro/nucleo/importers_service.py ---
+
 """
 Funções para importar dados de estudantes e reservas, encapsulando a
 lógica de processamento e inserção no banco de dados.
 """
 
 import csv
+from pathlib import Path
 from typing import Dict
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from registro.nucleo.exceptions import DataImportError
+from registro.nucleo.exceptions import ErroImportacaoDados
 from registro.nucleo.repository import (
-    EstudanteRepository,
-    GrupoRepository,
-    ReservaRepository,
+    RepositorioEstudante,
+    RepositorioGrupo,
+    RepositorioReserva,
 )
-from registro.nucleo.utils import adjust_keys
+from registro.nucleo.utils import ajustar_chaves_e_valores
 
 
-def _get_or_create_groups(db_session: Session, group_names: set) -> Dict[str, int]:
+def _obter_ou_criar_grupos(sessao_db: Session, nomes_grupos: set) -> Dict[str, int]:
     """Busca ou cria grupos e retorna um mapeamento de nome para ID."""
-    grupo_repo = GrupoRepository(db_session)
-    existing_grupos = grupo_repo.por_nomes(group_names)
-    existing_map = {g.nome: g.id for g in existing_grupos}
+    repo_grupo = RepositorioGrupo(sessao_db)
+    grupos_existentes = repo_grupo.por_nomes(nomes_grupos)
+    mapa_existentes = {g.nome: g.id for g in grupos_existentes}
 
-    new_group_names = group_names - set(existing_map.keys())
-    if new_group_names:
-        new_rows = [{"nome": name} for name in new_group_names]
-        grupo_repo.bulk_create(new_rows)
-        # Re-fetch all to get new IDs
-        all_grupos = grupo_repo.por_nomes(group_names)
-        return {g.nome: g.id for g in all_grupos}
-    return existing_map
+    nomes_novos_grupos = nomes_grupos - set(mapa_existentes.keys())
+    if nomes_novos_grupos:
+        novas_linhas = [{"nome": nome} for nome in nomes_novos_grupos]
+        repo_grupo.criar_em_massa(novas_linhas)
+        # Re-busca todos para obter os novos IDs
+        todos_os_grupos = repo_grupo.por_nomes(nomes_grupos)
+        return {g.nome: g.id for g in todos_os_grupos}
+    return mapa_existentes
 
 
-def import_students_csv(
-    estudante_repo: EstudanteRepository, grupo_repo: GrupoRepository, csv_file_path: str
+def importar_estudantes_csv(
+    repo_estudante: RepositorioEstudante, repo_grupo: RepositorioGrupo, caminho_arquivo_csv: Path
 ) -> int:
     """Importa e atualiza estudantes e suas associações com grupos de um arquivo CSV."""
     try:
-        students_to_create = []
-        students_to_update = []
-        student_group_relations = []
-        all_group_names = set()
+        estudantes_para_criar = []
+        estudantes_para_atualizar = []
+        relacoes_estudante_grupo = []
+        todos_nomes_grupos = set()
 
-        # Lê todos os estudantes existentes e mapeia por prontuário
-        existing_students_map = {s.prontuario: s for s in estudante_repo.read_all()}
+        # Lê todos os estudantes existentes e mapeia por prontuário para otimização
+        mapa_estudantes_existentes = {s.prontuario: s for s in repo_estudante.ler_todos()}
 
-        with open(csv_file_path, "r", encoding="utf-8") as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                row = adjust_keys(row)
-                pront = row.get("pront")
+        with open(caminho_arquivo_csv, "r", encoding="utf-8") as arquivo_csv:
+            leitor = csv.DictReader(arquivo_csv)
+            for linha in leitor:
+                linha = ajustar_chaves_e_valores(linha)
+                pront = linha.get("pront")
                 if not pront:
                     continue
 
-                student_data = {"prontuario": pront, "nome": row.get("nome", "")}
+                dados_estudante = {"prontuario": pront, "nome": linha.get("nome", "")}
 
-                if pront in existing_students_map:
+                if pront in mapa_estudantes_existentes:
                     # Se o estudante existe, verifica se o nome mudou
-                    if existing_students_map[pront].nome != student_data["nome"]:
+                    if mapa_estudantes_existentes[pront].nome != dados_estudante["nome"]:
                         # Adiciona o ID para a atualização em massa
-                        update_payload = student_data.copy()
-                        update_payload["id"] = existing_students_map[pront].id
-                        students_to_update.append(update_payload)
+                        payload_atualizacao = dados_estudante.copy()
+                        payload_atualizacao["id"] = mapa_estudantes_existentes[pront].id
+                        estudantes_para_atualizar.append(payload_atualizacao)
                 else:
                     # Se não existe, adiciona à lista de criação
-                    students_to_create.append(student_data)
+                    estudantes_para_criar.append(dados_estudante)
 
-                # Lógica de grupos permanece a mesma...
-                if row.get("turma"):
-                    turma = row["turma"]
-                    all_group_names.add(turma)
-                    student_group_relations.append(
-                        {"prontuario": pront, "grupo_nome": turma}
+                # Processa os grupos do estudante
+                if linha.get("turma"):
+                    turma = linha["turma"]
+                    todos_nomes_grupos.add(turma)
+                    relacoes_estudante_grupo.append(
+                        {"prontuario": pront, "nome_grupo": turma}
                     )
 
-        # Executa as operações em massa
-        if students_to_create:
-            estudante_repo.bulk_create(students_to_create)
-        if students_to_update:
-            estudante_repo.bulk_update(students_to_update)
+        # Executa as operações em massa no banco de dados
+        if estudantes_para_criar:
+            repo_estudante.criar_em_massa(estudantes_para_criar)
+        if estudantes_para_atualizar:
+            repo_estudante.atualizar_em_massa(estudantes_para_atualizar)
 
-        # Processa grupos e associações
-        if student_group_relations:
+        # Processa grupos e suas associações
+        if relacoes_estudante_grupo:
             # Garante que todos os grupos existam no DB
-            grupo_map = _get_or_create_groups(grupo_repo.get_session(), all_group_names)
+            mapa_grupos = _obter_ou_criar_grupos(repo_grupo.obter_sessao(), todos_nomes_grupos)
 
-            # Garante que todos os estudantes existam no DB
-            all_pronts = {rel["prontuario"] for rel in student_group_relations}
-            student_map = {
-                s.prontuario: s for s in estudante_repo.por_prontuario(all_pronts)
+            # Re-busca todos os estudantes envolvidos para garantir que temos os IDs
+            todos_prontuarios = {rel["prontuario"] for rel in relacoes_estudante_grupo}
+            mapa_estudantes = {
+                s.prontuario: s for s in repo_estudante.por_prontuarios(todos_prontuarios)
             }
 
             # Associa estudantes a grupos
-            for rel in student_group_relations:
-                student = student_map.get(rel["prontuario"])
-                group_id = grupo_map.get(rel["grupo_nome"])
-                if student and group_id:
+            for rel in relacoes_estudante_grupo:
+                estudante = mapa_estudantes.get(rel["prontuario"])
+                id_grupo = mapa_grupos.get(rel["nome_grupo"])
+                if estudante and id_grupo:
                     # Evita adicionar associações duplicadas
-                    if not any(g.id == group_id for g in student.grupos):
-                        grupo = grupo_repo.read_one(group_id)
+                    if not any(g.id == id_grupo for g in estudante.grupos):
+                        grupo = repo_grupo.ler_um(id_grupo)
                         if grupo:
-                            student.grupos.append(grupo)
+                            estudante.grupos.append(grupo)
 
-        estudante_repo.get_session().commit()
-        return len(students_to_create)
+        repo_estudante.obter_sessao().commit()
+        return len(estudantes_para_criar)
 
     except (FileNotFoundError, csv.Error, KeyError, SQLAlchemyError) as e:
-        raise DataImportError(
-            f"Falha ao importar estudantes de '{csv_file_path}': {e}"
+        raise ErroImportacaoDados(
+            f"Falha ao importar estudantes de '{caminho_arquivo_csv}': {e}"
         ) from e
 
 
-def import_reserves_csv(
-    estudante_repo: EstudanteRepository, reserva_repo: ReservaRepository, csv_file_path: str
+def importar_reservas_csv(
+    repo_estudante: RepositorioEstudante, repo_reserva: RepositorioReserva, caminho_arquivo_csv: Path
 ) -> int:
     """Importa reservas de almoço de um arquivo CSV para o banco de dados."""
     try:
-        student_map = {s.prontuario: s.id for s in estudante_repo.read_all()}
-        reserves_to_insert = []
+        mapa_estudantes = {s.prontuario: s.id for s in repo_estudante.ler_todos()}
+        reservas_para_inserir = []
 
-        with open(csv_file_path, 'r', encoding='utf-8') as csvfile:
-            reader = csv.DictReader(csvfile)
-            for row in reader:
-                row = adjust_keys(row)
-                pront = row.get('pront', None)
-                student_id = student_map.get(pront) if pront else None
+        with open(caminho_arquivo_csv, 'r', encoding='utf-8') as arquivo_csv:
+            leitor = csv.DictReader(arquivo_csv)
+            for linha in leitor:
+                linha = ajustar_chaves_e_valores(linha)
+                pront = linha.get('pront')
+                id_estudante = mapa_estudantes.get(pront) if pront else None
 
-                if student_id:
-                    reserves_to_insert.append({
-                        'estudante_id': student_id,
-                        'prato': row.get('prato', 'Não especificado'),
-                        'data': row.get('data'),
+                if id_estudante:
+                    reservas_para_inserir.append({
+                        'estudante_id': id_estudante,
+                        'prato': linha.get('prato', 'Não especificado'),
+                        'data': linha.get('data'),
                         'cancelada': False
                     })
 
-        if reserves_to_insert:
-            reserva_repo.bulk_create(reserves_to_insert)
+        if reservas_para_inserir:
+            repo_reserva.criar_em_massa(reservas_para_inserir)
 
-        reserva_repo.get_session().commit()
-        return len(reserves_to_insert)
+        repo_reserva.obter_sessao().commit()
+        return len(reservas_para_inserir)
 
     except (FileNotFoundError, csv.Error, KeyError, SQLAlchemyError) as e:
-        raise DataImportError(f"Falha ao importar reservas de '{csv_file_path}': {e}") from e
+        raise ErroImportacaoDados(f"Falha ao importar reservas de '{caminho_arquivo_csv}': {e}") from e

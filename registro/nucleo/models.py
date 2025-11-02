@@ -1,5 +1,5 @@
-# ----------------------------------------------------------------------------
-# File: registro/model/tables.py (Modelos do Banco de Dados)
+# --- Arquivo: registro/nucleo/models.py ---
+
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
@@ -234,11 +234,11 @@ class Consumo(Base):
         )
 
 
-DATABASE_URL = "sqlite:///./config/registro.db"
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+URL_BANCO_DE_DADOS = "sqlite:///./config/registro.db"
+motor = create_engine(URL_BANCO_DE_DADOS)
+SessaoLocal = sessionmaker(autocommit=False, autoflush=False, bind=motor)
 
 
-def create_database_and_tables():
+def criar_banco_de_dados_e_tabelas():
     """Cria o banco de dados e todas as tabelas, se não existirem."""
-    Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=motor)

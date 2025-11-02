@@ -1,5 +1,7 @@
+# --- Arquivo: registro/nucleo/repository.py ---
+
 """
-Fornece implementações concretas do Repository Pattern, especializando
+Fornece implementações concretas do Padrão de Repositório, especializando
 a classe CRUD genérica para cada modelo de dados da aplicação.
 """
 from sqlalchemy.orm import Session
@@ -9,48 +11,48 @@ from registro.nucleo.models import (Consumo, Estudante, Grupo, Reserva,
                                     Sessao)
 
 
-class EstudanteRepository(CRUD[Estudante]):
+class RepositorioEstudante(CRUD[Estudante]):
     """Repositório para operações CRUD com o modelo Estudante."""
 
-    def __init__(self, session: Session):
-        super().__init__(session, Estudante)
+    def __init__(self, sessao: Session):
+        super().__init__(sessao, Estudante)
 
-    def por_id(self, ids: set[int]) -> list[Estudante]:
+    def por_ids(self, ids: set[int]) -> list[Estudante]:
         """Retorna uma lista de estudantes cujos IDs estão na coleção fornecida."""
-        return self._db_session.query(Estudante).filter(Estudante.id.in_(ids)).all()
+        return self._sessao_db.query(Estudante).filter(Estudante.id.in_(ids)).all()
 
-    def por_prontuario(self, ids: set[str]) -> list[Estudante]:
-        """Retorna uma lista de estudantes cujos IDs estão na coleção fornecida."""
-        return self._db_session.query(Estudante).filter(Estudante.prontuario.in_(ids)).all()
+    def por_prontuarios(self, prontuarios: set[str]) -> list[Estudante]:
+        """Retorna uma lista de estudantes cujos prontuários estão na coleção fornecida."""
+        return self._sessao_db.query(Estudante).filter(Estudante.prontuario.in_(prontuarios)).all()
 
 
-class ReservaRepository(CRUD[Reserva]):
+class RepositorioReserva(CRUD[Reserva]):
     """Repositório para operações CRUD com o modelo Reserva."""
 
-    def __init__(self, session: Session):
-        super().__init__(session, Reserva)
+    def __init__(self, sessao: Session):
+        super().__init__(sessao, Reserva)
 
 
-class SessaoRepository(CRUD[Sessao]):
+class RepositorioSessao(CRUD[Sessao]):
     """Repositório para operações CRUD com o modelo Sessao."""
 
-    def __init__(self, session: Session):
-        super().__init__(session, Sessao)
+    def __init__(self, sessao: Session):
+        super().__init__(sessao, Sessao)
 
 
-class ConsumoRepository(CRUD[Consumo]):
+class RepositorioConsumo(CRUD[Consumo]):
     """Repositório para operações CRUD com o modelo Consumo."""
 
-    def __init__(self, session: Session):
-        super().__init__(session, Consumo)
+    def __init__(self, sessao: Session):
+        super().__init__(sessao, Consumo)
 
 
-class GrupoRepository(CRUD[Grupo]):
+class RepositorioGrupo(CRUD[Grupo]):
     """Repositório para operações CRUD com o modelo Grupo."""
 
-    def __init__(self, session: Session):
-        super().__init__(session, Grupo)
+    def __init__(self, sessao: Session):
+        super().__init__(sessao, Grupo)
 
     def por_nomes(self, nomes: set[str]) -> list[Grupo]:
         """Retorna uma lista de grupos cujos nomes estão na coleção fornecida."""
-        return self._db_session.query(Grupo).filter(Grupo.nome.in_(nomes)).all()
+        return self._sessao_db.query(Grupo).filter(Grupo.nome.in_(nomes)).all()

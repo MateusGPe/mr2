@@ -1,23 +1,24 @@
+# --- Arquivo: registro/nucleo/utils.py ---
+
 """
 Funções utilitárias para a aplicação, incluindo manipulação de arquivos,
 processamento de texto e tipos de dados customizados.
 """
-
 import csv
 import ctypes
 import os
 import platform
 import re
 import sys
+from pathlib import Path
 from typing import Any, Callable, List, Literal, Optional, Tuple, TypedDict
 
 from fuzzywuzzy import fuzz
 
-CSIDL_PERSONAL: int = 5
-SHGFP_TYPE_CURRENT: int = 0
+# --- Tipos de Dados ---
 
-SESSION = TypedDict(
-    'SESSION',
+DADOS_SESSAO = TypedDict(
+    'DADOS_SESSAO',
     {
         'refeicao': Literal["lanche", "almoço"],
         'item_servido': Optional[str],
@@ -26,79 +27,16 @@ SESSION = TypedDict(
         'hora': str,
         'grupos': List[str],
     })
-TRANSLATE_DICT = str.maketrans("0123456789Xx", "abcdefghijkk")
-REMOVE_IQ = re.compile(r"[Ii][Qq]\d0+")
 
+# --- Constantes para Processamento de Texto ---
 
-def to_code(text: str) -> dict[str, str]:
-    """Traduz o prontuário para um código de busca simplificado."""
-    text = REMOVE_IQ.sub("", text)
-    translated = text.translate(TRANSLATE_DICT)
-    return {"id": " ".join(translated)}
-
-
-def get_documents_path() -> str:
-    """Retorna o caminho para a pasta 'Documentos' do usuário."""
-    if platform.system() == "Windows":
-        try:
-            buf = ctypes.create_unicode_buffer(getattr(ctypes, 'wintypes').MAX_PATH)
-            getattr(ctypes, "windll").shell32.SHGetFolderPathW(
-                None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf
-            )
-            return buf.value
-        except (AttributeError, OSError):
-            return os.path.expanduser("~/Documents")
-    elif platform.system() == "Linux":
-        xdg_documents = os.environ.get("XDG_DOCUMENTS_DIR")
-        if xdg_documents:
-            return xdg_documents.strip('"')
-    return os.path.expanduser("~/Documents")
-
-
-def save_csv(data: list, filename: str) -> bool:
-    """Salva dados em um arquivo CSV."""
-    try:
-        with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
-            writer = csv.writer(csvfile)
-            writer.writerows(data)
-        return True
-    except (IOError, csv.Error) as e:
-        print(f"Error saving CSV to '{filename}': {e}", file=sys.stderr)
-        return False
-
-
-def find_best_matching_pair(
-    target_pair: Tuple, vector_of_pairs: List[Tuple],
-    score_function: Callable[[Any, Any], int] = fuzz.ratio
-) -> Tuple[Optional[Tuple[str, str]], int]:
-    """Encontra o par de strings com melhor correspondência em um vetor."""
-    if not vector_of_pairs:
-        return None, 0
-
-    best_match = None
-    highest_score = -1
-
-    for pair in vector_of_pairs:
-        string1_target, string2_target = target_pair
-        string1_vector, string2_vector = pair
-
-        score1 = score_function(string1_target, string1_vector)
-        score2 = score_function(string2_target, string2_vector)
-        overall_score = (score1 + 2 * score2) / 3
-
-        if overall_score > highest_score:
-            highest_score = overall_score
-            best_match = pair
-
-    return best_match, int(highest_score)
-
-
-CAPITALIZE_EXCEPTIONS = {
+DICIONARIO_TRADUCAO_PRONTUARIO = str.maketrans("0123456789Xx", "abcdefghijkk")
+REGEX_REMOVER_IQ = re.compile(r"[Ii][Qq]\d0+")
+EXCECOES_CAPITALIZACAO = {
     "a", "o", "as", "os", "de", "dos", "das", "do", "da", "e", "é", "com",
     "sem", "ou", "para", "por", "no", "na", "nos", "nas"
 }
-
-TRANSLATE_KEYS = {
+MAPEAMENTO_CHAVES = {
     'matrícula iq': 'pront',
     'matrícula': 'pront',
     'prontuário': 'pront',
@@ -106,35 +44,103 @@ TRANSLATE_KEYS = {
 }
 
 
-def capitalize(text: str) -> str:
-    """Capitaliza uma string, com exceções para certas palavras."""
-    text = text.strip()
-    if not text:
+def para_codigo(texto: str) -> dict[str, str]:
+    """Traduz o prontuário para um código de busca simplificado."""
+    texto_processado = REGEX_REMOVER_IQ.sub("", texto)
+    traduzido = texto_processado.translate(DICIONARIO_TRADUCAO_PRONTUARIO)
+    return {"id": " ".join(traduzido)}
+
+
+def obter_caminho_documentos() -> Path:
+    """Retorna o caminho para a pasta 'Documentos' do usuário de forma segura."""
+    if platform.system() == "Windows":
+        try:
+            CSIDL_PERSONAL = 5
+            SHGFP_TYPE_CURRENT = 0
+            buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
+            ctypes.windll.shell32.SHGetFolderPathW(
+                None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf
+            )
+            return Path(buf.value)
+        except (AttributeError, OSError):
+            return Path.home() / "Documents"
+    
+    # Para Linux, macOS e outros Unix-like
+    xdg_documents = os.environ.get("XDG_DOCUMENTS_DIR")
+    if xdg_documents:
+        return Path(xdg_documents.strip('"'))
+        
+    return Path.home() / "Documents"
+
+
+def salvar_csv(dados: list, caminho_arquivo: Path) -> bool:
+    """Salva uma lista de listas em um arquivo CSV."""
+    try:
+        with open(caminho_arquivo, 'w', newline='', encoding='utf-8') as arquivo_csv:
+            escritor = csv.writer(arquivo_csv)
+            escritor.writerows(dados)
+        return True
+    except (IOError, csv.Error) as e:
+        print(f"Erro ao salvar CSV em '{caminho_arquivo}': {e}", file=sys.stderr)
+        return False
+
+
+def encontrar_melhor_par_correspondente(
+    par_alvo: Tuple, vetor_de_pares: List[Tuple],
+    funcao_pontuacao: Callable[[Any, Any], int] = fuzz.ratio
+) -> Tuple[Optional[Tuple[str, str]], int]:
+    """Encontra o par de strings com melhor correspondência em um vetor, ponderando o segundo item."""
+    if not vetor_de_pares:
+        return None, 0
+
+    melhor_correspondencia = None
+    maior_pontuacao = -1
+
+    for par in vetor_de_pares:
+        alvo1, alvo2 = par_alvo
+        vetor1, vetor2 = par
+
+        pontuacao1 = funcao_pontuacao(alvo1, vetor1)
+        pontuacao2 = funcao_pontuacao(alvo2, vetor2)
+        
+        # Pondera a segunda string (nome) como mais importante
+        pontuacao_geral = (pontuacao1 + 2 * pontuacao2) / 3
+
+        if pontuacao_geral > maior_pontuacao:
+            maior_pontuacao = pontuacao_geral
+            melhor_correspondencia = par
+
+    return melhor_correspondencia, int(maior_pontuacao)
+
+
+def capitalizar_com_excecoes(texto: str) -> str:
+    """Capitaliza uma string, com exceções para certas palavras (preposições, artigos)."""
+    texto = texto.strip()
+    if not texto:
         return ""
-    ltext = text.lower()
-    if ltext in CAPITALIZE_EXCEPTIONS:
-        return ltext
-    return text[0].upper() + ltext[1:]
+    texto_minusc = texto.lower()
+    if texto_minusc in EXCECOES_CAPITALIZACAO:
+        return texto_minusc
+    return texto.capitalize()
 
 
-def adjust_keys(input_dict: dict) -> dict:
-    """Ajusta chaves e valores de um dicionário de acordo com regras."""
-    adjusted_dict = {}
-    for key, value in input_dict.items():
-        if isinstance(key, str):
-            key = key.strip().lower()
-            key = TRANSLATE_KEYS.get(key, key)
-            if isinstance(value, str):
-                value = value.strip()
-
-            if key in ["nome", "prato"]:
-                value = " ".join(capitalize(v) for v in value.split(" "))
-            elif key == "pront":
-                value = re.sub(r'IQ\d{2}', 'IQ30', value.upper())
-            else:
-                value = value.strip()
-
-            adjusted_dict[key] = value
+def ajustar_chaves_e_valores(dicionario_entrada: dict) -> dict:
+    """Ajusta chaves e valores de um dicionário de acordo com regras de negócio."""
+    dicionario_ajustado = {}
+    for chave, valor in dicionario_entrada.items():
+        if isinstance(chave, str):
+            chave = chave.strip().lower()
+            chave = MAPEAMENTO_CHAVES.get(chave, chave)
+            
+            if isinstance(valor, str):
+                valor = valor.strip()
+                if chave in ["nome", "prato"]:
+                    # Aplica a capitalização customizada para cada palavra
+                    valor = " ".join(capitalizar_com_excecoes(p) for p in valor.split())
+                elif chave == "pront":
+                    valor = re.sub(r'IQ\d{2}', 'IQ30', valor.upper())
+            
+            dicionario_ajustado[chave] = valor
         else:
-            adjusted_dict[key] = value
-    return adjusted_dict
+            dicionario_ajustado[chave] = valor
+    return dicionario_ajustado
