@@ -6,6 +6,7 @@ da aplicação de registro de refeições.
 """
 
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import xlsxwriter
@@ -24,7 +25,12 @@ from registro.nucleo.repository import (
     RepositorioReserva,
     RepositorioSessao,
 )
-from registro.nucleo.utils import DADOS_SESSAO, obter_caminho_documentos, para_codigo, salvar_csv
+from registro.nucleo.utils import (
+    DADOS_SESSAO,
+    obter_caminho_documentos,
+    para_codigo,
+    salvar_csv,
+)
 
 
 def iniciar_nova_sessao(
@@ -72,6 +78,18 @@ def listar_todas_sessoes(repo_sessao: RepositorioSessao) -> List[Dict]:
     ]
 
 
+def listar_todos_os_grupos(repo_grupo: RepositorioGrupo) -> List[Dict]:
+    """Retorna uma lista de todos os grupos existentes."""
+    grupos = repo_grupo.ler_todos()
+    return [
+        {
+            "id": g.id,
+            "nome": g.nome,
+        }
+        for g in grupos
+    ]
+
+
 def obter_detalhes_sessao(
     repo_sessao: RepositorioSessao, id_sessao: int
 ) -> models.Sessao:
@@ -89,6 +107,7 @@ def obter_estudantes_para_sessao(
     repo_consumo: RepositorioConsumo,
     id_sessao: int,
     consumido: Optional[bool] = None,
+    grupos_excluidos: Optional[set[str]] = None,
 ) -> List[Dict]:
     """Busca estudantes elegíveis para a sessão, com base nas regras de negócio."""
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
@@ -110,10 +129,16 @@ def obter_estudantes_para_sessao(
         r.estudante_id: r
         for r in repo_reserva.ler_filtrado(data=sessao.data, cancelada=False)
     }
-    
+
     # 4. Construir a lista final de estudantes elegíveis, aplicando as regras
     detalhes_estudantes = []
     for est in estudantes:
+        if grupos_excluidos:
+            nomes_grupos_estudante = {g.nome for g in est.grupos}
+
+            if nomes_grupos_estudante.intersection(grupos_excluidos):
+                continue
+
         autorizado = False
         motivo = "Acesso Negado"
         prato = "Sem Reserva"
@@ -124,7 +149,7 @@ def obter_estudantes_para_sessao(
                 autorizado = True
                 motivo = "Reserva"
                 prato = reserva.prato
-            else: # Verifica exceção por grupo
+            else:  # Verifica exceção por grupo
                 ids_grupos_estudante = {g.id for g in est.grupos}
                 if ids_grupos_sessao.intersection(ids_grupos_estudante):
                     autorizado = True
@@ -147,11 +172,15 @@ def obter_estudantes_para_sessao(
         if consumido is False and info_consumo:
             continue
 
+        grupos = (
+            ", ".join(sorted(g.nome for g in set(est.grupos))) if est.grupos else "N/A"
+        )
+
         detalhes_estudantes.append(
             {
                 "pront": est.prontuario,
                 "nome": est.nome,
-                "turma": est.grupos[0].nome if est.grupos else "N/A",
+                "turma": grupos,
                 "prato": prato,
                 "consumido": bool(info_consumo),
                 "id_consumo": info_consumo.id if info_consumo else None,
@@ -171,10 +200,12 @@ def deletar_sessao(repo_sessao: RepositorioSessao, id_sessao: int):
     repo_sessao.obter_sessao().commit()
 
 
-def atualizar_sessao(repo_sessao: RepositorioSessao, id_sessao: int, dados: Dict[str, Any]):
+def atualizar_sessao(
+    repo_sessao: RepositorioSessao, id_sessao: int, dados: Dict[str, Any]
+):
     """Atualiza os dados de uma sessão existente."""
     # 'grupos' são tratados em um método separado para clareza
-    dados.pop('grupos', None)
+    dados.pop("grupos", None)
 
     sessao_atualizada = repo_sessao.atualizar(id_sessao, dados)
     if not sessao_atualizada:
@@ -251,7 +282,9 @@ def desfazer_consumo(repo_consumo: RepositorioConsumo, id_consumo: int):
         repo_consumo.obter_sessao().commit()
 
 
-def atualizar_cancelamento_reserva(repo_reserva: RepositorioReserva, id_reserva: int, cancelar: bool = True):
+def atualizar_cancelamento_reserva(
+    repo_reserva: RepositorioReserva, id_reserva: int, cancelar: bool = True
+):
     """Marca ou desmarca uma reserva como cancelada."""
     atualizado = repo_reserva.atualizar(id_reserva, {"cancelada": cancelar})
     if not atualizado:
@@ -332,7 +365,9 @@ def sincronizar_do_google_sheets(
         if discentes:
             caminho_csv = caminho_config / "students.csv"
             if salvar_csv(discentes, caminho_csv):
-                importers_service.importar_estudantes_csv(repo_estudante, repo_grupo, caminho_csv)
+                importers_service.importar_estudantes_csv(
+                    repo_estudante, repo_grupo, caminho_csv
+                )
 
         # Importa reservas
         reservas = google_api_service.buscar_valores_aba(planilha, "DB")
@@ -392,4 +427,6 @@ def sincronizar_para_google_sheets(
     except (ErroAPIGoogle, ErroSessao) as e:
         raise e
     except Exception as e:
-        raise ErroNucleoRegistro(f"Erro inesperado no upload para a planilha: {e}") from e
+        raise ErroNucleoRegistro(
+            f"Erro inesperado no upload para a planilha: {e}"
+        ) from e

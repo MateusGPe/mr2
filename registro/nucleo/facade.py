@@ -69,6 +69,10 @@ class FachadaRegistro:
         """Retorna uma lista simplificada de todas as sessões."""
         return service_logic.listar_todas_sessoes(self._repo_sessao)
 
+    def listar_todos_os_grupos(self) -> List[Dict]:
+        """Retorna uma lista de todos os grupos existentes."""
+        return service_logic.listar_todos_os_grupos(self._repo_grupo)
+
     def definir_sessao_ativa(self, id_sessao: int):
         """Define uma sessão existente como ativa pelo seu ID."""
         # Valida se a sessão existe antes de defini-la como ativa
@@ -92,7 +96,9 @@ class FachadaRegistro:
             "grupos": [g.nome for g in modelo_sessao.grupos],
         }
 
-    def obter_estudantes_pesquisaveis_para_sessao(self) -> List[Dict[str, str]]:
+    def obter_estudantes_pesquisaveis_para_sessao(
+        self, grupos_excluidos: Optional[set[str]] = None
+    ) -> List[Dict[str, str]]:
         """
         Retorna uma lista de estudantes elegíveis (que não consumiram) para a busca,
         contendo apenas prontuário e nome. Otimizado para autocomplete.
@@ -106,7 +112,8 @@ class FachadaRegistro:
             repo_reserva=self._repo_reserva,
             repo_consumo=self._repo_consumo,
             id_sessao=self.id_sessao_ativa,
-            consumido=False
+            consumido=False,
+            grupos_excluidos=grupos_excluidos,
         )
         return [
             {"pront": estudante["pront"], "nome": estudante["nome"]}
@@ -115,11 +122,15 @@ class FachadaRegistro:
 
     def cancelar_reserva(self, id_reserva: int):
         """Marca uma reserva de refeição como cancelada."""
-        service_logic.atualizar_cancelamento_reserva(self._repo_reserva, id_reserva, True)
+        service_logic.atualizar_cancelamento_reserva(
+            self._repo_reserva, id_reserva, True
+        )
 
     def reativar_reserva(self, id_reserva: int):
         """Remove a marcação de cancelada de uma reserva."""
-        service_logic.atualizar_cancelamento_reserva(self._repo_reserva, id_reserva, False)
+        service_logic.atualizar_cancelamento_reserva(
+            self._repo_reserva, id_reserva, False
+        )
 
     def deletar_sessao_ativa(self):
         """Deleta a sessão ativa e todos os seus consumos associados."""
@@ -165,7 +176,7 @@ class FachadaRegistro:
     def deletar_estudante(self, id_estudante: int) -> bool:
         """
         Remove um estudante do banco de dados.
-        
+
         CUIDADO: A melhor abordagem é inativar o estudante usando o campo 'ativo'
         através do método `atualizar_estudante`. Deletar pode causar erros de
         integridade de dados se houver consumos ou reservas associadas.
@@ -175,7 +186,11 @@ class FachadaRegistro:
             return True
         return False
 
-    def obter_estudantes_para_sessao(self, consumido: Optional[bool] = None) -> List[Dict]:
+    def obter_estudantes_para_sessao(
+        self,
+        consumido: Optional[bool] = None,
+        grupos_excluidos: Optional[set[str]] = None,
+    ) -> List[Dict]:
         """Retorna estudantes para a sessão ativa, com opção de filtro por consumo."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
@@ -186,6 +201,7 @@ class FachadaRegistro:
             repo_consumo=self._repo_consumo,
             id_sessao=self.id_sessao_ativa,
             consumido=consumido,
+            grupos_excluidos=grupos_excluidos,
         )
 
     def registrar_consumo(self, prontuario: str) -> Dict[str, Any]:
