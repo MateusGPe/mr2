@@ -13,7 +13,7 @@ from registro.nucleo.exceptions import ErroNucleoRegistro, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 
 # Configurações visuais
-ctk.set_appearance_mode("Light") # "System" | "Dark" | "Light"
+ctk.set_appearance_mode("Light")  # "System" | "Dark" | "Light"
 ctk.set_default_color_theme("blue")
 
 
@@ -411,7 +411,7 @@ class Aplicativo(ctk.CTk):
             "Treeview",
             background="white",
             foreground="#2a2d2e",
-            fieldbackground="white",#"#343638"
+            fieldbackground="white",  # "#343638"
             borderwidth=0,
         )
         estilo.map("Treeview", background=[("selected", "#24527d")])
@@ -477,8 +477,10 @@ class Aplicativo(ctk.CTk):
         self.botao_aplicar_filtro_exclusao = ctk.CTkButton(
             self.frame_gerenciamento_grupos,
             text="Aplicar/Remover Filtro",
-            command=lambda: (self.atualizar_lista_estudantes(),
-                             self._atualizar_dados_autocomplete()),
+            command=lambda: (
+                self.atualizar_lista_estudantes(),
+                self._atualizar_dados_autocomplete(),
+            ),
         )
         self.botao_aplicar_filtro_exclusao.grid(row=6, column=0, padx=10, pady=10)
 
@@ -808,7 +810,8 @@ class Aplicativo(ctk.CTk):
 
     def criar_aba_admin(self):
         aba = self.view_abas.tab("Administração")
-        aba.grid_columnconfigure(0, weight=1)
+        #aba.grid_columnconfigure(0, weight=1)
+        #aba.grid_columnconfigure(1, weight=1)
 
         frame_google = ctk.CTkFrame(aba)
         frame_google.grid(row=0, column=0, padx=20, pady=20, sticky="ew")
