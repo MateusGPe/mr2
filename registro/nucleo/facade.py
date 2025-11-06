@@ -13,7 +13,12 @@ from typing import Any, Dict, List, Optional
 
 from registro.nucleo import service_logic
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
-from registro.nucleo.models import SessaoLocal, criar_banco_de_dados_e_tabelas
+from registro.nucleo.models import (
+    Estudante,
+    Reserva,
+    SessaoLocal,
+    criar_banco_de_dados_e_tabelas,
+)
 from registro.nucleo.repository import (
     RepositorioConsumo,
     RepositorioEstudante,
@@ -57,6 +62,8 @@ class FachadaRegistro:
         """Garante que a conexão com o banco de dados seja fechada."""
         self.fechar_conexao()
 
+    # --- Módulo 1: Funções de Sessão e Consumo (Já existentes) ---
+
     def iniciar_nova_sessao(self, dados_sessao: DADOS_SESSAO) -> Optional[int]:
         """Inicia uma nova sessão de refeição e a define como ativa."""
         id_sessao = service_logic.iniciar_nova_sessao(
@@ -96,42 +103,6 @@ class FachadaRegistro:
             "grupos": [g.nome for g in modelo_sessao.grupos],
         }
 
-    def obter_estudantes_pesquisaveis_para_sessao(
-        self, grupos_excluidos: Optional[set[str]] = None
-    ) -> List[Dict[str, str]]:
-        """
-        Retorna uma lista de estudantes elegíveis (que não consumiram) para a busca,
-        contendo apenas prontuário e nome. Otimizado para autocomplete.
-        """
-        if self.id_sessao_ativa is None:
-            return []
-
-        todos_elegiveis = service_logic.obter_estudantes_para_sessao(
-            repo_sessao=self._repo_sessao,
-            repo_estudante=self._repo_estudante,
-            repo_reserva=self._repo_reserva,
-            repo_consumo=self._repo_consumo,
-            id_sessao=self.id_sessao_ativa,
-            consumido=False,
-            grupos_excluidos=grupos_excluidos,
-        )
-        return [
-            {"pront": estudante["pront"], "nome": estudante["nome"]}
-            for estudante in todos_elegiveis
-        ]
-
-    def cancelar_reserva(self, id_reserva: int):
-        """Marca uma reserva de refeição como cancelada."""
-        service_logic.atualizar_cancelamento_reserva(
-            self._repo_reserva, id_reserva, True
-        )
-
-    def reativar_reserva(self, id_reserva: int):
-        """Remove a marcação de cancelada de uma reserva."""
-        service_logic.atualizar_cancelamento_reserva(
-            self._repo_reserva, id_reserva, False
-        )
-
     def deletar_sessao_ativa(self):
         """Deleta a sessão ativa e todos os seus consumos associados."""
         if self.id_sessao_ativa is None:
@@ -148,6 +119,25 @@ class FachadaRegistro:
     def atualizar_detalhes_sessao(self, id_sessao: int, dados_sessao: Dict[str, Any]):
         """Atualiza os detalhes de uma sessão (data, hora, etc.)."""
         service_logic.atualizar_sessao(self._repo_sessao, id_sessao, dados_sessao)
+
+    def registrar_consumo(self, prontuario: str) -> Dict[str, Any]:
+        """Registra que um estudante consumiu uma refeição, seguindo as regras."""
+        if self.id_sessao_ativa is None:
+            raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
+        return service_logic.registrar_consumo(
+            repo_sessao=self._repo_sessao,
+            repo_estudante=self._repo_estudante,
+            repo_reserva=self._repo_reserva,
+            repo_consumo=self._repo_consumo,
+            id_sessao=self.id_sessao_ativa,
+            prontuario=prontuario,
+        )
+
+    def desfazer_consumo(self, id_consumo: int):
+        """Desfaz o registro de consumo de uma refeição."""
+        service_logic.desfazer_consumo(self._repo_consumo, id_consumo)
+
+    # --- Módulo 2: Gerenciamento de Alunos (CRUD) ---
 
     def criar_estudante(self, prontuario: str, nome: str) -> Dict[str, Any]:
         """Cria um novo estudante, evitando duplicatas de prontuário."""
@@ -186,6 +176,136 @@ class FachadaRegistro:
             return True
         return False
 
+    def listar_estudantes(
+        self, termo_busca: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        Lista todos os estudantes, com opção de busca por nome ou prontuário.
+        """
+        query = self._sessao_db.query(Estudante)
+        if termo_busca:
+            termo_like = f"%{termo_busca}%"
+            query = query.filter(
+                (Estudante.nome.ilike(termo_like))
+                | (Estudante.prontuario.ilike(termo_like))
+            )
+
+        estudantes = query.order_by(Estudante.nome).all()
+
+        return [
+            {
+                "id": est.id,
+                "prontuario": est.prontuario,
+                "nome": est.nome,
+                "ativo": est.ativo,
+                "grupos": [g.nome for g in est.grupos],
+            }
+            for est in estudantes
+        ]
+
+    # --- Módulo 3: Gerenciamento de Reservas (CRUD) ---
+
+    def criar_reserva(
+        self, prontuario_estudante: str, dados_reserva: Dict[str, Any]
+    ) -> Dict[str, Any]:
+        """
+        Cria uma nova reserva para um estudante.
+        """
+        estudante = self._repo_estudante.ler_filtrado(prontuario=prontuario_estudante)
+        if not estudante:
+            raise ValueError(
+                f"Estudante com prontuário {prontuario_estudante} não encontrado."
+            )
+
+        payload = dados_reserva.copy()
+        payload["estudante_id"] = estudante[0].id
+
+        nova_reserva = self._repo_reserva.criar(payload)
+        self._sessao_db.commit()
+
+        return {
+            "id": nova_reserva.id,
+            "estudante_id": nova_reserva.estudante_id,
+            "prato": nova_reserva.prato,
+            "data": nova_reserva.data,
+            "cancelada": nova_reserva.cancelada,
+        }
+
+    def listar_reservas(self, filtros: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        """
+        Lista todas as reservas, com suporte a filtros.
+        """
+        filtros = filtros or {}
+        reservas = self._repo_reserva.ler_filtrado(**filtros)
+        return [
+            {
+                "id": res.id,
+                "prontuario_estudante": res.estudante.prontuario,
+                "nome_estudante": res.estudante.nome,
+                "prato": res.prato,
+                "data": res.data,
+                "cancelada": res.cancelada,
+            }
+            for res in reservas
+        ]
+
+    def atualizar_reserva(self, id_reserva: int, dados: Dict[str, Any]) -> bool:
+        """
+        Atualiza os dados de uma reserva existente (ex: prato, data, status).
+        """
+        reserva = self._repo_reserva.atualizar(id_reserva, dados)
+        if reserva:
+            self._sessao_db.commit()
+            return True
+        return False
+
+    def deletar_reserva(self, id_reserva: int) -> bool:
+        """
+        Remove uma reserva do sistema.
+        """
+        if self._repo_reserva.deletar(id_reserva):
+            self._sessao_db.commit()
+            return True
+        return False
+
+    def cancelar_reserva(self, id_reserva: int):
+        """Marca uma reserva de refeição como cancelada."""
+        service_logic.atualizar_cancelamento_reserva(
+            self._repo_reserva, id_reserva, True
+        )
+
+    def reativar_reserva(self, id_reserva: int):
+        """Remove a marcação de cancelada de uma reserva."""
+        service_logic.atualizar_cancelamento_reserva(
+            self._repo_reserva, id_reserva, False
+        )
+
+    # --- Funções de Apoio e Sincronização (Já existentes) ---
+
+    def obter_estudantes_pesquisaveis_para_sessao(
+        self, grupos_excluidos: Optional[set[str]] = None
+    ) -> List[Dict[str, str]]:
+        """
+        Retorna uma lista de estudantes elegíveis (que não consumiram) para a busca,
+        contendo apenas prontuário e nome. Otimizado para autocomplete.
+        """
+        if self.id_sessao_ativa is None:
+            return []
+
+        todos_elegiveis = service_logic.obter_estudantes_para_sessao(
+            repo_sessao=self._repo_sessao,
+            repo_estudante=self._repo_estudante,
+            repo_reserva=self._repo_reserva,
+            repo_consumo=self._repo_consumo,
+            id_sessao=self.id_sessao_ativa,
+            consumido=False,
+            grupos_excluidos=grupos_excluidos,
+        )
+        return [
+            {"pront": estudante["pront"], "nome": estudante["nome"]}
+            for estudante in todos_elegiveis
+        ]
+
     def obter_estudantes_para_sessao(
         self,
         consumido: Optional[bool] = None,
@@ -203,23 +323,6 @@ class FachadaRegistro:
             consumido=consumido,
             grupos_excluidos=grupos_excluidos,
         )
-
-    def registrar_consumo(self, prontuario: str) -> Dict[str, Any]:
-        """Registra que um estudante consumiu uma refeição, seguindo as regras."""
-        if self.id_sessao_ativa is None:
-            raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
-        return service_logic.registrar_consumo(
-            repo_sessao=self._repo_sessao,
-            repo_estudante=self._repo_estudante,
-            repo_reserva=self._repo_reserva,
-            repo_consumo=self._repo_consumo,
-            id_sessao=self.id_sessao_ativa,
-            prontuario=prontuario,
-        )
-
-    def desfazer_consumo(self, id_consumo: int):
-        """Desfaz o registro de consumo de uma refeição."""
-        service_logic.desfazer_consumo(self._repo_consumo, id_consumo)
 
     def atualizar_grupos_sessao(self, grupos: List[str]):
         """Atualiza a configuração de grupos para a sessão ativa."""
