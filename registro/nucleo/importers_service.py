@@ -38,7 +38,9 @@ def _obter_ou_criar_grupos(sessao_db: Session, nomes_grupos: set) -> Dict[str, i
 
 
 def importar_estudantes_csv(
-    repo_estudante: RepositorioEstudante, repo_grupo: RepositorioGrupo, caminho_arquivo_csv: Path
+    repo_estudante: RepositorioEstudante,
+    repo_grupo: RepositorioGrupo,
+    caminho_arquivo_csv: Path,
 ) -> int:
     """Importa e atualiza estudantes e suas associações com grupos de um arquivo CSV."""
     try:
@@ -48,7 +50,9 @@ def importar_estudantes_csv(
         todos_nomes_grupos = set()
 
         # Lê todos os estudantes existentes e mapeia por prontuário para otimização
-        mapa_estudantes_existentes = {s.prontuario: s for s in repo_estudante.ler_todos()}
+        mapa_estudantes_existentes = {
+            s.prontuario: s for s in repo_estudante.ler_todos()
+        }
 
         with open(caminho_arquivo_csv, "r", encoding="utf-8") as arquivo_csv:
             leitor = csv.DictReader(arquivo_csv)
@@ -62,7 +66,10 @@ def importar_estudantes_csv(
 
                 if pront in mapa_estudantes_existentes:
                     # Se o estudante existe, verifica se o nome mudou
-                    if mapa_estudantes_existentes[pront].nome != dados_estudante["nome"]:
+                    if (
+                        mapa_estudantes_existentes[pront].nome
+                        != dados_estudante["nome"]
+                    ):
                         # Adiciona o ID para a atualização em massa
                         payload_atualizacao = dados_estudante.copy()
                         payload_atualizacao["id"] = mapa_estudantes_existentes[pront].id
@@ -88,12 +95,15 @@ def importar_estudantes_csv(
         # Processa grupos e suas associações
         if relacoes_estudante_grupo:
             # Garante que todos os grupos existam no DB
-            mapa_grupos = _obter_ou_criar_grupos(repo_grupo.obter_sessao(), todos_nomes_grupos)
+            mapa_grupos = _obter_ou_criar_grupos(
+                repo_grupo.obter_sessao(), todos_nomes_grupos
+            )
 
             # Re-busca todos os estudantes envolvidos para garantir que temos os IDs
             todos_prontuarios = {rel["prontuario"] for rel in relacoes_estudante_grupo}
             mapa_estudantes = {
-                s.prontuario: s for s in repo_estudante.por_prontuarios(todos_prontuarios)
+                s.prontuario: s
+                for s in repo_estudante.por_prontuarios(todos_prontuarios)
             }
 
             # Associa estudantes a grupos
@@ -117,27 +127,31 @@ def importar_estudantes_csv(
 
 
 def importar_reservas_csv(
-    repo_estudante: RepositorioEstudante, repo_reserva: RepositorioReserva, caminho_arquivo_csv: Path
+    repo_estudante: RepositorioEstudante,
+    repo_reserva: RepositorioReserva,
+    caminho_arquivo_csv: Path,
 ) -> int:
     """Importa reservas de almoço de um arquivo CSV para o banco de dados."""
     try:
         mapa_estudantes = {s.prontuario: s.id for s in repo_estudante.ler_todos()}
         reservas_para_inserir = []
 
-        with open(caminho_arquivo_csv, 'r', encoding='utf-8') as arquivo_csv:
+        with open(caminho_arquivo_csv, "r", encoding="utf-8") as arquivo_csv:
             leitor = csv.DictReader(arquivo_csv)
             for linha in leitor:
                 linha = ajustar_chaves_e_valores(linha)
-                pront = linha.get('pront')
+                pront = linha.get("pront")
                 id_estudante = mapa_estudantes.get(pront) if pront else None
 
                 if id_estudante:
-                    reservas_para_inserir.append({
-                        'estudante_id': id_estudante,
-                        'prato': linha.get('prato', 'Não especificado'),
-                        'data': linha.get('data'),
-                        'cancelada': False
-                    })
+                    reservas_para_inserir.append(
+                        {
+                            "estudante_id": id_estudante,
+                            "prato": linha.get("prato", "Não especificado"),
+                            "data": linha.get("data"),
+                            "cancelada": False,
+                        }
+                    )
 
         if reservas_para_inserir:
             repo_reserva.criar_em_massa(reservas_para_inserir)
@@ -146,4 +160,6 @@ def importar_reservas_csv(
         return len(reservas_para_inserir)
 
     except (FileNotFoundError, csv.Error, KeyError, SQLAlchemyError) as e:
-        raise ErroImportacaoDados(f"Falha ao importar reservas de '{caminho_arquivo_csv}': {e}") from e
+        raise ErroImportacaoDados(
+            f"Falha ao importar reservas de '{caminho_arquivo_csv}': {e}"
+        ) from e
