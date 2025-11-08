@@ -3,15 +3,15 @@
 import tkinter as tk
 import traceback
 from datetime import datetime
-from tkinter import messagebox
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
+from ttkbootstrap.constants import BOTH, END, E, LEFT, EW, W, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.scrolled import ScrolledFrame
 from ttkbootstrap.widgets import DateEntry
 
 from registro.nucleo.facade import FachadaRegistro
+from registro.nucleo.utils import DADOS_SESSAO
 
 
 class StudentDialog(ttk.Toplevel):
@@ -370,7 +370,7 @@ class SessionDialog(ttk.Toplevel):
         grupos_selecionados = [
             nome for nome, var in self.grupos_vars.items() if var.get()
         ]
-        dados_sessao = {
+        dados_sessao: DADOS_SESSAO = {
             "refeicao": self.refeicao_var.get(),
             "periodo": "Integral",
             "data": datetime.now().strftime("%Y-%m-%d"),

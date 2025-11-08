@@ -7,8 +7,7 @@ a classe CRUD genérica para cada modelo de dados da aplicação.
 from sqlalchemy.orm import Session
 
 from registro.nucleo.crud import CRUD
-from registro.nucleo.models import (Consumo, Estudante, Grupo, Reserva,
-                                    Sessao)
+from registro.nucleo.models import Consumo, Estudante, Grupo, Reserva, Sessao
 
 
 class RepositorioEstudante(CRUD[Estudante]):
@@ -23,7 +22,11 @@ class RepositorioEstudante(CRUD[Estudante]):
 
     def por_prontuarios(self, prontuarios: set[str]) -> list[Estudante]:
         """Retorna uma lista de estudantes cujos prontuários estão na coleção fornecida."""
-        return self._sessao_db.query(Estudante).filter(Estudante.prontuario.in_(prontuarios)).all()
+        return (
+            self._sessao_db.query(Estudante)
+            .filter(Estudante.prontuario.in_(prontuarios))
+            .all()
+        )
 
 
 class RepositorioReserva(CRUD[Reserva]):
@@ -45,6 +48,17 @@ class RepositorioConsumo(CRUD[Consumo]):
 
     def __init__(self, sessao: Session):
         super().__init__(sessao, Consumo)
+
+    def por_prontuario_e_sessao(
+        self, prontuario: str, id_sessao: int
+    ) -> Consumo | None:
+        """Retorna um consumo baseado no prontuário do estudante e na sessão."""
+        return (
+            self._sessao_db.query(Consumo)
+            .join(Estudante)
+            .filter(Estudante.prontuario == prontuario, Consumo.sessao_id == id_sessao)
+            .one_or_none()
+        )
 
 
 class RepositorioGrupo(CRUD[Grupo]):

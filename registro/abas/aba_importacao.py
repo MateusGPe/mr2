@@ -6,7 +6,7 @@ import traceback
 from tkinter import filedialog
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
+from ttkbootstrap.constants import HORIZONTAL, RIGHT, LEFT, NSEW, X, EW, W, E
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 
@@ -249,7 +249,7 @@ class AbaImportacao(ttk.Frame):
                     if "grupos" in d and isinstance(d.get("grupos"), list):
                         d["grupos"] = ", ".join(d["grupos"])
                 writer.writerows(dados)
-            Messagebox.showinfo("Sucesso", f"Dados exportados para:\n{filepath}")
+            Messagebox.show_info("Sucesso", f"Dados exportados para:\n{filepath}")
         except ErroSessaoNaoAtiva:
             Messagebox.show_warning(
                 "Nenhuma sessão ativa para exportar o consumo.", "Aviso"

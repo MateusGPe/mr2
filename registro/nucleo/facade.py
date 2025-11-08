@@ -49,6 +49,8 @@ class FachadaRegistro:
 
         self.id_sessao_ativa: Optional[int] = None
 
+        self.excessao_grupos: List[str] = []
+
     def fechar_conexao(self):
         """Fecha a conexão com o banco de dados."""
         self._sessao_db.close()
@@ -132,6 +134,14 @@ class FachadaRegistro:
             prontuario=prontuario,
         )
 
+    def desfazer_consumo_por_prontuario(self, prontuario: str):
+        """Desfaz o registro de consumo de uma refeição."""
+        assert self.id_sessao_ativa is not None
+
+        service_logic.desfazer_consumo_por_prontuario(
+            self.repo_consumo, prontuario, self.id_sessao_ativa
+        )
+
     def desfazer_consumo(self, id_consumo: int):
         """Desfaz o registro de consumo de uma refeição."""
         service_logic.desfazer_consumo(self.repo_consumo, id_consumo)
@@ -162,18 +172,18 @@ class FachadaRegistro:
             return True
         return False
 
-    def deletar_estudante(self, id_estudante: int) -> bool:
-        """
-        Remove um estudante do banco de dados.
+    # def deletar_estudante(self, id_estudante: int) -> bool:
+    #     """
+    #     Remove um estudante do banco de dados.
 
-        CUIDADO: A melhor abordagem é inativar o estudante usando o campo 'ativo'
-        através do método `atualizar_estudante`. Deletar pode causar erros de
-        integridade de dados se houver consumos ou reservas associadas.
-        """
-        if self.repo_estudante.deletar(id_estudante):
-            self._sessao_db.commit()
-            return True
-        return False
+    #     CUIDADO: A melhor abordagem é inativar o estudante usando o campo 'ativo'
+    #     através do método `atualizar_estudante`. Deletar pode causar erros de
+    #     integridade de dados se houver consumos ou reservas associadas.
+    #     """
+    #     if self.repo_estudante.deletar(id_estudante):
+    #         self._sessao_db.commit()
+    #         return True
+    #     return False
 
     def listar_estudantes(
         self, termo_busca: Optional[str] = None
@@ -298,7 +308,7 @@ class FachadaRegistro:
             repo_consumo=self.repo_consumo,
             id_sessao=self.id_sessao_ativa,
             consumido=False,
-            grupos_excluidos=grupos_excluidos,
+            grupos_excluidos=grupos_excluidos or set(self.excessao_grupos),
         )
         return [
             {"pront": estudante["pront"], "nome": estudante["nome"]}
@@ -320,13 +330,19 @@ class FachadaRegistro:
             repo_consumo=self.repo_consumo,
             id_sessao=self.id_sessao_ativa,
             consumido=consumido,
-            grupos_excluidos=grupos_excluidos,
+            grupos_excluidos=grupos_excluidos or set(self.excessao_grupos),
         )
 
-    def atualizar_grupos_sessao(self, grupos: List[str]):
+    def atualizar_grupos_sessao(
+        self, grupos: List[str], excessao_grupos: Optional[List[str]] = None
+    ):
         """Atualiza a configuração de grupos para a sessão ativa."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
+
+        if excessao_grupos is not None:
+            self.excessao_grupos = excessao_grupos
+
         service_logic.atualizar_grupos_sessao(
             self.repo_sessao, self.repo_grupo, self.id_sessao_ativa, grupos
         )

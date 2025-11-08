@@ -282,6 +282,18 @@ def desfazer_consumo(repo_consumo: RepositorioConsumo, id_consumo: int):
         repo_consumo.obter_sessao().commit()
 
 
+def desfazer_consumo_por_prontuario(
+    repo_consumo: RepositorioConsumo, prontuario: str, id_sessao: int
+) -> bool:
+    """Remove um registro de consumo do banco de dados."""
+    consumo = repo_consumo.por_prontuario_e_sessao(prontuario, id_sessao)
+    if consumo:
+        if repo_consumo.deletar(consumo.id):
+            repo_consumo.obter_sessao().commit()
+            return True
+    return False
+
+
 def atualizar_cancelamento_reserva(
     repo_reserva: RepositorioReserva, id_reserva: int, cancelar: bool = True
 ):

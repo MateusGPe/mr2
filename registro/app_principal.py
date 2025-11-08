@@ -4,7 +4,7 @@ import traceback
 from tkinter import messagebox
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
+from ttkbootstrap.constants import BOTH, NSEW
 from ttkbootstrap.dialogs import Messagebox
 
 from registro.importar.facade import FachadaImportacao

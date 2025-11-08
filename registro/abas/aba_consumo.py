@@ -4,7 +4,7 @@ import tkinter as tk
 import traceback
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
+from ttkbootstrap.constants import HORIZONTAL, EW, LEFT, X, NSEW
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 
@@ -17,6 +17,26 @@ class AbaConsumo(ttk.Frame):
         super().__init__(parent)
         self.fachada_nucleo = fachada_nucleo
         self.todos_elegiveis = []
+
+        self.restantes_label: ttk.Label
+        self.registrados_label: ttk.Label
+        self.search_consumo: ttk.Entry
+        self.search_consumo_var: tk.StringVar
+        self.btn_registrar_consumo: ttk.Button
+        self.elegiveis_table: Tableview
+        self.registrados_table: Tableview
+
+        self.elegiveis_coldata = [
+            {"text": "Nome", "stretch": True},
+            {"text": "Prontuário", "width": 120},
+            {"text": "Status", "width": 150},
+        ]
+        self.registrados_coldata = [
+            {"text": "Nome", "stretch": True},
+            {"text": "Hora", "width": 80},
+            {"text": "Status", "width": 150},
+            {"text": "ID", "stretch": False, "width": 0},
+        ]
 
         self._criar_widgets()
         self._atualizar_tela_consumo()
@@ -49,9 +69,10 @@ class AbaConsumo(ttk.Frame):
 
         self.search_consumo_var = tk.StringVar()
         self.search_consumo_var.trace_add("write", lambda *_: self._filtrar_elegiveis())
-        ttk.Entry(toolbar, textvariable=self.search_consumo_var).pack(
-            side=LEFT, fill=X, expand=True
+        self.search_consumo: ttk.Entry = ttk.Entry(
+            toolbar, textvariable=self.search_consumo_var
         )
+        self.search_consumo.pack(side=LEFT, fill=X, expand=True)
 
         self.btn_registrar_consumo = ttk.Button(
             toolbar, text="Registrar", state="disabled", command=self._registrar_consumo
@@ -63,13 +84,8 @@ class AbaConsumo(ttk.Frame):
             text="⚙️ Sessão",
             command=self._abrir_dialogo_sessao,
             bootstyle="info-outline",
-        ).pack(side=RIGHT)
+        ).pack(side=tk.RIGHT)
 
-        self.elegiveis_coldata = [
-            {"text": "Nome", "stretch": True},
-            {"text": "Prontuário", "width": 120},
-            {"text": "Status", "width": 150},
-        ]
         self.elegiveis_table = Tableview(
             panel, coldata=self.elegiveis_coldata, bootstyle="primary"
         )
@@ -102,12 +118,6 @@ class AbaConsumo(ttk.Frame):
             command=self._desfazer_consumo,
         ).grid(row=1, column=0, sticky=EW, pady=5)
 
-        self.registrados_coldata = [
-            {"text": "Nome", "stretch": True},
-            {"text": "Hora", "width": 80},
-            {"text": "Status", "width": 150},
-            {"text": "ID", "stretch": False, "width": 0},
-        ]
         self.registrados_table = Tableview(
             panel, coldata=self.registrados_coldata, bootstyle="info"
         )
@@ -137,7 +147,8 @@ class AbaConsumo(ttk.Frame):
             else:
                 detalhes = self.fachada_nucleo.obter_detalhes_sessao_ativa()
                 self.consumo_status_label.config(
-                    text=f"Sessão Ativa (ID {detalhes['id']}): {detalhes['refeicao'].capitalize()} em {detalhes['data']}",
+                    text=f"Sessão Ativa (ID {detalhes['id']}): "
+                    f"{detalhes['refeicao'].capitalize()} em {detalhes['data']}",
                     bootstyle="success",
                 )
                 self.todos_elegiveis = self.fachada_nucleo.obter_estudantes_para_sessao(
@@ -180,6 +191,7 @@ class AbaConsumo(ttk.Frame):
         dados = [(e["nome"], e["pront"], e["status"]) for e in filtrados]
         self.elegiveis_table.build_table_data(self.elegiveis_coldata, dados)
         self._on_elegivel_select(None)
+        self.search_consumo.focus_set()
 
     def _on_elegivel_select(self, _=None):
         is_selected = bool(self._get_dados_linha_selecionada(self.elegiveis_table))

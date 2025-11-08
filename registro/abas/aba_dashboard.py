@@ -1,7 +1,7 @@
 # gestao_refeitorio/abas/aba_dashboard.py
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import *
+from ttkbootstrap.constants import NSEW, X
 
 
 class AbaDashboard(ttk.Frame):
