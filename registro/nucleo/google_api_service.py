@@ -40,25 +40,29 @@ def _obter_credenciais(
     credenciais = None
     if caminho_token.exists():
         credenciais = Credentials.from_authorized_user_file(str(caminho_token), SCOPES)
-    if not credenciais or not credenciais.valid:
-        if credenciais and credenciais.expired and credenciais.refresh_token:
-            try:
-                credenciais.refresh(Request())
-            except Exception as e:
-                raise ErroAPIGoogle(f"Falha ao atualizar token de acesso: {e}") from e
-        else:
-            try:
-                flow = InstalledAppFlow.from_client_secrets_file(
-                    str(caminho_credenciais), SCOPES
-                )
-                credenciais = flow.run_local_server(port=0)
-            except FileNotFoundError as e:
-                raise ErroAPIGoogle(
-                    f"Arquivo de credenciais não encontrado em: {caminho_credenciais}"
-                ) from e
-        caminho_token.parent.mkdir(parents=True, exist_ok=True)
-        with open(caminho_token, "w", encoding="utf-8") as token:
-            token.write(credenciais.to_json())
+
+    if credenciais and credenciais.valid:
+        return credenciais
+
+    if credenciais and credenciais.expired and credenciais.refresh_token:
+        try:
+            credenciais.refresh(Request())
+        except Exception as e:
+            raise ErroAPIGoogle(f"Falha ao atualizar token de acesso: {e}") from e
+    else:
+        try:
+            flow = InstalledAppFlow.from_client_secrets_file(
+                str(caminho_credenciais), SCOPES
+            )
+            credenciais = flow.run_local_server(port=0)
+        except FileNotFoundError as e:
+            raise ErroAPIGoogle(
+                f"Arquivo de credenciais não encontrado em: {caminho_credenciais}"
+            ) from e
+
+    caminho_token.parent.mkdir(parents=True, exist_ok=True)
+    with open(caminho_token, "w", encoding="utf-8") as token:
+        token.write(credenciais.to_json())
     return credenciais  # type: ignore
 
 
@@ -77,9 +81,7 @@ class GoogleSheetsService:
                 f"Falha ao abrir planilha com a chave '{spreadsheet_key}': {e}"
             ) from e
         except Exception as e:
-            raise ErroAPIGoogle(
-                f"Erro inesperado na inicialização do serviço: {e}"
-            ) from e
+            raise ErroAPIGoogle(f"Erro inesperado na inicialização do serviço: {e}") from e
 
     @property
     def planilha(self) -> gspread.Spreadsheet:
@@ -121,7 +123,7 @@ def obter_servico_planilha_padrao() -> GoogleSheetsService:
         return GoogleSheetsService(config["key"])
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         raise ErroAPIGoogle(
-            "Falha ao ler config 'spreadsheet.json'. Verifique o arquivo. Erro: {e}"
+            f"Falha ao ler config 'spreadsheet.json'. Verifique o arquivo. Erro: {e}"
         ) from e
 
 

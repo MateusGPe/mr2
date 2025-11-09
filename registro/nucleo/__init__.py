@@ -8,18 +8,22 @@ pública para interação com o sistema, além dos tipos de dados e exceções
 necessários.
 """
 
-from registro.nucleo.exceptions import (ErroAPIGoogle, ErroImportacaoDados,
-                                        ErroNucleoRegistro, ErroSessao,
-                                        ErroSessaoNaoAtiva)
+from registro.nucleo.exceptions import (
+    ErroAPIGoogle,
+    ErroImportacaoDados,
+    ErroNucleoRegistro,
+    ErroSessao,
+    ErroSessaoNaoAtiva,
+)
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.utils import DADOS_SESSAO
 
 __all__ = [
-    'FachadaRegistro',
-    'DADOS_SESSAO',
-    'ErroNucleoRegistro',
-    'ErroSessao',
-    'ErroSessaoNaoAtiva',
-    'ErroImportacaoDados',
-    'ErroAPIGoogle',
+    "FachadaRegistro",
+    "DADOS_SESSAO",
+    "ErroNucleoRegistro",
+    "ErroSessao",
+    "ErroSessaoNaoAtiva",
+    "ErroImportacaoDados",
+    "ErroAPIGoogle",
 ]

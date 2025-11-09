@@ -9,7 +9,7 @@ FachadaRegistro, que gerencia internamente a sessão do banco de dados,
 os repositórios e a lógica de serviço.
 """
 
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 from registro.nucleo import service_logic
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
@@ -48,7 +48,6 @@ class FachadaRegistro:
         self.repo_grupo = RepositorioGrupo(self._sessao_db)
 
         self.id_sessao_ativa: Optional[int] = None
-
         self.excessao_grupos: List[str] = []
 
     def fechar_conexao(self):
@@ -75,17 +74,16 @@ class FachadaRegistro:
         self.id_sessao_ativa = id_sessao
         return id_sessao
 
-    def listar_todas_sessoes(self) -> List[Dict]:
+    def listar_todas_sessoes(self) -> List[Dict[str, Any]]:
         """Retorna uma lista simplificada de todas as sessões."""
         return service_logic.listar_todas_sessoes(self.repo_sessao)
 
-    def listar_todos_os_grupos(self) -> List[Dict]:
+    def listar_todos_os_grupos(self) -> List[Dict[str, Any]]:
         """Retorna uma lista de todos os grupos existentes."""
         return service_logic.listar_todos_os_grupos(self.repo_grupo)
 
     def definir_sessao_ativa(self, id_sessao: int):
         """Define uma sessão existente como ativa pelo seu ID."""
-        # Valida se a sessão existe antes de defini-la como ativa
         service_logic.obter_detalhes_sessao(self.repo_sessao, id_sessao)
         self.id_sessao_ativa = id_sessao
 
@@ -138,7 +136,8 @@ class FachadaRegistro:
 
     def desfazer_consumo_por_prontuario(self, prontuario: str):
         """Desfaz o registro de consumo de uma refeição."""
-        assert self.id_sessao_ativa is not None
+        if self.id_sessao_ativa is None:
+            raise ErroSessaoNaoAtiva("Nenhuma sessão ativa para desfazer o consumo.")
 
         service_logic.desfazer_consumo_por_prontuario(
             self.repo_consumo, prontuario, self.id_sessao_ativa
@@ -222,14 +221,14 @@ class FachadaRegistro:
         """
         Cria uma nova reserva para um estudante.
         """
-        estudante = self.repo_estudante.ler_filtrado(prontuario=prontuario_estudante)
-        if not estudante:
+        estudantes = self.repo_estudante.ler_filtrado(prontuario=prontuario_estudante)
+        if not estudantes:
             raise ValueError(
                 f"Estudante com prontuário {prontuario_estudante} não encontrado."
             )
 
         payload = dados_reserva.copy()
-        payload["estudante_id"] = estudante[0].id
+        payload["estudante_id"] = estudantes[0].id
 
         nova_reserva = self.repo_reserva.criar(payload)
         self._sessao_db.commit()
@@ -242,7 +241,9 @@ class FachadaRegistro:
             "cancelada": nova_reserva.cancelada,
         }
 
-    def listar_reservas(self, filtros: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def listar_reservas(
+        self, filtros: Optional[Dict[str, Any]] = None
+    ) -> List[Dict[str, Any]]:
         """
         Lista todas as reservas, com suporte a filtros.
         """
@@ -294,7 +295,7 @@ class FachadaRegistro:
     # --- Funções de Apoio e Sincronização (Já existentes) ---
 
     def obter_estudantes_pesquisaveis_para_sessao(
-        self, excessao_grupos: Optional[set[str]] = None
+        self, excessao_grupos: Optional[Set[str]] = None
     ) -> List[Dict[str, str]]:
         """
         Retorna uma lista de estudantes elegíveis (que não consumiram) para a busca,
@@ -322,8 +323,7 @@ class FachadaRegistro:
         self,
         consumido: Optional[bool] = None,
         pular_grupos: bool = False,
-        #excessao_grupos: Optional[set[str]] = None,
-    ) -> List[Dict]:
+    ) -> List[Dict[str, Any]]:
         """Retorna estudantes para a sessão ativa, com opção de filtro por consumo."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")

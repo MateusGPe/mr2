@@ -5,7 +5,7 @@ Fornece uma classe CRUD (Create, Read, Update, Delete) genérica para
 interações com o banco de dados via SQLAlchemy.
 """
 
-from typing import Any, Dict, Generic, List, Optional, Self, Sequence, Type, TypeVar, cast
+from typing import Any, Dict, Generic, List, Optional, Self, Sequence, Type, TypeVar
 
 from sqlalchemy import ColumnElement, insert, select
 from sqlalchemy.exc import DBAPIError
@@ -14,7 +14,7 @@ from sqlalchemy.orm.mapper import Mapper
 
 from registro.nucleo.models import Base
 
-MODELO = TypeVar('MODELO', bound=Base)
+MODELO = TypeVar("MODELO", bound=Base)
 
 
 class CRUD(Generic[MODELO]):
@@ -33,7 +33,7 @@ class CRUD(Generic[MODELO]):
         """Retorna a sessão do banco de dados associada."""
         return self._sessao_db
 
-    def criar(self: Self, dados: Dict) -> MODELO:
+    def criar(self: Self, dados: Dict[str, Any]) -> MODELO:
         """
         Cria um novo registro, o adiciona à sessão e atualiza seu estado.
         A transação não é confirmada aqui.
@@ -44,15 +44,20 @@ class CRUD(Generic[MODELO]):
         self._sessao_db.refresh(item_db)
         return item_db
 
-    def ler_um(self: Self, id_item: int) -> Optional[MODELO]:
-        """Lê um registro único pela sua chave primária."""
-        return self._sessao_db.scalar(
-            select(self._modelo).where(self._coluna_chave_primaria == id_item)
-        )
+    def ler_um(self: Self, id_item: int, opcoes_carregamento: Optional[List] = None) -> Optional[MODELO]:
+        """Lê um registro único pela sua chave primária, com opções de carregamento."""
+        consulta = select(self._modelo).where(self._coluna_chave_primaria == id_item)
+        if opcoes_carregamento:
+            consulta = consulta.options(*opcoes_carregamento)
+        return self._sessao_db.scalar(consulta)
 
-    def ler_filtrado(self: Self, **filtros: Any) -> Sequence[MODELO]:
-        """Lê múltiplos registros com base em filtros."""
+
+    def ler_filtrado(self: Self, opcoes_carregamento: Optional[List] = None, **filtros: Any) -> Sequence[MODELO]:
+        """Lê múltiplos registros com base em filtros e com opções de carregamento."""
         consulta = select(self._modelo)
+        if opcoes_carregamento:
+            consulta = consulta.options(*opcoes_carregamento)
+
         clausula_where = []
         for chave, valor in filtros.items():
             coluna = getattr(self._modelo, chave)
@@ -70,7 +75,7 @@ class CRUD(Generic[MODELO]):
         """Lê todos os registros de uma tabela."""
         return self._sessao_db.scalars(select(self._modelo)).all()
 
-    def atualizar(self: Self, id_item: int, linha: Dict) -> Optional[MODELO]:
+    def atualizar(self: Self, id_item: int, linha: Dict[str, Any]) -> Optional[MODELO]:
         """
         Atualiza um registro existente.
         A transação não é confirmada aqui.
@@ -95,24 +100,30 @@ class CRUD(Generic[MODELO]):
             return True
         return False
 
-    def criar_em_massa(self: Self, linhas: List[Dict]) -> bool:
+    def criar_em_massa(self: Self, linhas: List[Dict[str, Any]]) -> bool:
         """Cria múltiplos registros em uma única operação."""
+        if not linhas:
+            return True
         try:
-            if not linhas:
-                return True
             self._sessao_db.execute(insert(self._modelo), linhas)
             return True
         except DBAPIError as e:
-            print(f"Erro de banco de dados durante a inserção em massa de {type(self._modelo)}: {e}")
+            print(
+                f"Erro de banco de dados durante a inserção em massa de {type(self._modelo)}: {e}"
+            )
             return False
 
-    def atualizar_em_massa(self: Self, linhas: List[Dict]) -> bool:
+    def atualizar_em_massa(self: Self, linhas: List[Dict[str, Any]]) -> bool:
         """Atualiza múltiplos registros em uma única operação."""
+        if not linhas:
+            return True
         try:
-            if not linhas:
-                return True
-            self._sessao_db.bulk_update_mappings(cast(Mapper[Any], self._modelo), linhas)
+            self._sessao_db.bulk_update_mappings(
+                self._modelo, linhas  # type: ignore
+            )
             return True
         except DBAPIError as e:
-            print(f"Erro de banco de dados durante a atualização em massa de {type(self._modelo)}: {e}")
+            print(
+                f"Erro de banco de dados durante a atualização em massa de {type(self._modelo)}: {e}"
+            )
             return False

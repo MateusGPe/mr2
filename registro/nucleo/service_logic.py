@@ -7,9 +7,11 @@ da aplicação de registro de refeições.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set
 
 import xlsxwriter
+from sqlalchemy import select, union
+from sqlalchemy.orm import selectinload
 
 from registro.nucleo import google_api_service, importers_service, models
 from registro.nucleo.exceptions import (
@@ -18,6 +20,7 @@ from registro.nucleo.exceptions import (
     ErroNucleoRegistro,
     ErroSessao,
 )
+from registro.nucleo.models import Consumo, Estudante, Grupo, Reserva, Sessao
 from registro.nucleo.repository import (
     RepositorioConsumo,
     RepositorioEstudante,
@@ -41,20 +44,19 @@ def iniciar_nova_sessao(
 ) -> Optional[int]:
     """Inicia uma nova sessão de refeição e a associa aos grupos selecionados."""
     refeicao = dados_sessao["refeicao"].lower()
-    reservas = None
-
-    data = datetime.strptime(dados_sessao["data"], "%Y-%m-%d").strftime("%d/%m/%Y")
+    data_formatada = datetime.strptime(dados_sessao["data"], "%Y-%m-%d").strftime(
+        "%d/%m/%Y"
+    )
 
     if refeicao == "almoço":
-        reservas = repo_reserva.ler_filtrado(data=data, cancelada=False)
-
+        reservas = repo_reserva.ler_filtrado(data=data_formatada, cancelada=False)
         if not reservas:
             return None
 
     payload_sessao = {
         "refeicao": refeicao,
         "periodo": dados_sessao["periodo"],
-        "data": data,
+        "data": data_formatada,
         "hora": dados_sessao["hora"],
         "item_servido": dados_sessao.get("item_servido"),
     }
@@ -69,7 +71,7 @@ def iniciar_nova_sessao(
     return nova_sessao_db.id
 
 
-def listar_todas_sessoes(repo_sessao: RepositorioSessao) -> List[Dict]:
+def listar_todas_sessoes(repo_sessao: RepositorioSessao) -> List[Dict[str, Any]]:
     """Retorna uma lista simplificada de todas as sessões existentes."""
     sessoes = repo_sessao.ler_todos()
     return [
@@ -86,23 +88,21 @@ def listar_todas_sessoes(repo_sessao: RepositorioSessao) -> List[Dict]:
     ]
 
 
-def listar_todos_os_grupos(repo_grupo: RepositorioGrupo) -> List[Dict]:
+def listar_todos_os_grupos(repo_grupo: RepositorioGrupo) -> List[Dict[str, Any]]:
     """Retorna uma lista de todos os grupos existentes."""
     grupos = repo_grupo.ler_todos()
-    return [
-        {
-            "id": g.id,
-            "nome": g.nome,
-        }
-        for g in grupos
-    ]
+    return [{"id": g.id, "nome": g.nome} for g in grupos]
 
 
 def obter_detalhes_sessao(
     repo_sessao: RepositorioSessao, id_sessao: int
 ) -> models.Sessao:
-    """Retorna o objeto de uma sessão específica a partir do seu ID."""
-    sessao = repo_sessao.ler_um(id_sessao)
+    """
+    Retorna o objeto de uma sessão específica a partir do seu ID,
+    carregando seus grupos de forma otimizada.
+    """
+    opcoes = [selectinload(Sessao.grupos)]
+    sessao = repo_sessao.ler_um(id_sessao, opcoes_carregamento=opcoes)
     if not sessao:
         raise ErroSessao(f"Sessão com ID {id_sessao} não encontrada.")
     return sessao
@@ -116,30 +116,81 @@ def obter_estudantes_para_sessao(
     repo_grupo: RepositorioGrupo,
     id_sessao: int,
     consumido: Optional[bool] = None,
-    excessao_grupos: Optional[set[str]] = None,
+    excessao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
-) -> List[Dict]:
-    """Busca estudantes elegíveis para a sessão, com base nas regras de negócio."""
+) -> List[Dict[str, Any]]:
+    """
+    Busca estudantes elegíveis para a sessão, com base na lógica original,
+    porém otimizada para performance.
+    """
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
+    db_session = repo_estudante.obter_sessao()
+    EstudanteGrupo = models.associacao_estudante_grupo
+
+    # --- PASSO 1: Buscar IDs de todos os estudantes potencialmente elegíveis. ---
+    # Isso reduz drasticamente o número de estudantes a serem processados em Python.
     ids_grupos_sessao = {g.id for g in sessao.grupos}
-    ids_excessao_grupos = {
-        g.id for g in repo_grupo.ler_todos() if g.nome in (excessao_grupos or set())
-    }
+    ids_excecao_grupos = {g.id for g in repo_grupo.por_nomes(excessao_grupos or set())}
 
-    consumos_sessao = repo_consumo.ler_filtrado(sessao_id=id_sessao)
-    mapa_consumos_por_estudante = {c.estudante_id: c for c in consumos_sessao}
+    # Estudantes em grupos da sessão
+    q1 = select(EstudanteGrupo.c.estudante_id).where(
+        EstudanteGrupo.c.grupo_id.in_(ids_grupos_sessao)
+    )
+    # Estudantes em grupos de exceção
+    q2 = select(EstudanteGrupo.c.estudante_id).where(
+        EstudanteGrupo.c.grupo_id.in_(ids_excecao_grupos)
+    )
+    # Estudantes com reserva no dia
+    q3 = select(Reserva.estudante_id).where(
+        Reserva.data == sessao.data, Reserva.cancelada.is_(False)
+    )
 
+    # Une todos os IDs, sem duplicatas
+    query_ids_elegiveis = union(q1, q2, q3).subquery()
+
+    # Se um filtro de consumo for aplicado, ajusta a busca
     if consumido is True:
-        ids_estudantes_para_buscar = set(mapa_consumos_por_estudante.keys())
-        estudantes = repo_estudante.por_ids(ids_estudantes_para_buscar)
+        # Busca apenas IDs de estudantes que consumiram na sessão
+        consumos_na_sessao = (
+            select(Consumo.estudante_id)
+            .where(Consumo.sessao_id == id_sessao)
+            .subquery()
+        )
+        stmt = select(Estudante.id).join(
+            consumos_na_sessao, Estudante.id == consumos_na_sessao.c.estudante_id
+        )
     else:
-        estudantes = repo_estudante.ler_filtrado(ativo=True)
+        # Busca por estudantes ativos e potencialmente elegíveis
+        stmt = (
+            select(Estudante.id)
+            .join(
+                query_ids_elegiveis, Estudante.id == query_ids_elegiveis.c.estudante_id
+            )
+            .where(Estudante.ativo.is_(True))
+        )
 
+    ids_para_buscar = set(db_session.execute(stmt).scalars().all())
+
+    if not ids_para_buscar:
+        return []
+
+    # --- PASSO 2: Carregar os objetos completos apenas para os estudantes elegíveis. ---
+    # O 'selectinload' carrega os grupos de forma eficiente (1 consulta extra, não N).
+    opcoes_carregamento = [selectinload(Estudante.grupos)]
+    estudantes = repo_estudante.ler_filtrado(
+        opcoes_carregamento=opcoes_carregamento, id=Estudante.id.in_(ids_para_buscar)
+    )
+
+    # Carrega os outros dados necessários de uma só vez
+    mapa_consumos_por_estudante = {
+        c.estudante_id: c for c in repo_consumo.ler_filtrado(sessao_id=id_sessao)
+    }
     mapa_reservas_dia = {
         r.estudante_id: r
         for r in repo_reserva.ler_filtrado(data=sessao.data, cancelada=False)
     }
 
+    # --- PASSO 3: Rodar a lógica original em Python sobre o conjunto de dados reduzido. ---
     detalhes_estudantes = []
     for est in estudantes:
         autorizado = False
@@ -150,14 +201,13 @@ def obter_estudantes_para_sessao(
 
         if sessao.refeicao == "almoço":
             reserva = mapa_reservas_dia.get(est.id)
-
             if reserva and (
                 ids_grupos_sessao.intersection(ids_grupos_estudante) or pular_grupos
             ):
                 autorizado = True
                 motivo = "Reserva"
                 prato = reserva.prato
-            elif ids_excessao_grupos.intersection(ids_grupos_estudante) or pular_grupos:
+            elif ids_excecao_grupos.intersection(ids_grupos_estudante) or pular_grupos:
                 autorizado = True
                 motivo = "Exceção (Grupo)"
         elif ids_grupos_sessao.intersection(ids_grupos_estudante):
@@ -175,9 +225,7 @@ def obter_estudantes_para_sessao(
         if consumido is False and info_consumo:
             continue
 
-        grupos = (
-            ", ".join(sorted(g.nome for g in set(est.grupos))) if est.grupos else "N/A"
-        )
+        grupos = ", ".join(sorted(g.nome for g in est.grupos)) if est.grupos else "N/A"
 
         detalhes_estudantes.append(
             {
@@ -207,13 +255,10 @@ def atualizar_sessao(
     repo_sessao: RepositorioSessao, id_sessao: int, dados: Dict[str, Any]
 ):
     """Atualiza os dados de uma sessão existente."""
-
     dados.pop("grupos", None)
-
     sessao_atualizada = repo_sessao.atualizar(id_sessao, dados)
     if not sessao_atualizada:
         raise ErroSessao(f"Sessão com ID {id_sessao} não encontrada para atualização.")
-
     repo_sessao.obter_sessao().commit()
     return sessao_atualizada
 
@@ -225,7 +270,7 @@ def registrar_consumo(
     repo_consumo: RepositorioConsumo,
     id_sessao: int,
     prontuario: str,
-    grupos_excluidos: Optional[set[str]] = None,
+    excecao_grupos: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
     """Aplica a lógica de autorização e, se bem-sucedido, registra o consumo."""
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
@@ -254,7 +299,7 @@ def registrar_consumo(
             motivo = "Autorizado com reserva."
         else:
             ids_grupos_excluidos = {
-                g.id for g in sessao.grupos if g.nome in (grupos_excluidos or set())
+                g.id for g in sessao.grupos if g.nome in (excecao_grupos or set())
             }
             ids_grupos_estudante = {g.id for g in estudante.grupos}
             if ids_grupos_excluidos.intersection(ids_grupos_estudante):
@@ -291,10 +336,9 @@ def desfazer_consumo_por_prontuario(
 ) -> bool:
     """Remove um registro de consumo do banco de dados."""
     consumo = repo_consumo.por_prontuario_e_sessao(prontuario, id_sessao)
-    if consumo:
-        if repo_consumo.deletar(consumo.id):
-            repo_consumo.obter_sessao().commit()
-            return True
+    if consumo and repo_consumo.deletar(consumo.id):
+        repo_consumo.obter_sessao().commit()
+        return True
     return False
 
 
@@ -326,7 +370,13 @@ def exportar_sessao_para_xlsx(
 ) -> str:
     """Exporta os dados de consumo da sessão para um arquivo XLSX."""
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
-    consumos = repo_consumo.ler_filtrado(sessao_id=id_sessao)
+    opcoes = [
+        selectinload(Consumo.reserva),
+        selectinload(Consumo.estudante).selectinload(Estudante.grupos),
+    ]
+    consumos = repo_consumo.ler_filtrado(
+        opcoes_carregamento=opcoes, sessao_id=id_sessao
+    )
 
     nome_arquivo = ".".join(
         (
@@ -344,7 +394,7 @@ def exportar_sessao_para_xlsx(
         worksheet.write_row(0, 0, cabecalho)
         for i, consumo in enumerate(consumos):
             prato = "Sem Reserva (Exceção)"
-            if consumo.reserva_id and consumo.reserva:
+            if consumo.reserva:
                 prato = consumo.reserva.prato
             elif sessao.refeicao == "lanche":
                 prato = sessao.item_servido or "Lanche"
@@ -408,12 +458,18 @@ def sincronizar_para_google_sheets(
     """Envia os registros de consumo da sessão para a planilha do Google Sheets."""
     try:
         sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
-        consumos = repo_consumo.ler_filtrado(sessao_id=id_sessao)
+        opcoes = [
+            selectinload(Consumo.reserva),
+            selectinload(Consumo.estudante).selectinload(Estudante.grupos),
+        ]
+        consumos = repo_consumo.ler_filtrado(
+            opcoes_carregamento=opcoes, sessao_id=id_sessao
+        )
 
         linhas_para_adicionar = []
         for consumo in consumos:
             prato = "Sem Reserva (Exceção)"
-            if consumo.reserva_id and consumo.reserva:
+            if consumo.reserva:
                 prato = consumo.reserva.prato
             elif sessao.refeicao == "lanche":
                 prato = sessao.item_servido or "Lanche"

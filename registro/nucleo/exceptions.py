@@ -6,8 +6,10 @@
 class ErroNucleoRegistro(Exception):
     """Classe base para exceções neste módulo."""
 
+
 class ErroEstudanteJaConsumiu(ErroNucleoRegistro):
     """Erro para quando um estudante tenta consumir mais de uma refeição."""
+
 
 class ErroSessao(ErroNucleoRegistro):
     """Erro relacionado ao gerenciamento de sessões de refeição."""

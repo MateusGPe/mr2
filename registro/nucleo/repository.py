@@ -4,7 +4,9 @@
 Fornece implementações concretas do Padrão de Repositório, especializando
 a classe CRUD genérica para cada modelo de dados da aplicação.
 """
-from sqlalchemy.orm import Session
+from typing import List, Set
+
+from sqlalchemy.orm import Session, selectinload
 
 from registro.nucleo.crud import CRUD
 from registro.nucleo.models import Consumo, Estudante, Grupo, Reserva, Sessao
@@ -16,15 +18,38 @@ class RepositorioEstudante(CRUD[Estudante]):
     def __init__(self, sessao: Session):
         super().__init__(sessao, Estudante)
 
-    def por_ids(self, ids: set[int]) -> list[Estudante]:
+    def por_ids(self, ids: Set[int]) -> List[Estudante]:
         """Retorna uma lista de estudantes cujos IDs estão na coleção fornecida."""
+        if not ids:
+            return []
         return self._sessao_db.query(Estudante).filter(Estudante.id.in_(ids)).all()
 
-    def por_prontuarios(self, prontuarios: set[str]) -> list[Estudante]:
-        """Retorna uma lista de estudantes cujos prontuários estão na coleção fornecida."""
+    def por_prontuarios(self, prontuarios: Set[str]) -> List[Estudante]:
+        """Retorna uma lista de estudantes cujos prontuários estão na coleção."""
+        if not prontuarios:
+            return []
         return (
             self._sessao_db.query(Estudante)
             .filter(Estudante.prontuario.in_(prontuarios))
+            .all()
+        )
+
+    def ler_todos_com_grupos(self) -> List[Estudante]:
+        """Lê todos os estudantes, carregando seus grupos de forma otimizada."""
+        return (
+            self._sessao_db.query(Estudante)
+            .options(selectinload(Estudante.grupos))
+            .all()
+        )
+
+    def por_prontuarios_com_grupos(self, prontuarios: Set[str]) -> List[Estudante]:
+        """Busca estudantes por prontuário, carregando seus grupos de forma otimizada."""
+        if not prontuarios:
+            return []
+        return (
+            self._sessao_db.query(Estudante)
+            .filter(Estudante.prontuario.in_(prontuarios))
+            .options(selectinload(Estudante.grupos))
             .all()
         )
 
@@ -67,6 +92,8 @@ class RepositorioGrupo(CRUD[Grupo]):
     def __init__(self, sessao: Session):
         super().__init__(sessao, Grupo)
 
-    def por_nomes(self, nomes: set[str]) -> list[Grupo]:
+    def por_nomes(self, nomes: Set[str]) -> List[Grupo]:
         """Retorna uma lista de grupos cujos nomes estão na coleção fornecida."""
+        if not nomes:
+            return []
         return self._sessao_db.query(Grupo).filter(Grupo.nome.in_(nomes)).all()

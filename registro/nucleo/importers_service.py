@@ -7,12 +7,13 @@ lógica de processamento e inserção no banco de dados.
 
 import csv
 from pathlib import Path
-from typing import Dict
+from typing import Dict, Set
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from registro.nucleo.exceptions import ErroImportacaoDados
+from registro.nucleo.models import Estudante
 from registro.nucleo.repository import (
     RepositorioEstudante,
     RepositorioGrupo,
@@ -21,7 +22,7 @@ from registro.nucleo.repository import (
 from registro.nucleo.utils import ajustar_chaves_e_valores
 
 
-def _obter_ou_criar_grupos(sessao_db: Session, nomes_grupos: set) -> Dict[str, int]:
+def _obter_ou_criar_grupos(sessao_db: Session, nomes_grupos: Set[str]) -> Dict[str, int]:
     """Busca ou cria grupos e retorna um mapeamento de nome para ID."""
     repo_grupo = RepositorioGrupo(sessao_db)
     grupos_existentes = repo_grupo.por_nomes(nomes_grupos)
@@ -31,7 +32,6 @@ def _obter_ou_criar_grupos(sessao_db: Session, nomes_grupos: set) -> Dict[str, i
     if nomes_novos_grupos:
         novas_linhas = [{"nome": nome} for nome in nomes_novos_grupos]
         repo_grupo.criar_em_massa(novas_linhas)
-        # Re-busca todos para obter os novos IDs
         todos_os_grupos = repo_grupo.por_nomes(nomes_grupos)
         return {g.nome: g.id for g in todos_os_grupos}
     return mapa_existentes
@@ -49,9 +49,9 @@ def importar_estudantes_csv(
         relacoes_estudante_grupo = []
         todos_nomes_grupos = set()
 
-        # Lê todos os estudantes existentes e mapeia por prontuário para otimização
         mapa_estudantes_existentes = {
-            s.prontuario: s for s in repo_estudante.ler_todos()
+            s.prontuario: s
+            for s in repo_estudante.ler_todos_com_grupos()  # Otimização aqui
         }
 
         with open(caminho_arquivo_csv, "r", encoding="utf-8") as arquivo_csv:
@@ -65,54 +65,43 @@ def importar_estudantes_csv(
                 dados_estudante = {"prontuario": pront, "nome": linha.get("nome", "")}
 
                 if pront in mapa_estudantes_existentes:
-                    # Se o estudante existe, verifica se o nome mudou
-                    if (
-                        mapa_estudantes_existentes[pront].nome
-                        != dados_estudante["nome"]
-                    ):
-                        # Adiciona o ID para a atualização em massa
-                        payload_atualizacao = dados_estudante.copy()
-                        payload_atualizacao["id"] = mapa_estudantes_existentes[pront].id
-                        estudantes_para_atualizar.append(payload_atualizacao)
+                    estudante_existente = mapa_estudantes_existentes[pront]
+                    if estudante_existente.nome != dados_estudante["nome"]:
+                        payload = {**dados_estudante, "id": estudante_existente.id}
+                        estudantes_para_atualizar.append(payload)
                 else:
-                    # Se não existe, adiciona à lista de criação
                     estudantes_para_criar.append(dados_estudante)
 
-                # Processa os grupos do estudante
-                if linha.get("turma"):
-                    turma = linha["turma"]
+                if turma := linha.get("turma"):
                     todos_nomes_grupos.add(turma)
                     relacoes_estudante_grupo.append(
                         {"prontuario": pront, "nome_grupo": turma}
                     )
 
-        # Executa as operações em massa no banco de dados
         if estudantes_para_criar:
             repo_estudante.criar_em_massa(estudantes_para_criar)
         if estudantes_para_atualizar:
             repo_estudante.atualizar_em_massa(estudantes_para_atualizar)
 
-        # Processa grupos e suas associações
         if relacoes_estudante_grupo:
-            # Garante que todos os grupos existam no DB
             mapa_grupos = _obter_ou_criar_grupos(
                 repo_grupo.obter_sessao(), todos_nomes_grupos
             )
 
-            # Re-busca todos os estudantes envolvidos para garantir que temos os IDs
-            todos_prontuarios = {rel["prontuario"] for rel in relacoes_estudante_grupo}
-            mapa_estudantes = {
-                s.prontuario: s
-                for s in repo_estudante.por_prontuarios(todos_prontuarios)
-            }
+            prontuarios_envolvidos = {rel["prontuario"] for rel in relacoes_estudante_grupo}
+            
+            # Otimização: Carrega estudantes e seus grupos de uma vez
+            estudantes_envolvidos = repo_estudante.por_prontuarios_com_grupos(
+                prontuarios_envolvidos
+            )
+            mapa_estudantes = {s.prontuario: s for s in estudantes_envolvidos}
 
-            # Associa estudantes a grupos
             for rel in relacoes_estudante_grupo:
                 estudante = mapa_estudantes.get(rel["prontuario"])
                 id_grupo = mapa_grupos.get(rel["nome_grupo"])
                 if estudante and id_grupo:
-                    # Evita adicionar associações duplicadas
-                    if not any(g.id == id_grupo for g in estudante.grupos):
+                    ids_grupos_atuais = {g.id for g in estudante.grupos}
+                    if id_grupo not in ids_grupos_atuais:
                         grupo = repo_grupo.ler_um(id_grupo)
                         if grupo:
                             estudante.grupos.append(grupo)
@@ -121,6 +110,7 @@ def importar_estudantes_csv(
         return len(estudantes_para_criar)
 
     except (FileNotFoundError, csv.Error, KeyError, SQLAlchemyError) as e:
+        repo_estudante.obter_sessao().rollback()
         raise ErroImportacaoDados(
             f"Falha ao importar estudantes de '{caminho_arquivo_csv}': {e}"
         ) from e
@@ -160,6 +150,7 @@ def importar_reservas_csv(
         return len(reservas_para_inserir)
 
     except (FileNotFoundError, csv.Error, KeyError, SQLAlchemyError) as e:
+        repo_reserva.obter_sessao().rollback()
         raise ErroImportacaoDados(
             f"Falha ao importar reservas de '{caminho_arquivo_csv}': {e}"
         ) from e

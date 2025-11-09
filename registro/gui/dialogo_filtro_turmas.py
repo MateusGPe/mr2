@@ -26,7 +26,7 @@ def _toggle_selecao_coluna(vars_coluna: List[tk.BooleanVar]):
     """
     if not vars_coluna:
         return
-    # Determina o novo estado: True se TODOS estiverem False, caso contrário False.
+
     novo_estado = not any(var.get() for var in vars_coluna)
     for var in vars_coluna:
         var.set(novo_estado)
@@ -48,18 +48,13 @@ def criar_secao_filtro_turmas_dialogo(
         )
         return [], frame_interno
 
-    # --- Listas para agrupar as variáveis de cada coluna ---
     vars_com_reserva_col: List[tk.BooleanVar] = []
     vars_sem_reserva_col: List[tk.BooleanVar] = []
 
-    # --- Cabeçalho da Tabela (estático) ---
     ttk.Label(frame_interno, text="Turma", font="-weight bold", anchor=W).grid(
         row=0, column=0, sticky=EW, padx=5, pady=(0, 5)
     )
 
-    # --- Linhas de Dados (uma por turma) ---
-    # O grid dos cabeçalhos foi movido para depois do loop para que os comandos
-    # dos botões tenham acesso às listas de variáveis já povoadas.
     for i, nome_turma in enumerate(turmas_disponiveis):
         indice_linha = (
             i + 2
@@ -75,11 +70,15 @@ def criar_secao_filtro_turmas_dialogo(
             column=0, row=indice_linha, sticky="ew", padx=(10, 5), pady=2
         )
         btn_com_reserva = ttk.Checkbutton(
-            frame_interno, variable=var_com_reserva, bootstyle="success-square-toggle"
+            frame_interno,
+            variable=var_com_reserva,
+            bootstyle="success-square-toggle",  # type: ignore
         )
         btn_com_reserva.grid(column=1, row=indice_linha, pady=2)
         btn_sem_reserva = ttk.Checkbutton(
-            frame_interno, variable=var_sem_reserva, bootstyle="warning-square-toggle"
+            frame_interno,
+            variable=var_sem_reserva,
+            bootstyle="warning-square-toggle",  # type: ignore
         )
         btn_sem_reserva.grid(column=2, row=indice_linha, pady=2)
 
@@ -90,8 +89,6 @@ def criar_secao_filtro_turmas_dialogo(
             ]
         )
 
-    # --- Cabeçalhos Interativos (Botões) ---
-    # Criados aqui para que as lambdas capturem as listas de vars já completas.
     btn_cabecalho_com_reserva = ttk.Button(
         frame_interno,
         text="COM Reserva",
