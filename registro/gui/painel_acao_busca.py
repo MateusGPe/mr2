@@ -3,6 +3,7 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 import logging
 import re
 import tkinter as tk
@@ -418,17 +419,17 @@ class PainelAcaoBusca(ttk.Frame):
     ) -> List[Dict[str, Any]]:
         termo_lower = termo_busca.lower().strip()
         correspondencias_encontradas = []
-        eh_busca_pront = bool(
+        busca_por_pront = bool(
             re.fullmatch(r"(?:[a-z]{2})?[\dx\s]+", termo_lower, re.IGNORECASE)
         )
-        chave_busca = "Pront" if eh_busca_pront else "Nome"
+        chave_busca = "Pront" if busca_por_pront else "Nome"
         termo_busca_limpo = (
             REGEX_LIMPEZA_PRONTUARIO.sub("", termo_lower)
-            if eh_busca_pront
+            if busca_por_pront
             else termo_lower
         )
         funcao_match = fuzz.partial_ratio
-        limite = 85 if eh_busca_pront else 70
+        limite = 85 if busca_por_pront else 70
 
         for estudante in estudantes_elegiveis:
             pront = estudante.get("Pront")
@@ -437,7 +438,7 @@ class PainelAcaoBusca(ttk.Frame):
                 continue
 
             valor_lower_para_match = valor_cru_para_match.lower()
-            if eh_busca_pront:
+            if busca_por_pront:
                 valor_para_comparar = REGEX_LIMPEZA_PRONTUARIO.sub(
                     "", valor_lower_para_match
                 )
@@ -445,7 +446,7 @@ class PainelAcaoBusca(ttk.Frame):
                 valor_para_comparar = valor_lower_para_match
             score = funcao_match(termo_busca_limpo, valor_para_comparar)
 
-            if eh_busca_pront and termo_busca_limpo == valor_para_comparar:
+            if busca_por_pront and termo_busca_limpo == valor_para_comparar:
                 score = 100
 
             if score >= limite:

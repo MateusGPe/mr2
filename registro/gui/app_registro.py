@@ -3,6 +3,7 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 import json
 import logging
 import sys
@@ -14,7 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
 
-from registro.nucleo.exceptions import ErroSessaoNaoAtiva
+from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 from registro.gui.painel_acao_busca import PainelAcaoBusca
 from registro.gui.dialogo_filtro_turmas import DialogoFiltroTurmas
@@ -270,6 +271,10 @@ class AppRegistro(tk.Tk):
             elif isinstance(resultado, dict):
                 desc_acao = f"criar nova sessão: {resultado.get('refeicao')}"
                 id_sessao = self._fachada.iniciar_nova_sessao(resultado)  # type: ignore
+                if id_sessao is None:
+                    raise ErroSessao(
+                    "Não é possível iniciar uma sessão de almoço sem reservas ativas para a data."
+                )
                 logger.info("Nova sessão criada com ID: %s", id_sessao)
                 if id_sessao:
                     if CAMINHO_SESSAO.exists():
@@ -394,7 +399,7 @@ class AppRegistro(tk.Tk):
         DialogoSessao(
             title="Selecionar ou Criar Sessão",
             callback=self.tratar_resultado_dialogo_sessao,  # type: ignore
-            app_pai=self,
+            parente_app=self,
         )
 
     def _abrir_dialogo_filtro_turmas(self):

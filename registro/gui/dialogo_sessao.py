@@ -3,6 +3,7 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 import datetime as dt
 import logging
 import tkinter as tk
@@ -72,18 +73,18 @@ class DialogoSessao(tk.Toplevel):
         self,
         title: str,
         callback: Callable[[Union[DadosNovaSessao, int, None]], bool],
-        app_pai: "AppRegistro",
+        parente_app: "AppRegistro",
     ):
-        super().__init__(app_pai)
+        super().__init__(parente_app)
         self.withdraw()
 
         self.title(title)
-        self.transient(app_pai)
+        self.transient(parente_app)
         self.grab_set()
 
         self._callback = callback
-        self._app_pai = app_pai
-        self._fachada: "FachadaRegistro" = app_pai.get_fachada()
+        self._parente_app = parente_app
+        self._fachada: "FachadaRegistro" = parente_app.get_fachada()
         self._dados_checkbox_turmas: List[
             Tuple[str, tk.BooleanVar, ttk.Checkbutton]
         ] = []
@@ -140,12 +141,12 @@ class DialogoSessao(tk.Toplevel):
 
     def _centralizar_janela(self):
         self.update_idletasks()
-        pai = self._app_pai
-        pai_x, pai_y = pai.winfo_x(), pai.winfo_y()
-        pai_w, pai_h = pai.winfo_width(), pai.winfo_height()
+        parente = self._parente_app
+        parente_x, parente_y = parente.winfo_x(), parente.winfo_y()
+        parente_w, parente_h = parente.winfo_width(), parente.winfo_height()
         dialog_w, dialog_h = self.winfo_width(), self.winfo_height()
-        pos_x = pai_x + (pai_w // 2) - (dialog_w // 2)
-        pos_y = pai_y + (pai_h // 2) - (dialog_h // 2)
+        pos_x = parente_x + (parente_w // 2) - (dialog_w // 2)
+        pos_y = parente_y + (parente_h // 2) - (dialog_h // 2)
         self.geometry(f"+{pos_x}+{pos_y}")
 
     def _ao_fechar(self):
@@ -550,7 +551,7 @@ class DialogoSessao(tk.Toplevel):
 
     def _ao_sincronizar_reservas(self):
         logger.info("Botão Sincronizar Reservas clicado.")
-        self._app_pai.mostrar_barra_progresso(True, "Sincronizando reservas...")
+        self._parente_app.mostrar_barra_progresso(True, "Sincronizando reservas...")
         self.update_idletasks()
 
         class ThreadWithAttrs(Thread):
@@ -580,7 +581,7 @@ class DialogoSessao(tk.Toplevel):
         if thread.is_alive():
             self.after(150, lambda: self._monitorar_sincronizacao(thread))
         else:
-            self._app_pai.mostrar_barra_progresso(False)
+            self._parente_app.mostrar_barra_progresso(False)
             erro = getattr(thread, "error", None)
             sucesso = getattr(thread, "success", False)
 

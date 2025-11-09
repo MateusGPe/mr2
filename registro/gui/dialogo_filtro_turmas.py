@@ -3,9 +3,10 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 import logging
 import tkinter as tk
-from tkinter import BOTH, CENTER, EW, HORIZONTAL, NSEW, YES, messagebox
+from tkinter import BOTH, EW, HORIZONTAL, NSEW, W, YES, messagebox
 from typing import TYPE_CHECKING, Callable, List, Tuple, Union
 
 import ttkbootstrap as ttk
@@ -17,58 +18,70 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _toggle_selecao_coluna(vars_coluna: List[tk.BooleanVar]):
+    """
+    Alterna o estado de uma lista de BooleanVars.
+    - Se algum estiver True, todos se tornarão False.
+    - Se todos estiverem False, todos se tornarão True.
+    """
+    if not vars_coluna:
+        return
+    # Determina o novo estado: True se TODOS estiverem False, caso contrário False.
+    novo_estado = not any(var.get() for var in vars_coluna)
+    for var in vars_coluna:
+        var.set(novo_estado)
+
+
 def criar_secao_filtro_turmas_dialogo(
     master: tk.Widget, turmas_disponiveis: List[str]
 ) -> Tuple[List[Tuple[str, tk.BooleanVar, ttk.Checkbutton]], ttk.Frame]:
+    """Cria a seção de checkboxes para o filtro de turmas em um layout de tabela."""
     frame_interno = ttk.Frame(master, padding=5)
-    frame_interno.columnconfigure((0, 1), weight=1)
+    frame_interno.columnconfigure(0, weight=2)
+    frame_interno.columnconfigure((1, 2), weight=1)
 
     dados_checkbuttons = []
 
     if not turmas_disponiveis:
         ttk.Label(frame_interno, text="Nenhuma turma disponível.").grid(
-            row=0, column=0, columnspan=2, pady=5
+            row=0, column=0, columnspan=3, pady=5
         )
         return [], frame_interno
 
-    ttk.Label(
-        frame_interno,
-        text="Mostrar COM Reserva",
-        bootstyle="success",  # type: ignore
-        anchor=CENTER,
-    ).grid(row=0, column=0, sticky=EW, padx=5, pady=(0, 5))
+    # --- Listas para agrupar as variáveis de cada coluna ---
+    vars_com_reserva_col: List[tk.BooleanVar] = []
+    vars_sem_reserva_col: List[tk.BooleanVar] = []
 
-    ttk.Label(
-        frame_interno,
-        text="Mostrar SEM Reserva (#)",
-        bootstyle="warning",  # type: ignore
-        anchor=CENTER,
-    ).grid(row=0, column=1, sticky=EW, padx=5, pady=(0, 5))
-
-    ttk.Separator(frame_interno, orient=HORIZONTAL).grid(
-        row=1, column=0, columnspan=2, sticky=EW, pady=(0, 10)
+    # --- Cabeçalho da Tabela (estático) ---
+    ttk.Label(frame_interno, text="Turma", font="-weight bold", anchor=W).grid(
+        row=0, column=0, sticky=EW, padx=5, pady=(0, 5)
     )
 
+    # --- Linhas de Dados (uma por turma) ---
+    # O grid dos cabeçalhos foi movido para depois do loop para que os comandos
+    # dos botões tenham acesso às listas de variáveis já povoadas.
     for i, nome_turma in enumerate(turmas_disponiveis):
-        indice_linha = i + 2
+        indice_linha = (
+            i + 2
+        )  # Começa da linha 2 para deixar espaço para cabeçalho/separador
         var_com_reserva = tk.BooleanVar(value=False)
         var_sem_reserva = tk.BooleanVar(value=False)
 
-        btn_com_reserva = ttk.Checkbutton(
-            frame_interno,
-            text=nome_turma,
-            variable=var_com_reserva,
-            bootstyle="success-square-toggle",  # type: ignore
-        )
-        btn_sem_reserva = ttk.Checkbutton(
-            frame_interno,
-            text=nome_turma,
-            variable=var_sem_reserva,
-            bootstyle="warning-square-toggle",  # type: ignore
-        )
+        # Adiciona as variáveis às listas de controle de coluna
+        vars_com_reserva_col.append(var_com_reserva)
+        vars_sem_reserva_col.append(var_sem_reserva)
 
-        btn_com_reserva.grid(column=0, row=indice_linha, sticky="ew", padx=10, pady=2)
-        btn_sem_reserva.grid(column=1, row=indice_linha, sticky="ew", padx=10, pady=2)
+        ttk.Label(frame_interno, text=nome_turma, anchor=W).grid(
+            column=0, row=indice_linha, sticky="ew", padx=(10, 5), pady=2
+        )
+        btn_com_reserva = ttk.Checkbutton(
+            frame_interno, variable=var_com_reserva, bootstyle="success-square-toggle"
+        )
+        btn_com_reserva.grid(column=1, row=indice_linha, pady=2)
+        btn_sem_reserva = ttk.Checkbutton(
+            frame_interno, variable=var_sem_reserva, bootstyle="warning-square-toggle"
+        )
+        btn_sem_reserva.grid(column=2, row=indice_linha, pady=2)
 
         dados_checkbuttons.extend(
             [
@@ -76,6 +89,29 @@ def criar_secao_filtro_turmas_dialogo(
                 (f"#{nome_turma}", var_sem_reserva, btn_sem_reserva),
             ]
         )
+
+    # --- Cabeçalhos Interativos (Botões) ---
+    # Criados aqui para que as lambdas capturem as listas de vars já completas.
+    btn_cabecalho_com_reserva = ttk.Button(
+        frame_interno,
+        text="COM Reserva",
+        bootstyle="success-outline",  # type: ignore
+        command=lambda: _toggle_selecao_coluna(vars_com_reserva_col),
+    )
+    btn_cabecalho_com_reserva.grid(row=0, column=1, sticky=EW, padx=5, pady=(0, 5))
+
+    btn_cabecalho_sem_reserva = ttk.Button(
+        frame_interno,
+        text="SEM Reserva (#)",
+        bootstyle="warning-outline",  # type: ignore
+        command=lambda: _toggle_selecao_coluna(vars_sem_reserva_col),
+    )
+    btn_cabecalho_sem_reserva.grid(row=0, column=2, sticky=EW, padx=5, pady=(0, 5))
+
+    ttk.Separator(frame_interno, orient=HORIZONTAL).grid(
+        row=1, column=0, columnspan=3, sticky=EW, pady=(0, 10)
+    )
+
     return dados_checkbuttons, frame_interno
 
 
@@ -95,7 +131,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
 
         self._fachada = fachada_nucleo
         self._callback_aplicar = callback_aplicar
-        self._app_pai = parent
+        self._app_parente = parent
 
         frame_principal = ttk.Frame(self, padding=15)
         frame_principal.pack(fill=BOTH, expand=YES)
@@ -167,20 +203,20 @@ class DialogoFiltroTurmas(tk.Toplevel):
 
     def _centralizar_janela(self):
         self.update_idletasks()
-        pai = self._app_pai
+        parente = self._app_parente
 
-        if not pai:
+        if not parente:
             logger.warning("Tentativa de centralizar o diálogo sem janela pai.")
             return
 
-        pai_x = pai.winfo_x()
-        pai_y = pai.winfo_y()
-        pai_w = pai.winfo_width()
-        pai_h = pai.winfo_height()
+        parente_x = parente.winfo_x()
+        parente_y = parente.winfo_y()
+        parente_w = parente.winfo_width()
+        parente_h = parente.winfo_height()
         dialog_w = self.winfo_width()
         dialog_h = self.winfo_height()
-        pos_x = pai_x + (pai_w // 2) - (dialog_w // 2)
-        pos_y = pai_y + (pai_h // 2) - (dialog_h // 2)
+        pos_x = parente_x + (parente_w // 2) - (dialog_w // 2)
+        pos_y = parente_y + (parente_h // 2) - (dialog_h // 2)
         self.geometry(f"+{pos_x}+{pos_y}")
 
     def _inicializar_checkboxes(self, identificadores_selecionados: List[str]):

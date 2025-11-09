@@ -36,23 +36,31 @@ from registro.nucleo.utils import (
 def iniciar_nova_sessao(
     repo_sessao: RepositorioSessao,
     repo_grupo: RepositorioGrupo,
+    repo_reserva: RepositorioReserva,
     dados_sessao: DADOS_SESSAO,
-) -> int:
+) -> Optional[int]:
     """Inicia uma nova sessão de refeição e a associa aos grupos selecionados."""
     refeicao = dados_sessao["refeicao"].lower()
+    reservas = None
+
+    data = datetime.strptime(dados_sessao["data"], "%Y-%m-%d").strftime("%d/%m/%Y")
+
+    if refeicao == "almoço":
+        reservas = repo_reserva.ler_filtrado(data=data, cancelada=False)
+
+        if not reservas:
+            return None
 
     payload_sessao = {
         "refeicao": refeicao,
         "periodo": dados_sessao["periodo"],
-        "data": dados_sessao["data"],
+        "data": data,
         "hora": dados_sessao["hora"],
         "item_servido": dados_sessao.get("item_servido"),
     }
 
-    # Cria a sessão no banco de dados
     nova_sessao_db = repo_sessao.criar(payload_sessao)
 
-    # Associa os grupos à sessão, se houver
     if dados_sessao["grupos"]:
         grupos_db = repo_grupo.por_nomes(set(dados_sessao["grupos"]))
         nova_sessao_db.grupos.extend(grupos_db)
@@ -105,68 +113,63 @@ def obter_estudantes_para_sessao(
     repo_estudante: RepositorioEstudante,
     repo_reserva: RepositorioReserva,
     repo_consumo: RepositorioConsumo,
+    repo_grupo: RepositorioGrupo,
     id_sessao: int,
     consumido: Optional[bool] = None,
-    grupos_excluidos: Optional[set[str]] = None,
+    excessao_grupos: Optional[set[str]] = None,
+    pular_grupos: bool = False,
 ) -> List[Dict]:
     """Busca estudantes elegíveis para a sessão, com base nas regras de negócio."""
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
     ids_grupos_sessao = {g.id for g in sessao.grupos}
+    ids_excessao_grupos = {
+        g.id for g in repo_grupo.ler_todos() if g.nome in (excessao_grupos or set())
+    }
 
-    # 1. Obter todos os consumos já registrados para esta sessão
     consumos_sessao = repo_consumo.ler_filtrado(sessao_id=id_sessao)
     mapa_consumos_por_estudante = {c.estudante_id: c for c in consumos_sessao}
 
-    # 2. Otimizar busca de estudantes com base no filtro 'consumido'
     if consumido is True:
         ids_estudantes_para_buscar = set(mapa_consumos_por_estudante.keys())
         estudantes = repo_estudante.por_ids(ids_estudantes_para_buscar)
-    else:  # Se consumido for False ou None, busca todos os ativos
+    else:
         estudantes = repo_estudante.ler_filtrado(ativo=True)
 
-    # 3. Otimizar busca de reservas, pegando todas para a data da sessão de uma só vez
     mapa_reservas_dia = {
         r.estudante_id: r
         for r in repo_reserva.ler_filtrado(data=sessao.data, cancelada=False)
     }
 
-    # 4. Construir a lista final de estudantes elegíveis, aplicando as regras
     detalhes_estudantes = []
     for est in estudantes:
-        if grupos_excluidos:
-            nomes_grupos_estudante = {g.nome for g in est.grupos}
-
-            if nomes_grupos_estudante.intersection(grupos_excluidos):
-                continue
-
         autorizado = False
         motivo = "Acesso Negado"
         prato = "Sem Reserva"
 
+        ids_grupos_estudante = {g.id for g in est.grupos}
+
         if sessao.refeicao == "almoço":
             reserva = mapa_reservas_dia.get(est.id)
-            if reserva:
+
+            if reserva and (
+                ids_grupos_sessao.intersection(ids_grupos_estudante) or pular_grupos
+            ):
                 autorizado = True
                 motivo = "Reserva"
                 prato = reserva.prato
-            else:  # Verifica exceção por grupo
-                ids_grupos_estudante = {g.id for g in est.grupos}
-                if ids_grupos_sessao.intersection(ids_grupos_estudante):
-                    autorizado = True
-                    motivo = "Exceção (Grupo)"
-        else:  # Lanche
-            ids_grupos_estudante = {g.id for g in est.grupos}
-            if ids_grupos_sessao.intersection(ids_grupos_estudante):
+            elif ids_excessao_grupos.intersection(ids_grupos_estudante) or pular_grupos:
                 autorizado = True
-                motivo = "Autorizado (Grupo)"
-                prato = sessao.item_servido or "Lanche"
+                motivo = "Exceção (Grupo)"
+        elif ids_grupos_sessao.intersection(ids_grupos_estudante):
+            autorizado = True
+            motivo = "Autorizado (Grupo)"
+            prato = sessao.item_servido or "Lanche"
 
         if not autorizado:
             continue
 
         info_consumo = mapa_consumos_por_estudante.get(est.id)
 
-        # Aplicar filtro final de consumo
         if consumido is True and not info_consumo:
             continue
         if consumido is False and info_consumo:
@@ -184,7 +187,7 @@ def obter_estudantes_para_sessao(
                 "prato": prato,
                 "consumido": bool(info_consumo),
                 "id_consumo": info_consumo.id if info_consumo else None,
-                "hora_registro": info_consumo.hora_consumo if info_consumo else "",
+                "hora_consumo": info_consumo.hora_consumo if info_consumo else "",
                 "status": motivo,
                 **para_codigo(est.prontuario),
             }
@@ -204,7 +207,7 @@ def atualizar_sessao(
     repo_sessao: RepositorioSessao, id_sessao: int, dados: Dict[str, Any]
 ):
     """Atualiza os dados de uma sessão existente."""
-    # 'grupos' são tratados em um método separado para clareza
+
     dados.pop("grupos", None)
 
     sessao_atualizada = repo_sessao.atualizar(id_sessao, dados)
@@ -222,6 +225,7 @@ def registrar_consumo(
     repo_consumo: RepositorioConsumo,
     id_sessao: int,
     prontuario: str,
+    grupos_excluidos: Optional[set[str]] = None,
 ) -> Dict[str, Any]:
     """Aplica a lógica de autorização e, se bem-sucedido, registra o consumo."""
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
@@ -230,14 +234,12 @@ def registrar_consumo(
         return {"autorizado": False, "motivo": "Estudante não encontrado."}
     estudante = estudantes[0]
 
-    # Verificar se já consumiu na mesma sessão
     consumo_existente = repo_consumo.ler_filtrado(
         estudante_id=estudante.id, sessao_id=id_sessao
     )
     if consumo_existente:
         return {"autorizado": False, "motivo": "Consumo já registrado."}
 
-    # Lógica de autorização
     id_reserva = None
     autorizado = False
     motivo = "Acesso Negado"
@@ -251,12 +253,14 @@ def registrar_consumo(
             id_reserva = reservas[0].id
             motivo = "Autorizado com reserva."
         else:
-            ids_grupos_sessao = {g.id for g in sessao.grupos}
+            ids_grupos_excluidos = {
+                g.id for g in sessao.grupos if g.nome in (grupos_excluidos or set())
+            }
             ids_grupos_estudante = {g.id for g in estudante.grupos}
-            if ids_grupos_sessao.intersection(ids_grupos_estudante):
+            if ids_grupos_excluidos.intersection(ids_grupos_estudante):
                 autorizado = True
                 motivo = "Autorizado por exceção (grupo)."
-    else:  # Lanche
+    else:
         ids_grupos_sessao = {g.id for g in sessao.grupos}
         ids_grupos_estudante = {g.id for g in estudante.grupos}
         if ids_grupos_sessao.intersection(ids_grupos_estudante):
@@ -372,7 +376,6 @@ def sincronizar_do_google_sheets(
         caminho_config.mkdir(exist_ok=True)
         planilha = google_api_service.obter_planilha()
 
-        # Importa discentes (estudantes)
         discentes = google_api_service.buscar_valores_aba(planilha, "Discentes")
         if discentes:
             caminho_csv = caminho_config / "students.csv"
@@ -381,7 +384,6 @@ def sincronizar_do_google_sheets(
                     repo_estudante, repo_grupo, caminho_csv
                 )
 
-        # Importa reservas
         reservas = google_api_service.buscar_valores_aba(planilha, "DB")
         if reservas:
             caminho_csv = caminho_config / "reserves.csv"

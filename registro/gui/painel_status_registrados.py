@@ -3,6 +3,7 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 import logging
 import tkinter as tk
 from tkinter import messagebox
@@ -160,7 +161,9 @@ class PainelStatusRegistrados(ttk.Frame):
             return
         logger.debug("Carregando tabela de registrados...")
         try:
-            dados_servidos = self._fachada.obter_estudantes_para_sessao(consumido=True)
+            dados_servidos = self._fachada.obter_estudantes_para_sessao(
+                consumido=True, pular_grupos=True
+            )
             if dados_servidos:
                 linhas_com_acao = []
                 for estudante in dados_servidos:
@@ -208,7 +211,7 @@ class PainelStatusRegistrados(ttk.Frame):
 
         try:
             lista_registrados = self._fachada.obter_estudantes_para_sessao(
-                consumido=True
+                consumido=True, pular_grupos=True
             )
             lista_elegiveis = self._fachada.obter_estudantes_para_sessao(
                 consumido=False

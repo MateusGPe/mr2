@@ -10,6 +10,7 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.scrolled import ScrolledFrame
 from ttkbootstrap.widgets import DateEntry
 
+from registro.nucleo.exceptions import ErroSessao
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.utils import DADOS_SESSAO
 
@@ -379,6 +380,10 @@ class SessionDialog(ttk.Toplevel):
         }
         try:
             self.result = self.fachada.iniciar_nova_sessao(dados_sessao)
+            if self.result is None:
+                raise ErroSessao(
+                    "Não é possível iniciar uma sessão de almoço sem reservas ativas para a data."
+                )
             self.destroy()
         except Exception:
             Messagebox.show_error("Erro ao criar sessão. Verifique o console.", "Erro")

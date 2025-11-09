@@ -68,8 +68,10 @@ class FachadaRegistro:
     def iniciar_nova_sessao(self, dados_sessao: DADOS_SESSAO) -> Optional[int]:
         """Inicia uma nova sessão de refeição e a define como ativa."""
         id_sessao = service_logic.iniciar_nova_sessao(
-            self.repo_sessao, self.repo_grupo, dados_sessao
+            self.repo_sessao, self.repo_grupo, self.repo_reserva, dados_sessao
         )
+        if id_sessao is None:
+            return None
         self.id_sessao_ativa = id_sessao
         return id_sessao
 
@@ -292,7 +294,7 @@ class FachadaRegistro:
     # --- Funções de Apoio e Sincronização (Já existentes) ---
 
     def obter_estudantes_pesquisaveis_para_sessao(
-        self, grupos_excluidos: Optional[set[str]] = None
+        self, excessao_grupos: Optional[set[str]] = None
     ) -> List[Dict[str, str]]:
         """
         Retorna uma lista de estudantes elegíveis (que não consumiram) para a busca,
@@ -306,9 +308,10 @@ class FachadaRegistro:
             repo_estudante=self.repo_estudante,
             repo_reserva=self.repo_reserva,
             repo_consumo=self.repo_consumo,
+            repo_grupo=self.repo_grupo,
             id_sessao=self.id_sessao_ativa,
             consumido=False,
-            grupos_excluidos=grupos_excluidos or set(self.excessao_grupos),
+            excessao_grupos=excessao_grupos or set(self.excessao_grupos),
         )
         return [
             {"pront": estudante["pront"], "nome": estudante["nome"]}
@@ -318,7 +321,8 @@ class FachadaRegistro:
     def obter_estudantes_para_sessao(
         self,
         consumido: Optional[bool] = None,
-        grupos_excluidos: Optional[set[str]] = None,
+        pular_grupos: bool = False,
+        #excessao_grupos: Optional[set[str]] = None,
     ) -> List[Dict]:
         """Retorna estudantes para a sessão ativa, com opção de filtro por consumo."""
         if self.id_sessao_ativa is None:
@@ -328,9 +332,11 @@ class FachadaRegistro:
             repo_estudante=self.repo_estudante,
             repo_reserva=self.repo_reserva,
             repo_consumo=self.repo_consumo,
+            repo_grupo=self.repo_grupo,
             id_sessao=self.id_sessao_ativa,
             consumido=consumido,
-            grupos_excluidos=grupos_excluidos or set(self.excessao_grupos),
+            excessao_grupos=set(self.excessao_grupos),
+            pular_grupos=pular_grupos,
         )
 
     def atualizar_grupos_sessao(
