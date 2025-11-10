@@ -4,7 +4,7 @@ import tkinter as tk
 import traceback
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import EW, LEFT, X, BOTH, NSEW
+from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, E, W, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 
@@ -22,29 +22,30 @@ class AbaAlunos(ttk.Frame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
-        toolbar = ttk.Frame(self, padding=(10, 10, 10, 0))
-        toolbar.grid(row=0, column=0, sticky=EW)
+        # Painel superior unificado para filtros e ações (padrão AbaReservas)
+        top_panel = ttk.Frame(self)
+        top_panel.grid(row=0, column=0, sticky=EW, pady=(0, 10))
+        top_panel.columnconfigure(1, weight=1)  # Coluna do filtro/busca expande
 
-        self.search_aluno_var = tk.StringVar()
-        self.search_aluno_var.trace_add("write", lambda *_: self._carregar_alunos())
-        ttk.Entry(toolbar, textvariable=self.search_aluno_var, width=40).pack(
-            side=LEFT, fill=X, expand=True
-        )
+        # Ações à esquerda
+        actions_frame = ttk.Frame(top_panel)
+        actions_frame.grid(row=0, column=0, sticky=W, padx=(0, 10))
 
-        ttk.Button(
-            toolbar,
-            text="Adicionar",
+        btn_add = ttk.Button(
+            actions_frame,
+            text="Adicionar Aluno",
             command=self._adicionar_aluno,
             bootstyle="success",
-        ).pack(side=LEFT, padx=5)
+        )
+        btn_add.pack(side=LEFT, padx=5)
 
         self.btn_edit_aluno = ttk.Button(
-            toolbar, text="Editar", command=self._editar_aluno, state="disabled"
+            actions_frame, text="Editar", command=self._editar_aluno, state="disabled"
         )
         self.btn_edit_aluno.pack(side=LEFT, padx=5)
 
         self.btn_delete_aluno = ttk.Button(
-            toolbar,
+            actions_frame,
             text="Excluir",
             command=self._deletar_aluno,
             bootstyle="danger-outline",
@@ -52,7 +53,18 @@ class AbaAlunos(ttk.Frame):
         )
         self.btn_delete_aluno.pack(side=LEFT, padx=5)
 
-        container = ttk.Frame(self, padding=(10, 0, 10, 10))
+        # Filtros/Busca à direita
+        filter_frame = ttk.Frame(top_panel)
+        filter_frame.grid(row=0, column=1, sticky=EW)
+
+        ttk.Label(filter_frame, text="Buscar Aluno:").pack(side=LEFT, padx=(0, 5))
+        self.search_aluno_var = tk.StringVar()
+        self.search_aluno_var.trace_add("write", lambda *_: self._carregar_alunos())
+        self.search_entry = ttk.Entry(filter_frame, textvariable=self.search_aluno_var)
+        self.search_entry.pack(side=LEFT, fill=X, expand=True)
+
+        # Tabela de Alunos
+        container = ttk.Frame(self)
         container.grid(row=1, column=0, sticky=NSEW)
 
         self.alunos_coldata = [
@@ -66,7 +78,9 @@ class AbaAlunos(ttk.Frame):
             master=container,
             coldata=self.alunos_coldata,
             paginated=True,
+            pagesize=20,
             bootstyle="primary",
+            searchable=False,
         )
         self.alunos_table.pack(expand=True, fill=BOTH)
         self.alunos_table.view.bind("<<TreeviewSelect>>", self._on_aluno_select)
@@ -82,20 +96,23 @@ class AbaAlunos(ttk.Frame):
         is_selected = bool(self._get_dados_linha_selecionada())
         self.btn_edit_aluno.config(state="normal" if is_selected else "disabled")
         self.btn_delete_aluno.config(state="normal" if is_selected else "disabled")
+        self.search_entry.focus_set()
 
     def _carregar_alunos(self):
         try:
             termo = self.search_aluno_var.get()
-            alunos = self.fachada_nucleo.listar_estudantes(termo_busca=termo)
+            alunos = self.fachada_nucleo.listar_estudantes_fuzzy(
+                termo_busca=termo, limite=80
+            )
             dados = [
                 (
-                    a["id"],
-                    a["nome"],
-                    a["prontuario"],
-                    ", ".join(a["grupos"]),
-                    "Sim" if a["ativo"] else "Não",
+                    aluno["id"],
+                    aluno["nome"],
+                    aluno["prontuario"],
+                    ", ".join(aluno.get("grupos", [])),
+                    "Sim" if aluno.get("ativo", False) else "Não",
                 )
-                for a in alunos
+                for aluno in alunos
             ]
             self.alunos_table.build_table_data(self.alunos_coldata, dados)
         except Exception:
@@ -134,8 +151,9 @@ class AbaAlunos(ttk.Frame):
             try:
                 self.fachada_nucleo.deletar_estudante(aluno_id)
                 self._carregar_alunos()
-            except Exception:
+            except Exception as e:
                 Messagebox.show_error(
-                    "Erro ao excluir. Verifique registros associados.", "Erro"
+                    f"Erro ao excluir. Verifique registros associados: {e}",
+                    "Erro",
                 )
                 traceback.print_exc()

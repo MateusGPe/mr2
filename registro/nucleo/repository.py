@@ -4,7 +4,7 @@
 Fornece implementações concretas do Padrão de Repositório, especializando
 a classe CRUD genérica para cada modelo de dados da aplicação.
 """
-from typing import List, Set
+from typing import List, Set, Optional
 
 from sqlalchemy.orm import Session, selectinload
 
@@ -91,6 +91,13 @@ class RepositorioGrupo(CRUD[Grupo]):
 
     def __init__(self, sessao: Session):
         super().__init__(sessao, Grupo)
+
+    def por_nome(self, nome: str) -> Optional[Grupo]:
+        """Retorna um grupo por nome."""
+        if not nome:
+            return None
+
+        return self._sessao_db.query(Grupo).filter(Grupo.nome == nome).one_or_none()
 
     def por_nomes(self, nomes: Set[str]) -> List[Grupo]:
         """Retorna uma lista de grupos cujos nomes estão na coleção fornecida."""

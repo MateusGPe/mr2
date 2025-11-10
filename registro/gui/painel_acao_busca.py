@@ -312,9 +312,21 @@ class PainelAcaoBusca(ttk.Frame):
                 self._botao_registrar.config(state=DISABLED)
             return
 
-        logger.debug("Executando busca por: %s", termo_busca)
+        pular_grupos = False
+        if termo_busca.endswith("."):
+            termo_busca = termo_busca[:-1].strip()
+            pular_grupos = True
+
+        logger.debug(
+            "Executando busca por: %s (ignorar grupos: %s)",
+            termo_busca,
+            str(pular_grupos),
+        )
+
         try:
-            elegiveis = self._fachada.obter_estudantes_para_sessao(consumido=False)
+            elegiveis = self._fachada.obter_estudantes_para_sessao(
+                consumido=False, pular_grupos=pular_grupos
+            )
         except ErroSessaoNaoAtiva:
             logger.error("Nenhuma sessão ativa para realizar a busca.")
             elegiveis = []
@@ -621,8 +633,10 @@ class PainelAcaoBusca(ttk.Frame):
 
         logger.info("Registrando aluno elegível: %s - %s", pront, nome)
         try:
-            resultado = self._fachada.registrar_consumo(pront)
-            logger.info("Aluno %s registrado com sucesso: %s", pront, resultado)
+            resultado = self._fachada.registrar_consumo(pront, pular_grupos=True)
+            logger.info(
+                "Resultado do registro, prontuario %s: %s", pront, str(resultado)
+            )
 
             tupla_estudante = (
                 str(resultado.get("prontuario", pront)),

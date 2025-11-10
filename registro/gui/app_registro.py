@@ -12,19 +12,22 @@ from threading import Thread
 from tkinter import CENTER, TclError, messagebox
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
 
-from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
-from registro.nucleo.facade import FachadaRegistro
-from registro.gui.painel_acao_busca import PainelAcaoBusca
-from registro.gui.dialogo_filtro_turmas import DialogoFiltroTurmas
 from registro.gui.constants import CAMINHO_SESSAO
+from registro.gui.dialogo_filtro_turmas import DialogoFiltroTurmas
 from registro.gui.dialogo_sessao import DialogoSessao
+from registro.gui.painel_acao_busca import PainelAcaoBusca
 from registro.gui.painel_status_registrados import PainelStatusRegistrados
 from registro.gui.utils import capitalizar
+from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
+from registro.nucleo.facade import FachadaRegistro
 
 logger = logging.getLogger(__name__)
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 class AppRegistro(tk.Tk):
@@ -273,8 +276,8 @@ class AppRegistro(tk.Tk):
                 id_sessao = self._fachada.iniciar_nova_sessao(resultado)  # type: ignore
                 if id_sessao is None:
                     raise ErroSessao(
-                    "Não é possível iniciar uma sessão de almoço sem reservas ativas para a data."
-                )
+                        "Não é possível iniciar uma sessão de almoço sem reservas ativas para a data."
+                    )
                 logger.info("Nova sessão criada com ID: %s", id_sessao)
                 if id_sessao:
                     if CAMINHO_SESSAO.exists():

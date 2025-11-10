@@ -20,7 +20,7 @@ from registro.nucleo.exceptions import (
     ErroNucleoRegistro,
     ErroSessao,
 )
-from registro.nucleo.models import Consumo, Estudante, Grupo, Reserva, Sessao
+from registro.nucleo.models import Consumo, Estudante, Reserva, Sessao
 from registro.nucleo.repository import (
     RepositorioConsumo,
     RepositorioEstudante,
@@ -120,8 +120,7 @@ def obter_estudantes_para_sessao(
     pular_grupos: bool = False,
 ) -> List[Dict[str, Any]]:
     """
-    Busca estudantes elegíveis para a sessão, com base na lógica original,
-    porém otimizada para performance.
+    Busca estudantes elegíveis para a sessão.
     """
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
     db_session = repo_estudante.obter_sessao()
@@ -241,7 +240,8 @@ def obter_estudantes_para_sessao(
             }
         )
 
-    return sorted(detalhes_estudantes, key=lambda x: x["nome"])
+    return detalhes_estudantes
+    #return sorted(detalhes_estudantes, key=lambda x: x["nome"])
 
 
 def deletar_sessao(repo_sessao: RepositorioSessao, id_sessao: int):
@@ -271,6 +271,7 @@ def registrar_consumo(
     id_sessao: int,
     prontuario: str,
     excecao_grupos: Optional[Set[str]] = None,
+    pular_grupos: bool = False,
 ) -> Dict[str, Any]:
     """Aplica a lógica de autorização e, se bem-sucedido, registra o consumo."""
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
@@ -297,12 +298,15 @@ def registrar_consumo(
             autorizado = True
             id_reserva = reservas[0].id
             motivo = "Autorizado com reserva."
+        elif pular_grupos:
+            autorizado = True
+            motivo = "Autorizado por ignorar grupos."
         else:
-            ids_grupos_excluidos = {
+            ids_excecao_grupos = {
                 g.id for g in sessao.grupos if g.nome in (excecao_grupos or set())
             }
             ids_grupos_estudante = {g.id for g in estudante.grupos}
-            if ids_grupos_excluidos.intersection(ids_grupos_estudante):
+            if ids_excecao_grupos.intersection(ids_grupos_estudante):
                 autorizado = True
                 motivo = "Autorizado por exceção (grupo)."
     else:

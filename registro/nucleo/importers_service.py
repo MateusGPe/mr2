@@ -10,10 +10,9 @@ from pathlib import Path
 from typing import Dict, Set
 
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from registro.nucleo.exceptions import ErroImportacaoDados
-from registro.nucleo.models import Estudante
 from registro.nucleo.repository import (
     RepositorioEstudante,
     RepositorioGrupo,
@@ -22,7 +21,9 @@ from registro.nucleo.repository import (
 from registro.nucleo.utils import ajustar_chaves_e_valores
 
 
-def _obter_ou_criar_grupos(sessao_db: Session, nomes_grupos: Set[str]) -> Dict[str, int]:
+def _obter_ou_criar_grupos(
+    sessao_db: Session, nomes_grupos: Set[str]
+) -> Dict[str, int]:
     """Busca ou cria grupos e retorna um mapeamento de nome para ID."""
     repo_grupo = RepositorioGrupo(sessao_db)
     grupos_existentes = repo_grupo.por_nomes(nomes_grupos)
@@ -88,8 +89,10 @@ def importar_estudantes_csv(
                 repo_grupo.obter_sessao(), todos_nomes_grupos
             )
 
-            prontuarios_envolvidos = {rel["prontuario"] for rel in relacoes_estudante_grupo}
-            
+            prontuarios_envolvidos = {
+                rel["prontuario"] for rel in relacoes_estudante_grupo
+            }
+
             # Otimização: Carrega estudantes e seus grupos de uma vez
             estudantes_envolvidos = repo_estudante.por_prontuarios_com_grupos(
                 prontuarios_envolvidos

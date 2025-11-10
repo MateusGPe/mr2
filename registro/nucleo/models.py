@@ -115,7 +115,9 @@ class Estudante(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Estudante(id={self.id}, prontuario='{self.prontuario}', nome='{self.nome[:30]}...')>"
+        return "<Estudante(id={}, prontuario='{}', nome='{}...')>".format(
+            self.id, self.prontuario, self.nome[:30]
+        )
 
 
 class Reserva(Base):

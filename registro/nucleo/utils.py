@@ -11,7 +11,7 @@ import platform
 import re
 import sys
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, TypedDict
+from typing import Callable, Dict, List, Literal, Optional, Tuple, TypedDict
 
 from fuzzywuzzy import fuzz
 
@@ -76,8 +76,8 @@ def obter_caminho_documentos() -> Path:
         try:
             CSIDL_PERSONAL = 5
             SHGFP_TYPE_CURRENT = 0
-            buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
-            ctypes.windll.shell32.SHGetFolderPathW(
+            buf = ctypes.create_unicode_buffer(getattr(ctypes, "wintypes").MAX_PATH)
+            getattr(ctypes, "windll").shell32.SHGetFolderPathW(
                 None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf
             )
             return Path(buf.value)
@@ -108,7 +108,8 @@ def encontrar_melhor_par_correspondente(
     vetor_de_pares: List[Tuple[str, str]],
     funcao_pontuacao: Callable[[str, str], int] = fuzz.ratio,
 ) -> Tuple[Optional[Tuple[str, str]], int]:
-    """Encontra o par de strings com melhor correspondência em um vetor, ponderando o segundo item."""
+    """Encontra o par de strings com melhor correspondência em um vetor,
+    ponderando o segundo item."""
     if not vetor_de_pares:
         return None, 0
 

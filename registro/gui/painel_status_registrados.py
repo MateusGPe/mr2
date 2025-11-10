@@ -179,7 +179,9 @@ class PainelStatusRegistrados(ttk.Frame):
                     linhas_com_acao.append(linha_final)
 
                 self._tabela_estudantes_registrados.construir_dados_tabela(
-                    dados_linhas=linhas_com_acao
+                    dados_linhas=sorted(
+                        linhas_com_acao, key=lambda l: l[3], reverse=True
+                    )
                 )
                 logger.info("%d alunos registrados carregados.", len(linhas_com_acao))
             else:

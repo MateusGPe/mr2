@@ -10,7 +10,6 @@ from typing import Any, Dict, Generic, List, Optional, Self, Sequence, Type, Typ
 from sqlalchemy import ColumnElement, insert, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session as DBSession
-from sqlalchemy.orm.mapper import Mapper
 
 from registro.nucleo.models import Base
 
@@ -44,15 +43,18 @@ class CRUD(Generic[MODELO]):
         self._sessao_db.refresh(item_db)
         return item_db
 
-    def ler_um(self: Self, id_item: int, opcoes_carregamento: Optional[List] = None) -> Optional[MODELO]:
+    def ler_um(
+        self: Self, id_item: int, opcoes_carregamento: Optional[List] = None
+    ) -> Optional[MODELO]:
         """Lê um registro único pela sua chave primária, com opções de carregamento."""
         consulta = select(self._modelo).where(self._coluna_chave_primaria == id_item)
         if opcoes_carregamento:
             consulta = consulta.options(*opcoes_carregamento)
         return self._sessao_db.scalar(consulta)
 
-
-    def ler_filtrado(self: Self, opcoes_carregamento: Optional[List] = None, **filtros: Any) -> Sequence[MODELO]:
+    def ler_filtrado(
+        self: Self, opcoes_carregamento: Optional[List] = None, **filtros: Any
+    ) -> Sequence[MODELO]:
         """Lê múltiplos registros com base em filtros e com opções de carregamento."""
         consulta = select(self._modelo)
         if opcoes_carregamento:
@@ -118,12 +120,11 @@ class CRUD(Generic[MODELO]):
         if not linhas:
             return True
         try:
-            self._sessao_db.bulk_update_mappings(
-                self._modelo, linhas  # type: ignore
-            )
+            self._sessao_db.bulk_update_mappings(self._modelo, linhas)  # type: ignore
             return True
         except DBAPIError as e:
             print(
-                f"Erro de banco de dados durante a atualização em massa de {type(self._modelo)}: {e}"
+                "Erro de banco de dados durante a atualização em massa de "
+                f"{type(self._modelo)}: {e}"
             )
             return False

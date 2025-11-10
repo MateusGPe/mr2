@@ -5,7 +5,7 @@ import traceback
 from datetime import datetime
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, END, E, LEFT, EW, W, X
+from ttkbootstrap.constants import BOTH, END, EW, LEFT, E, W, X, HORIZONTAL
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.scrolled import ScrolledFrame
 from ttkbootstrap.widgets import DateEntry
@@ -17,9 +17,11 @@ from registro.nucleo.utils import DADOS_SESSAO
 
 class StudentDialog(ttk.Toplevel):
     def __init__(self, parent, fachada: FachadaRegistro, student_id: int | None = None):
-        super().__init__(parent, "Adicionar/Editar Aluno")
+        title = "Editar Aluno" if student_id else "Adicionar Aluno"
+        super().__init__(parent)
         self.transient(parent)
         self.grab_set()
+        self.title(title)
 
         self.fachada = fachada
         self.student_id = student_id
@@ -31,37 +33,48 @@ class StudentDialog(ttk.Toplevel):
         if self.student_id:
             self._load_student_data()
 
-        if self.winfo_exists():
-            self.protocol("WM_DELETE_WINDOW", self._on_cancel)
-            self.wait_window(self)
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.wait_window(self)
 
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding=20)
         main_frame.pack(expand=True, fill=BOTH)
-
-        ttk.Label(main_frame, text="Nome Completo:").grid(
-            row=0, column=0, sticky=W, pady=(0, 5)
-        )
-        self.nome_entry = ttk.Entry(main_frame, width=40)
-        self.nome_entry.grid(row=1, column=0, sticky=EW, pady=(0, 10))
-
-        ttk.Label(main_frame, text="Prontuário:").grid(
-            row=2, column=0, sticky=W, pady=(0, 5)
-        )
-        self.prontuario_entry = ttk.Entry(main_frame, width=40)
-        self.prontuario_entry.grid(row=3, column=0, sticky=EW, pady=(0, 10))
-
-        ttk.Label(main_frame, text="Turma Principal:").grid(
-            row=4, column=0, sticky=W, pady=(0, 5)
-        )
-        self.grupo_combobox = ttk.Combobox(main_frame, state="readonly")
-        self.grupo_combobox.grid(row=5, column=0, sticky=EW, pady=(0, 10))
-
         main_frame.columnconfigure(0, weight=1)
 
+        # Agrupamento dos campos de entrada
+        form_frame = ttk.Frame(main_frame)
+        form_frame.grid(row=0, column=0, sticky=EW)
+        form_frame.columnconfigure(0, weight=1)
+
+        ttk.Label(form_frame, text="Nome Completo:", anchor=W).grid(
+            row=0, column=0, sticky=EW, pady=(0, 5)
+        )
+        self.nome_entry = ttk.Entry(form_frame, width=40)
+        self.nome_entry.grid(row=1, column=0, sticky=EW, pady=(0, 10))
+
+        ttk.Label(form_frame, text="Prontuário:", anchor=W).grid(
+            row=2, column=0, sticky=EW, pady=(0, 5)
+        )
+        self.prontuario_entry = ttk.Entry(form_frame, width=40)
+        self.prontuario_entry.grid(row=3, column=0, sticky=EW, pady=(0, 10))
+
+        ttk.Label(form_frame, text="Turma Principal:", anchor=W).grid(
+            row=4, column=0, sticky=EW, pady=(0, 5)
+        )
+        self.grupo_combobox = ttk.Combobox(form_frame, state="readonly")
+        self.grupo_combobox.grid(row=5, column=0, sticky=EW, pady=(0, 15))
+
+        # Separador visual
+        ttk.Separator(main_frame, orient=tk.HORIZONTAL).grid(
+            row=1, column=0, sticky=EW, pady=10
+        )
+
+        # Botões
         btn_frame = ttk.Frame(main_frame)
-        btn_frame.grid(row=6, column=0, sticky=EW, pady=(10, 0))
+        btn_frame.grid(row=2, column=0, sticky=EW)
+        btn_frame.columnconfigure(0, weight=1)
         btn_frame.columnconfigure(1, weight=1)
+
         ttk.Button(
             btn_frame, text="Cancelar", command=self._on_cancel, bootstyle="outline"
         ).grid(row=0, column=0, sticky=W)
@@ -75,6 +88,8 @@ class StudentDialog(ttk.Toplevel):
         try:
             grupos = self.fachada.listar_todos_os_grupos()
             self.grupo_combobox["values"] = [g["nome"] for g in grupos]
+            if grupos:
+                self.grupo_combobox.set(grupos[0]["nome"])
         except Exception:
             Messagebox.show_error(
                 "Não foi possível carregar a lista de turmas.", "Erro"
@@ -83,15 +98,8 @@ class StudentDialog(ttk.Toplevel):
 
     def _load_student_data(self):
         try:
-            students_list = self.fachada.listar_estudantes()
-            student_data = next(
-                (
-                    s
-                    for s in students_list
-                    if int(s.get("id", 0)) == int(self.student_id or 0)
-                ),
-                None,
-            )
+            student_data = self.fachada.repo_estudante.por_ids({self.student_id})
+            student_data = student_data[0] if student_data else None
 
             if not student_data:
                 Messagebox.show_error(
@@ -100,13 +108,13 @@ class StudentDialog(ttk.Toplevel):
                 self.destroy()
                 return
 
-            self.title(f"Editar Aluno: {student_data['nome']}")
-            self.nome_entry.insert(0, student_data["nome"])
-            self.prontuario_entry.insert(0, student_data["prontuario"])
+            self.title(f"Editar Aluno: {student_data.nome}")
+            self.nome_entry.insert(0, student_data.nome)
+            self.prontuario_entry.insert(0, student_data.prontuario)
             self.prontuario_entry.config(state="readonly")
 
-            if student_data["grupos"]:
-                self.grupo_combobox.set(student_data["grupos"][0])
+            if student_data.grupos:
+                self.grupo_combobox.set(student_data.grupos[0].nome)
         except Exception:
             Messagebox.show_error(
                 "Erro ao carregar dados do aluno. Verifique o console.", "Erro"
@@ -124,9 +132,16 @@ class StudentDialog(ttk.Toplevel):
 
         try:
             if self.student_id:
+                # TODO: Permitir edição de grupo principal no StudentDialog
                 self.fachada.atualizar_estudante(self.student_id, {"nome": nome})
             else:
-                self.fachada.criar_estudante(prontuario, nome)
+                self.fachada.criar_estudante(
+                    prontuario,
+                    nome,
+                    grupos=[
+                        grupo_selecionado,
+                    ],
+                )
             self.result = True
             self.destroy()
         except ValueError as e:
@@ -144,9 +159,11 @@ class StudentDialog(ttk.Toplevel):
 
 class ReservaDialog(ttk.Toplevel):
     def __init__(self, parent, fachada: FachadaRegistro, reserva_id: int | None = None):
-        super().__init__(parent, "Adicionar/Editar Reserva")
+        title = "Editar Reserva" if reserva_id else "Adicionar Reserva"
+        super().__init__(parent)
         self.transient(parent)
         self.grab_set()
+        self.title(title)
 
         self.fachada = fachada
         self.reserva_id = reserva_id
@@ -158,15 +175,15 @@ class ReservaDialog(ttk.Toplevel):
         if self.reserva_id:
             self._load_reserva_data()
 
-        if self.winfo_exists():
-            self.protocol("WM_DELETE_WINDOW", self._on_cancel)
-            self.wait_window(self)
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.wait_window(self)
 
     def _load_student_cache(self):
         try:
             self.student_cache = self.fachada.listar_estudantes()
             self.student_display_list = [
-                f"{s['prontuario']} - {s['nome']}" for s in self.student_cache
+                f"{s.get('prontuario', 'N/A')} - {s.get('nome', 'Sem Nome')}"
+                for s in self.student_cache
             ]
         except Exception:
             self.student_cache = []
@@ -179,41 +196,58 @@ class ReservaDialog(ttk.Toplevel):
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding=20)
         main_frame.pack(expand=True, fill=BOTH)
+        main_frame.columnconfigure(0, weight=1)
 
-        ttk.Label(main_frame, text="Aluno (digite para buscar):").grid(
-            row=0, column=0, columnspan=2, sticky=W, pady=(0, 5)
+        form_frame = ttk.Frame(main_frame)
+        form_frame.grid(row=0, column=0, sticky=EW)
+        form_frame.columnconfigure((0, 1), weight=1)
+
+        ttk.Label(form_frame, text="Aluno:", anchor=W).grid(
+            row=0, column=0, columnspan=2, sticky=EW, pady=(0, 5)
         )
-        self.aluno_combobox = ttk.Combobox(main_frame, values=self.student_display_list)
+        self.aluno_combobox = ttk.Combobox(
+            form_frame, values=self.student_display_list, state="readonly"
+        )
         self.aluno_combobox.grid(row=1, column=0, columnspan=2, sticky=EW, pady=(0, 10))
-        self.aluno_combobox.bind("<KeyRelease>", self._on_student_search)
+        # TODO: Implementar busca em tempo real no Combobox se a lista for muito grande
 
-        ttk.Label(main_frame, text="Data:").grid(row=2, column=0, sticky=W, pady=(0, 5))
+        ttk.Label(form_frame, text="Data:", anchor=W).grid(
+            row=2, column=0, sticky=EW, pady=(0, 5)
+        )
         self.data_entry = DateEntry(
-            main_frame, bootstyle="primary", dateformat="%Y-%m-%d"
+            form_frame, bootstyle="primary", dateformat="%Y-%m-%d"
         )
         self.data_entry.grid(row=3, column=0, sticky=EW, pady=(0, 10), padx=(0, 5))
 
-        ttk.Label(main_frame, text="Prato:").grid(
-            row=2, column=1, sticky=W, pady=(0, 5)
+        ttk.Label(form_frame, text="Prato:", anchor=W).grid(
+            row=2, column=1, sticky=EW, pady=(0, 5), padx=(5, 0)
         )
         self.prato_combobox = ttk.Combobox(
-            main_frame, values=["Tradicional", "Vegetariano"], state="readonly"
+            form_frame,
+            values=["Tradicional", "Vegetariano", "Vegano"],
+            state="readonly",
         )
         self.prato_combobox.grid(row=3, column=1, sticky=EW, pady=(0, 10), padx=(5, 0))
         self.prato_combobox.set("Tradicional")
 
-        self.cancelada_var = tk.BooleanVar()
+        self.cancelada_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
-            main_frame,
+            form_frame,
             text="Reserva Cancelada",
             variable=self.cancelada_var,
             bootstyle="danger-round-toggle",
-        ).grid(row=4, column=0, columnspan=2, sticky=W, pady=5)
+        ).grid(row=4, column=0, columnspan=2, sticky=W, pady=10)
 
-        main_frame.columnconfigure((0, 1), weight=1)
+        # Separador visual
+        ttk.Separator(main_frame, orient=HORIZONTAL).grid(
+            row=1, column=0, sticky=EW, pady=10
+        )
+
         btn_frame = ttk.Frame(main_frame)
-        btn_frame.grid(row=5, column=0, columnspan=2, sticky=EW, pady=(10, 0))
+        btn_frame.grid(row=2, column=0, sticky=EW)
+        btn_frame.columnconfigure(0, weight=1)
         btn_frame.columnconfigure(1, weight=1)
+
         ttk.Button(
             btn_frame, text="Cancelar", command=self._on_cancel, bootstyle="outline"
         ).grid(row=0, column=0, sticky=W)
@@ -221,33 +255,34 @@ class ReservaDialog(ttk.Toplevel):
             btn_frame, text="Salvar", command=self._on_save, bootstyle="success"
         ).grid(row=0, column=1, sticky=E)
 
-    def _on_student_search(self, event):
-        value = event.widget.get().lower()
-        if not value:
-            self.aluno_combobox["values"] = self.student_display_list
-        else:
-            filtered_data = [
-                item for item in self.student_display_list if value in item.lower()
-            ]
-            self.aluno_combobox["values"] = filtered_data
-
     def _load_reserva_data(self):
-        reservas = self.fachada.repo_reserva.ler_filtrado(id=self.reserva_id)
-        if not reservas:
-            Messagebox.show_error(
-                f"Reserva com ID {self.reserva_id} não encontrada.", "Erro"
-            )
-            self.destroy()
-            return
+        try:
+            reserva = (
+                self.fachada.repo_reserva.ler_filtrado(id=self.reserva_id)
+                or [None]
+            )[0]
+            if not reserva:
+                Messagebox.show_error(
+                    f"Reserva com ID {self.reserva_id} não encontrada.", "Erro"
+                )
+                self.destroy()
+                return
 
-        reserva = reservas[0]
-        self.title("Editar Reserva")
-        aluno_display = f"{reserva.estudante.prontuario} - {reserva.estudante.nome}"
-        self.aluno_combobox.set(aluno_display)
-        self.data_entry.entry.delete(0, END)
-        self.data_entry.entry.insert(0, reserva.data)
-        self.prato_combobox.set(reserva.prato or "Tradicional")
-        self.cancelada_var.set(reserva.cancelada)
+            self.title(f"Editar Reserva: {reserva.id}")
+            aluno_display = f"{reserva.estudante.prontuario} - {reserva.estudante.nome}"
+            self.aluno_combobox.set(aluno_display)
+            self.aluno_combobox.config(state="disabled")  # Impedir edição do aluno
+
+            self.data_entry.entry.delete(0, END)
+            self.data_entry.entry.insert(0, reserva.data)
+            self.prato_combobox.set(reserva.prato)
+            self.cancelada_var.set(reserva.cancelada)
+
+        except Exception:
+            Messagebox.show_error(
+                "Erro ao carregar dados da reserva. Verifique o console.", "Erro"
+            )
+            traceback.print_exc()
 
     def _on_save(self):
         aluno_selecionado = self.aluno_combobox.get().strip()
@@ -292,9 +327,10 @@ class ReservaDialog(ttk.Toplevel):
 
 class SessionDialog(ttk.Toplevel):
     def __init__(self, parent, fachada: FachadaRegistro):
-        super().__init__(parent, "Iniciar Sessão de Consumo")
+        super().__init__(parent)
         self.transient(parent)
         self.grab_set()
+        self.title("Iniciar ou Selecionar Sessão de Consumo")
         self.fachada = fachada
         self.result = None
         self._create_widgets()
@@ -304,39 +340,67 @@ class SessionDialog(ttk.Toplevel):
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding=15)
         main_frame.pack(fill=BOTH, expand=True)
+        main_frame.columnconfigure(0, weight=1)
+
         new_session_frame = ttk.Labelframe(
-            main_frame, text=" ➕ Criar Nova Sessão ", padding=10
+            main_frame, text=" ➕ Criar Nova Sessão ", padding=15
         )
         new_session_frame.pack(fill=X, pady=(0, 10))
+        new_session_frame.columnconfigure(0, weight=1)
+
+        refeicao_label_frame = ttk.Frame(new_session_frame)
+        refeicao_label_frame.pack(fill=X, pady=(0, 10))
+        ttk.Label(refeicao_label_frame, text="Refeição:", anchor=W).pack(
+            side=LEFT, padx=(0, 10)
+        )
         self.refeicao_var = tk.StringVar(value="almoço")
         ttk.Radiobutton(
-            new_session_frame, text="Almoço", variable=self.refeicao_var, value="almoço"
+            refeicao_label_frame,
+            text="Almoço",
+            variable=self.refeicao_var,
+            value="almoço",
         ).pack(side=LEFT, padx=5)
         ttk.Radiobutton(
-            new_session_frame, text="Lanche", variable=self.refeicao_var, value="lanche"
+            refeicao_label_frame,
+            text="Lanche",
+            variable=self.refeicao_var,
+            value="lanche",
         ).pack(side=LEFT, padx=5)
-        scrolled_frame = ScrolledFrame(new_session_frame, autohide=True, height=150)
-        scrolled_frame.pack(fill=X, expand=True, pady=10)
+
+        ttk.Label(new_session_frame, text="Grupos Permitidos:", anchor=W).pack(
+            fill=X, pady=(5, 5)
+        )
+        scrolled_frame = ScrolledFrame(new_session_frame, autohide=True, height=120)
+        scrolled_frame.pack(fill=X, expand=True, pady=5)
         self.grupos_frame = scrolled_frame.container
         self.grupos_vars = {}
+
         ttk.Button(
             new_session_frame,
             text="Iniciar Nova Sessão",
             command=self._on_create,
             bootstyle="success",
-        ).pack(anchor=E)
+        ).pack(anchor=E, pady=(15, 0))
+
         existing_session_frame = ttk.Labelframe(
-            main_frame, text=" 📝 Selecionar Sessão Existente ", padding=10
+            main_frame, text=" 📝 Selecionar Sessão Existente ", padding=15
         )
         existing_session_frame.pack(fill=X)
-        self.sessoes_combobox = ttk.Combobox(existing_session_frame, state="readonly")
+        existing_session_frame.columnconfigure(0, weight=1)
+
+        session_select_frame = ttk.Frame(existing_session_frame)
+        session_select_frame.pack(fill=X, expand=True)
+
+        self.sessoes_combobox = ttk.Combobox(session_select_frame, state="readonly")
         self.sessoes_combobox.pack(fill=X, expand=True, side=LEFT, padx=(0, 10))
-        ttk.Button(
-            existing_session_frame,
+
+        self.btn_select = ttk.Button(
+            session_select_frame,
             text="Definir como Ativa",
             command=self._on_select,
             bootstyle="info",
-        ).pack(side=LEFT)
+        )
+        self.btn_select.pack(side=LEFT)
 
     def _load_data(self):
         try:
@@ -347,20 +411,29 @@ class SessionDialog(ttk.Toplevel):
                     self.grupos_frame,
                     text=grupo["nome"],
                     variable=var,
-                    bootstyle="primary",
+                    bootstyle="primary-outline",
                 )
-                cb.pack(anchor=W)
+                cb.pack(anchor=W, fill=X, padx=5, pady=2)
                 self.grupos_vars[grupo["nome"]] = var
+
             sessoes = self.fachada.listar_todas_sessoes()
             sessoes_formatadas = []
             self.sessoes_map = {}
             for sessao in sorted(sessoes, key=lambda s: s["id"], reverse=True):
-                texto = f"ID {sessao['id']}: {sessao['data']} {sessao['hora']} - {sessao['refeicao'].capitalize()}"
+                texto = (
+                    f"ID {sessao['id']}: {sessao['data']} {sessao['hora']} - "
+                    f"{sessao['refeicao'].capitalize()}"
+                )
                 sessoes_formatadas.append(texto)
                 self.sessoes_map[texto] = sessao["id"]
+
             self.sessoes_combobox["values"] = sessoes_formatadas
             if sessoes_formatadas:
                 self.sessoes_combobox.current(0)
+            else:
+                self.sessoes_combobox.set("Nenhuma sessão anterior encontrada.")
+                self.sessoes_combobox.config(state="disabled")
+                self.btn_select.config(state="disabled")
         except Exception:
             Messagebox.show_error(
                 "Erro ao carregar dados. Verifique o console.", "Erro"
@@ -371,9 +444,13 @@ class SessionDialog(ttk.Toplevel):
         grupos_selecionados = [
             nome for nome, var in self.grupos_vars.items() if var.get()
         ]
+        if not grupos_selecionados:
+            Messagebox.show_warning("Selecione pelo menos um grupo.", "Aviso")
+            return
+
         dados_sessao: DADOS_SESSAO = {
             "refeicao": self.refeicao_var.get(),
-            "periodo": "Integral",
+            "periodo": "Integral",  # TODO: Permitir configuração do período
             "data": datetime.now().strftime("%Y-%m-%d"),
             "hora": datetime.now().strftime("%H:%M"),
             "grupos": grupos_selecionados,
@@ -385,14 +462,14 @@ class SessionDialog(ttk.Toplevel):
                     "Não é possível iniciar uma sessão de almoço sem reservas ativas para a data."
                 )
             self.destroy()
-        except Exception:
-            Messagebox.show_error("Erro ao criar sessão. Verifique o console.", "Erro")
+        except Exception as e:
+            Messagebox.show_error(f"Erro ao criar sessão: {e}", "Erro")
             traceback.print_exc()
 
     def _on_select(self):
         selecionado = self.sessoes_combobox.get()
-        if not selecionado:
-            Messagebox.show_warning("Selecione uma sessão.", "Aviso")
+        if not selecionado or not self.sessoes_map:
+            Messagebox.show_warning("Selecione uma sessão válida.", "Aviso")
             return
         self.result = self.sessoes_map[selecionado]
         self.fachada.definir_sessao_ativa(self.result)

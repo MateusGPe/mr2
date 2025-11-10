@@ -9,7 +9,10 @@ FachadaRegistro, que gerencia internamente a sessão do banco de dados,
 os repositórios e a lógica de serviço.
 """
 
-from typing import Any, Dict, List, Optional, Set
+import re
+from typing import Any, Dict, List, Optional, Sequence, Set
+
+from fuzzywuzzy import fuzz
 
 from registro.nucleo import service_logic
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
@@ -26,6 +29,8 @@ from registro.nucleo.repository import (
     RepositorioSessao,
 )
 from registro.nucleo.utils import DADOS_SESSAO
+
+REGEX_LIMPEZA_PRONTUARIO: re.Pattern[str] = re.compile(r"^[Ii][Qq]30+")
 
 
 class FachadaRegistro:
@@ -48,7 +53,7 @@ class FachadaRegistro:
         self.repo_grupo = RepositorioGrupo(self._sessao_db)
 
         self.id_sessao_ativa: Optional[int] = None
-        self.excessao_grupos: List[str] = []
+        self.excessao_grupos: Set[str] = set()
 
     def fechar_conexao(self):
         """Fecha a conexão com o banco de dados."""
@@ -61,8 +66,6 @@ class FachadaRegistro:
     def __exit__(self, exc_type, exc_val, exc_tb):
         """Garante que a conexão com o banco de dados seja fechada."""
         self.fechar_conexao()
-
-    # --- Módulo 1: Funções de Sessão e Consumo (Já existentes) ---
 
     def iniciar_nova_sessao(self, dados_sessao: DADOS_SESSAO) -> Optional[int]:
         """Inicia uma nova sessão de refeição e a define como ativa."""
@@ -101,7 +104,7 @@ class FachadaRegistro:
             "data": modelo_sessao.data,
             "hora": modelo_sessao.hora,
             "item_servido": modelo_sessao.item_servido,
-            "grupos": [g.nome for g in modelo_sessao.grupos],
+            "grupos": set(g.nome for g in modelo_sessao.grupos),
         }
 
     def deletar_sessao_ativa(self):
@@ -121,7 +124,12 @@ class FachadaRegistro:
         """Atualiza os detalhes de uma sessão (data, hora, etc.)."""
         service_logic.atualizar_sessao(self.repo_sessao, id_sessao, dados_sessao)
 
-    def registrar_consumo(self, prontuario: str) -> Dict[str, Any]:
+    def registrar_consumo(
+        self,
+        prontuario: str,
+        excecao_grupos: Optional[Set[str]] = None,
+        pular_grupos: bool = False,
+    ) -> Dict[str, Any]:
         """Registra que um estudante consumiu uma refeição, seguindo as regras."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
@@ -132,6 +140,8 @@ class FachadaRegistro:
             repo_consumo=self.repo_consumo,
             id_sessao=self.id_sessao_ativa,
             prontuario=prontuario,
+            excecao_grupos=excecao_grupos or self.excessao_grupos,
+            pular_grupos=pular_grupos,
         )
 
     def desfazer_consumo_por_prontuario(self, prontuario: str):
@@ -147,9 +157,9 @@ class FachadaRegistro:
         """Desfaz o registro de consumo de uma refeição."""
         service_logic.desfazer_consumo(self.repo_consumo, id_consumo)
 
-    # --- Módulo 2: Gerenciamento de Alunos (CRUD) ---
-
-    def criar_estudante(self, prontuario: str, nome: str) -> Dict[str, Any]:
+    def criar_estudante(
+        self, prontuario: str, nome: str, grupos: Optional[List[str]] = None
+    ) -> Dict[str, Any]:
         """Cria um novo estudante, evitando duplicatas de prontuário."""
         existente = self.repo_estudante.ler_filtrado(prontuario=prontuario)
         if existente:
@@ -158,6 +168,13 @@ class FachadaRegistro:
         novo_estudante = self.repo_estudante.criar(
             {"prontuario": prontuario, "nome": nome}
         )
+
+        if grupos:
+            for grupo_nome in grupos:
+                grupo = self.repo_grupo.por_nome(grupo_nome)
+                if not grupo:
+                    grupo = self.repo_grupo.criar({"nome": grupo_nome})
+                novo_estudante.grupos.append(grupo)
         self._sessao_db.commit()
         return {
             "id": novo_estudante.id,
@@ -173,18 +190,50 @@ class FachadaRegistro:
             return True
         return False
 
-    # def deletar_estudante(self, id_estudante: int) -> bool:
-    #     """
-    #     Remove um estudante do banco de dados.
+    def listar_estudantes_fuzzy(
+        self, termo_busca: Optional[str] = None, limite: int = 60
+    ) -> List[Dict[str, Any]]:
+        """
+        Lista estudantes. Se um termo de busca é fornecido, realiza uma busca
+        fuzzy com fuzzywuzzy por nome ou prontuário e ordena por relevância.
+        """
 
-    #     CUIDADO: A melhor abordagem é inativar o estudante usando o campo 'ativo'
-    #     através do método `atualizar_estudante`. Deletar pode causar erros de
-    #     integridade de dados se houver consumos ou reservas associadas.
-    #     """
-    #     if self.repo_estudante.deletar(id_estudante):
-    #         self._sessao_db.commit()
-    #         return True
-    #     return False
+        if not termo_busca or not termo_busca.strip():
+            todos_estudantes = self.repo_estudante.ler_todos_com_grupos()
+            estudantes_ordenados = sorted(todos_estudantes, key=lambda e: e.nome)
+            estudantes = estudantes_ordenados
+        else:
+            termo_lower = termo_busca.lower().strip()
+            pront_lower = REGEX_LIMPEZA_PRONTUARIO.sub("", termo_lower)
+            candidatos = self.repo_estudante.ler_todos_com_grupos()
+            resultados_com_score = []
+            for est in candidatos:
+                score_nome = fuzz.partial_ratio(termo_lower, est.nome.lower())
+                score_pront = fuzz.ratio(
+                    pront_lower,
+                    REGEX_LIMPEZA_PRONTUARIO.sub("", est.prontuario.lower()),
+                )
+
+                final_score = max(score_nome, score_pront)
+
+                if final_score >= limite:
+                    resultados_com_score.append(
+                        {"estudante": est, "score": final_score}
+                    )
+
+            resultados_com_score.sort(key=lambda x: x["score"], reverse=True)
+            estudantes = [item["estudante"] for item in resultados_com_score]
+
+        return [
+            {
+                "id": est.id,
+                "prontuario": est.prontuario,
+                "nome": est.nome,
+                "ativo": est.ativo,
+                "grupos": [g.nome for g in est.grupos],
+            }
+            for est in estudantes
+        ]
 
     def listar_estudantes(
         self, termo_busca: Optional[str] = None
@@ -195,6 +244,7 @@ class FachadaRegistro:
         query = self._sessao_db.query(Estudante)
         if termo_busca:
             termo_like = f"%{termo_busca}%"
+
             query = query.filter(
                 (Estudante.nome.ilike(termo_like))
                 | (Estudante.prontuario.ilike(termo_like))
@@ -212,8 +262,6 @@ class FachadaRegistro:
             }
             for est in estudantes
         ]
-
-    # --- Módulo 3: Gerenciamento de Reservas (CRUD) ---
 
     def criar_reserva(
         self, prontuario_estudante: str, dados_reserva: Dict[str, Any]
@@ -292,10 +340,8 @@ class FachadaRegistro:
             self.repo_reserva, id_reserva, False
         )
 
-    # --- Funções de Apoio e Sincronização (Já existentes) ---
-
     def obter_estudantes_pesquisaveis_para_sessao(
-        self, excessao_grupos: Optional[Set[str]] = None
+        self, excessao_grupos: Optional[Set[str]] = None, pular_grupos: bool = False
     ) -> List[Dict[str, str]]:
         """
         Retorna uma lista de estudantes elegíveis (que não consumiram) para a busca,
@@ -312,7 +358,8 @@ class FachadaRegistro:
             repo_grupo=self.repo_grupo,
             id_sessao=self.id_sessao_ativa,
             consumido=False,
-            excessao_grupos=excessao_grupos or set(self.excessao_grupos),
+            excessao_grupos=excessao_grupos or self.excessao_grupos,
+            pular_grupos=pular_grupos,
         )
         return [
             {"pront": estudante["pront"], "nome": estudante["nome"]}
@@ -335,19 +382,19 @@ class FachadaRegistro:
             repo_grupo=self.repo_grupo,
             id_sessao=self.id_sessao_ativa,
             consumido=consumido,
-            excessao_grupos=set(self.excessao_grupos),
+            excessao_grupos=self.excessao_grupos,
             pular_grupos=pular_grupos,
         )
 
     def atualizar_grupos_sessao(
-        self, grupos: List[str], excessao_grupos: Optional[List[str]] = None
+        self, grupos: List[str], excessao_grupos: Optional[Sequence[str]] = None
     ):
         """Atualiza a configuração de grupos para a sessão ativa."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
 
         if excessao_grupos is not None:
-            self.excessao_grupos = excessao_grupos
+            self.excessao_grupos = set(excessao_grupos)
 
         service_logic.atualizar_grupos_sessao(
             self.repo_sessao, self.repo_grupo, self.id_sessao_ativa, grupos

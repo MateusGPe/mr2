@@ -4,22 +4,20 @@ import traceback
 from tkinter import messagebox
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, NSEW
-from ttkbootstrap.dialogs import Messagebox
+from ttkbootstrap.constants import EW, NSEW
 
+from registro.abas.aba_alunos import AbaAlunos
+from registro.abas.aba_dashboard import AbaDashboard
+from registro.abas.aba_importacao import AbaImportacao
+from registro.abas.aba_reservas import AbaReservas
 from registro.importar.facade import FachadaImportacao
 from registro.nucleo.facade import FachadaRegistro
-
-from registro.abas.aba_dashboard import AbaDashboard
-from registro.abas.aba_alunos import AbaAlunos
-from registro.abas.aba_reservas import AbaReservas
-from registro.abas.aba_consumo import AbaConsumo
-from registro.abas.aba_importacao import AbaImportacao
 
 
 class App(ttk.Window):
     def __init__(self):
         super().__init__(themename="litera", title="Sistema de Gestão de Refeitório")
+        self.geometry("1280x800")
 
         if not self._inicializar_fachadas():
             self.destroy()
@@ -34,36 +32,99 @@ class App(ttk.Window):
             self.fachada_importacao = FachadaImportacao(self.fachada_nucleo)
             return True
         except Exception:
-            Messagebox.show_error(
-                "Não foi possível iniciar o backend. Verifique o console.", "Erro Fatal"
+            messagebox.showerror(
+                "Erro Fatal", "Não foi possível iniciar o backend. Verifique o console."
             )
             traceback.print_exc()
             return False
 
     def _on_closing(self):
-        if messagebox.askokcancel("Sair", "Deseja realmente sair?"):
+        # if messagebox.askokcancel("Sair", "Deseja realmente sair?"):
+        try:
             self.fachada_nucleo.fechar_conexao()
-            self.destroy()
+        except Exception:
+            pass
+        self.destroy()
 
     def _criar_widgets(self):
-        main_frame = ttk.Frame(self)
-        main_frame.pack(expand=True, fill=BOTH, padx=10, pady=10)
-        main_frame.rowconfigure(0, weight=1)
-        main_frame.columnconfigure(0, weight=1)
+        # Configuração do grid principal da janela
+        self.rowconfigure(0, weight=1)
+        self.columnconfigure(1, weight=1)
 
-        notebook = ttk.Notebook(main_frame)
-        notebook.grid(row=0, column=0, sticky=NSEW)
-
-        aba_dashboard = AbaDashboard(notebook, self.fachada_nucleo)
-        aba_alunos = AbaAlunos(notebook, self.fachada_nucleo)
-        aba_reservas = AbaReservas(notebook, self.fachada_nucleo)
-        aba_consumo = AbaConsumo(notebook, self.fachada_nucleo)
-        aba_importacao = AbaImportacao(
-            notebook, self.fachada_nucleo, self.fachada_importacao
+        style = ttk.Style()
+        style.configure("Nav.TFrame", background="#f0f0f0")
+        # --- Frame de Navegação (Sidebar) ---
+        navigation_frame = ttk.Frame(
+            self,
+            # bootstyle="secondary",
+            style="Nav.TFrame",
+            padding=10,
         )
+        navigation_frame.grid(row=0, column=0, sticky=NSEW)
+        navigation_frame.rowconfigure(
+            5, weight=1
+        )  # Espaço para empurrar o botão de sair para baixo
 
-        notebook.add(aba_dashboard, text=" 📊 Início ")
-        notebook.add(aba_consumo, text=" ✅ Registro de Consumo ")
-        notebook.add(aba_alunos, text=" 👤 Alunos ")
-        notebook.add(aba_reservas, text=" 📅 Reservas ")
-        notebook.add(aba_importacao, text=" 🔄 Importar/Exportar ")
+        # --- Container de Conteúdo ---
+        self.content_frame = ttk.Frame(self, padding=20)
+        self.content_frame.grid(row=0, column=1, sticky=NSEW)
+        self.content_frame.rowconfigure(0, weight=1)
+        self.content_frame.columnconfigure(0, weight=1)
+
+        # --- Dicionário para armazenar os frames (antigas abas) ---
+        self.frames = {}
+
+        # --- Páginas (Frames) ---
+        paginas = {
+            "dashboard": (AbaDashboard, "📊"),
+            "alunos": (AbaAlunos, "👤"),
+            "reservas": (AbaReservas, "📅"),
+            "importacao": (AbaImportacao, "🔄"),
+        }
+
+        # --- Criação dos botões de navegação e dos frames de conteúdo ---
+        for i, (nome, (FrameClass, texto_botao)) in enumerate(paginas.items()):
+            # Cria o frame
+            if nome == "importacao":
+                frame = FrameClass(
+                    self.content_frame, self.fachada_nucleo, self.fachada_importacao
+                )
+            else:
+                frame = FrameClass(self.content_frame, self.fachada_nucleo)
+
+            self.frames[nome] = frame
+            frame.grid(row=0, column=0, sticky=NSEW)
+
+            # Cria o botão de navegação
+            btn = ttk.Button(
+                navigation_frame,
+                text=texto_botao,
+                command=lambda n=nome: self.show_frame(n),
+                bootstyle="outline-secondary",
+            )
+            btn.grid(row=i, column=0, sticky=EW, pady=5)
+
+        # Botão de sair no final da sidebar
+        btn_sair = ttk.Button(
+            navigation_frame,
+            text="🚪",
+            command=self._on_closing,
+            bootstyle="outline-danger",
+        )
+        btn_sair.grid(row=6, column=0, sticky=EW, pady=10)
+
+        # Mostra a página inicial
+        self.show_frame("dashboard")
+
+    def show_frame(self, nome_pagina):
+        """Esconde todos os frames e mostra apenas o selecionado."""
+        for frame in self.frames.values():
+            frame.grid_remove()  # Usa grid_remove para não perder a configuração do grid
+
+        frame_ativo = self.frames[nome_pagina]
+        frame_ativo.grid()
+
+
+if __name__ == "__main__":
+    app = App()
+    app.mainloop()

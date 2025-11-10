@@ -6,10 +6,12 @@
 
 import logging
 import tkinter as tk
-from tkinter import BOTH, EW, HORIZONTAL, NSEW, W, YES, messagebox
-from typing import TYPE_CHECKING, Callable, List, Tuple, Union
+from tkinter import BOTH, EW, HORIZONTAL, NSEW, YES, W, messagebox
+from typing import TYPE_CHECKING, Callable, List, Set, Tuple, Union
 
 import ttkbootstrap as ttk
+from ttkbootstrap.scrolled import ScrolledFrame
+
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
@@ -35,48 +37,81 @@ def _toggle_selecao_coluna(vars_coluna: List[tk.BooleanVar]):
 def criar_secao_filtro_turmas_dialogo(
     master: tk.Widget, turmas_disponiveis: List[str]
 ) -> Tuple[List[Tuple[str, tk.BooleanVar, ttk.Checkbutton]], ttk.Frame]:
-    """Cria a seção de checkboxes para o filtro de turmas em um layout de tabela."""
-    frame_interno = ttk.Frame(master, padding=5)
-    frame_interno.columnconfigure(0, weight=2)
-    frame_interno.columnconfigure((1, 2), weight=1)
+    """
+    Cria a seção de filtro de turmas, com um cabeçalho fixo e uma lista
+    de checkboxes rolável.
+    """
+    # 1. Cria um Frame principal para conter tanto o cabeçalho quanto a área rolável.
+    frame_secao = ttk.Frame(master)
+    frame_secao.columnconfigure(0, weight=2)
+    frame_secao.columnconfigure((1, 2), weight=1)
+    # A linha da área rolável (linha 2) deve se expandir verticalmente.
+    frame_secao.rowconfigure(2, weight=1)
 
     dados_checkbuttons = []
 
+    # Se não houver turmas, exibe a mensagem no frame principal e retorna.
     if not turmas_disponiveis:
-        ttk.Label(frame_interno, text="Nenhuma turma disponível.").grid(
+        ttk.Label(frame_secao, text="Nenhuma turma disponível.").grid(
             row=0, column=0, columnspan=3, pady=5
         )
-        return [], frame_interno
+        return [], frame_secao
 
+    # Listas para controlar a seleção de colunas inteiras.
     vars_com_reserva_col: List[tk.BooleanVar] = []
     vars_sem_reserva_col: List[tk.BooleanVar] = []
 
-    ttk.Label(frame_interno, text="Turma", font="-weight bold", anchor=W).grid(
+    # --- 2. Cria o CABEÇALHO FIXO dentro do 'frame_secao' ---
+    ttk.Label(frame_secao, text="Turma", font="-weight bold", anchor=W).grid(
         row=0, column=0, sticky=EW, padx=5, pady=(0, 5)
     )
+    btn_cabecalho_com_reserva = ttk.Button(
+        frame_secao,
+        text="COM Reserva",
+        bootstyle="success-outline",  # type: ignore
+        command=lambda: _toggle_selecao_coluna(vars_com_reserva_col),
+    )
+    btn_cabecalho_com_reserva.grid(row=0, column=1, sticky=EW, padx=5, pady=(0, 5))
 
+    btn_cabecalho_sem_reserva = ttk.Button(
+        frame_secao,
+        text="SEM Reserva (#)",
+        bootstyle="warning-outline",  # type: ignore
+        command=lambda: _toggle_selecao_coluna(vars_sem_reserva_col),
+    )
+    btn_cabecalho_sem_reserva.grid(row=0, column=2, sticky=EW, padx=5, pady=(0, 5))
+
+    ttk.Separator(frame_secao, orient=HORIZONTAL).grid(
+        row=1, column=0, columnspan=3, sticky=EW, pady=(0, 10)
+    )
+    # --- Fim do Cabeçalho ---
+
+    # 3. Cria a ÁREA ROLÁVEL (ScrolledFrame) e a posiciona abaixo do cabeçalho.
+    frame_rolavel = ScrolledFrame(frame_secao, padding=5)
+    frame_rolavel.grid(row=2, column=0, columnspan=3, sticky=NSEW)
+    frame_rolavel.columnconfigure(0, weight=2)
+    frame_rolavel.columnconfigure((1, 2), weight=1)
+
+    # 4. Adiciona os CHECKBOXES DAS TURMAS DENTRO do 'frame_rolavel'.
     for i, nome_turma in enumerate(turmas_disponiveis):
-        indice_linha = (
-            i + 2
-        )  # Começa da linha 2 para deixar espaço para cabeçalho/separador
+        indice_linha = i  # O índice começa em 0 dentro do ScrolledFrame
         var_com_reserva = tk.BooleanVar(value=False)
         var_sem_reserva = tk.BooleanVar(value=False)
 
-        # Adiciona as variáveis às listas de controle de coluna
         vars_com_reserva_col.append(var_com_reserva)
         vars_sem_reserva_col.append(var_sem_reserva)
 
-        ttk.Label(frame_interno, text=nome_turma, anchor=W).grid(
+        ttk.Label(frame_rolavel, text=nome_turma, anchor=W).grid(
             column=0, row=indice_linha, sticky="ew", padx=(10, 5), pady=2
         )
         btn_com_reserva = ttk.Checkbutton(
-            frame_interno,
+            frame_rolavel,
             variable=var_com_reserva,
             bootstyle="success-square-toggle",  # type: ignore
         )
         btn_com_reserva.grid(column=1, row=indice_linha, pady=2)
         btn_sem_reserva = ttk.Checkbutton(
-            frame_interno,
+            frame_rolavel,
             variable=var_sem_reserva,
             bootstyle="warning-square-toggle",  # type: ignore
         )
@@ -89,27 +124,8 @@ def criar_secao_filtro_turmas_dialogo(
             ]
         )
 
-    btn_cabecalho_com_reserva = ttk.Button(
-        frame_interno,
-        text="COM Reserva",
-        bootstyle="success-outline",  # type: ignore
-        command=lambda: _toggle_selecao_coluna(vars_com_reserva_col),
-    )
-    btn_cabecalho_com_reserva.grid(row=0, column=1, sticky=EW, padx=5, pady=(0, 5))
-
-    btn_cabecalho_sem_reserva = ttk.Button(
-        frame_interno,
-        text="SEM Reserva (#)",
-        bootstyle="warning-outline",  # type: ignore
-        command=lambda: _toggle_selecao_coluna(vars_sem_reserva_col),
-    )
-    btn_cabecalho_sem_reserva.grid(row=0, column=2, sticky=EW, padx=5, pady=(0, 5))
-
-    ttk.Separator(frame_interno, orient=HORIZONTAL).grid(
-        row=1, column=0, columnspan=3, sticky=EW, pady=(0, 10)
-    )
-
-    return dados_checkbuttons, frame_interno
+    # 5. Retorna os dados dos checkboxes e o FRAME PRINCIPAL da seção.
+    return dados_checkbuttons, frame_secao
 
 
 class DialogoFiltroTurmas(tk.Toplevel):
@@ -152,16 +168,15 @@ class DialogoFiltroTurmas(tk.Toplevel):
             )
             turmas_disponiveis = []
 
-        grupos = self._fachada.obter_detalhes_sessao_ativa().get("grupos", [])
-        excessao_grupos = [f"#{eg}" for eg in self._fachada.excessao_grupos]
-        identificadores_selecionados_atualmente: List[str] = grupos + excessao_grupos
+        grupos = self._fachada.obter_detalhes_sessao_ativa().get("grupos", set())
+        excessao_grupos = {f"#{eg}" for eg in self._fachada.excessao_grupos}
 
         self._dados_checkbox, frame_checkbox = criar_secao_filtro_turmas_dialogo(
             frame_principal, turmas_disponiveis
         )
         frame_checkbox.grid(row=0, column=0, sticky=NSEW, pady=(0, 10))
 
-        self._inicializar_checkboxes(identificadores_selecionados_atualmente)
+        self._inicializar_checkboxes(grupos | excessao_grupos)
 
         frame_botoes = ttk.Frame(frame_principal)
         frame_botoes.grid(row=1, column=0, sticky=EW)
@@ -169,25 +184,25 @@ class DialogoFiltroTurmas(tk.Toplevel):
 
         ttk.Button(
             frame_botoes,
-            text="⚪ Limpar Todos",
+            text="⚪",
             command=self._limpar_todos,
             bootstyle="secondary-outline",  # type: ignore
         ).grid(row=0, column=0, padx=3, pady=5, sticky=EW)
         ttk.Button(
             frame_botoes,
-            text="✅ Selecionar Todos",
+            text="✅",
             command=self._selecionar_todos,
             bootstyle="secondary-outline",  # type: ignore
         ).grid(row=0, column=1, padx=3, pady=5, sticky=EW)
         ttk.Button(
             frame_botoes,
-            text="❌ Cancelar",
+            text="❌",
             command=self._ao_cancelar,
             bootstyle="danger",  # type: ignore
         ).grid(row=0, column=2, padx=3, pady=5, sticky=EW)
         ttk.Button(
             frame_botoes,
-            text="✔️ Aplicar Filtros",
+            text="✔️",
             command=self._ao_aplicar,
             bootstyle="success",  # type: ignore
         ).grid(row=0, column=3, padx=3, pady=5, sticky=EW)
@@ -216,10 +231,10 @@ class DialogoFiltroTurmas(tk.Toplevel):
         pos_y = parente_y + (parente_h // 2) - (dialog_h // 2)
         self.geometry(f"+{pos_x}+{pos_y}")
 
-    def _inicializar_checkboxes(self, identificadores_selecionados: List[str]):
+    def _inicializar_checkboxes(self, identificadores_selecionados: Set[str]):
         if not self._dados_checkbox:
             return
-        conjunto_selecionados = set(identificadores_selecionados)
+        conjunto_selecionados = identificadores_selecionados
         for identificador, var_tk, _ in self._dados_checkbox:
             var_tk.set(identificador in conjunto_selecionados)
 
