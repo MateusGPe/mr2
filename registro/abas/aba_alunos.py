@@ -77,6 +77,7 @@ class AbaAlunos(ttk.Frame):
         self.alunos_table = Tableview(
             master=container,
             coldata=self.alunos_coldata,
+            rowdata=[],
             paginated=True,
             pagesize=20,
             bootstyle="primary",

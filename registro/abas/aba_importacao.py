@@ -23,12 +23,12 @@ class AbaImportacao(ttk.Frame):
         self.linhas_analisadas = []
 
         self.sumario_label: ttk.Label
-        self.review_table : Tableview
+        self.review_table: Tableview
         self.file_path_var: tk.StringVar
         self.import_type_var: tk.StringVar
-        self.step1_frame : ttk.Frame
-        self.step2_frame : ttk.Frame
-        self.step3_frame : ttk.Frame
+        self.step1_frame: ttk.Frame
+        self.step2_frame: ttk.Frame
+        self.step3_frame: ttk.Frame
 
         self.review_coldata = [
             {"text": "Linha", "width": 50},
@@ -161,6 +161,7 @@ class AbaImportacao(ttk.Frame):
         self.review_table = Tableview(
             step2,
             coldata=self.review_coldata,
+            rowdata=[],
             bootstyle="info",
             pagesize=10,
             paginated=True,

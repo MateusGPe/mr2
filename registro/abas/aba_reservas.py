@@ -101,6 +101,7 @@ class AbaReservas(ttk.Frame):
         self.reservas_table = Tableview(
             master=container,
             coldata=self.reservas_coldata,
+            rowdata=[],
             paginated=True,
             pagesize=20,
             bootstyle="info",

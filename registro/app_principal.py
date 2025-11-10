@@ -2,6 +2,7 @@
 
 import traceback
 from tkinter import messagebox
+import tkinter as tk
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import EW, NSEW
@@ -81,7 +82,19 @@ class App(ttk.Window):
             "reservas": (AbaReservas, "📅"),
             "importacao": (AbaImportacao, "🔄"),
         }
-
+        style = ttk.Style()
+        style.configure(
+            "Custom.TButton",
+            background="#f0f0f0",
+            foreground="#000000",
+            relief="flat",
+            padding=4,
+        )
+        style.map(
+            "Custom.TButton",
+            background=[("active", "#ebebeb")],
+            foreground=[("active", "red")],
+        )
         # --- Criação dos botões de navegação e dos frames de conteúdo ---
         for i, (nome, (FrameClass, texto_botao)) in enumerate(paginas.items()):
             # Cria o frame
@@ -100,16 +113,17 @@ class App(ttk.Window):
                 navigation_frame,
                 text=texto_botao,
                 command=lambda n=nome: self.show_frame(n),
-                bootstyle="outline-secondary",
+                # bootstyle="outline-secondary",
+                style="Custom.TButton",
             )
             btn.grid(row=i, column=0, sticky=EW, pady=5)
 
         # Botão de sair no final da sidebar
         btn_sair = ttk.Button(
             navigation_frame,
-            text="🚪",
+            text="❌",
             command=self._on_closing,
-            bootstyle="outline-danger",
+            style="Custom.TButton",
         )
         btn_sair.grid(row=6, column=0, sticky=EW, pady=10)
 
