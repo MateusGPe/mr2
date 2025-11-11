@@ -198,7 +198,7 @@ class PainelAcaoBusca(ttk.Frame):
 
     def focar_entrada(self):
         if self._entrada_busca:
-            self.after(50, self._entrada_busca.focus_set)
+            self.after(30, self._entrada_busca.focus_set)
             logger.debug("Foco agendado para o campo de busca.")
         else:
             logger.warning("Tentativa de focar campo de busca não inicializado.")

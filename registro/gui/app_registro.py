@@ -27,7 +27,7 @@ from registro.nucleo.facade import FachadaRegistro
 
 logger = logging.getLogger(__name__)
 
-logging.basicConfig(level=logging.DEBUG)
+#logging.basicConfig(level=logging.DEBUG)
 
 
 class AppRegistro(tk.Tk):
@@ -106,13 +106,15 @@ class AppRegistro(tk.Tk):
 
     def _configurar_estilo(self):
         try:
-            self.style = ttk.Style(theme="minty")
+            self.style = ttk.Style(theme="sandstone")
             fonte_padrao = ("Segoe UI", 12)
             fonte_cabecalho = (fonte_padrao[0], 10, "bold")
             fonte_label = (fonte_padrao[0], 11, "bold")
             fonte_pequena = (fonte_padrao[0], 9)
             self.style.configure(
-                "Custom.Treeview", font=(fonte_padrao[0], 9), rowheight=30
+                "Custom.Treeview", font=(fonte_padrao[0], 9), rowheight=30,
+                borderwidth=0,
+                highlightthickness=0,
             )
             self.style.configure(
                 "Custom.Treeview.Heading",
@@ -187,7 +189,7 @@ class AppRegistro(tk.Tk):
         ).pack(side=RIGHT, padx=3)
 
     def _criar_paineis_principais(self, fachada: FachadaRegistro):
-        self._janela_principal_dividida = ttk.PanedWindow(
+        self._janela_principal_dividida = ttk.Panedwindow(
             self, orient=HORIZONTAL, bootstyle="light"  # type: ignore
         )
         self._janela_principal_dividida.grid(

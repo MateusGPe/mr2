@@ -159,7 +159,6 @@ class RoundedButton(tk.Canvas):
                 font_path = tkFont.Font(name=tk_font.name, exists=True).actual()[
                     "family"
                 ]
-                print(font_path)
                 return ImageFont.truetype(f"{font_path}", size)
             except Exception as e:
                 # Carrega a fonte padrão da Pillow se tudo falhar
@@ -182,27 +181,33 @@ class RoundedButton(tk.Canvas):
         shrunken_width = self.width - self.shrink_size
         shrunken_height = self.height - self.shrink_size
 
+        shrunken_radius = (self.radius / self.width) * shrunken_width
+
         self.normal_image = self._create_button_image(
-            self.width, self.height, self.bg_color, self.fg_color
+            self.width, self.height, self.bg_color, self.fg_color, self.radius
         )
         self.hover_image = self._create_button_image(
-            self.width, self.height, self.hover_color, self.fg_color
+            self.width, self.height, self.hover_color, self.fg_color, self.radius
         )
         self.press_image = self._create_button_image(
-            self.width, self.height, self.press_color, self.fg_color
+            self.width, self.height, self.press_color, self.fg_color, self.radius
         )
         self.disabled_image = self._create_button_image(
-            self.width, self.height, self.disabled_bg, self.disabled_fg
+            self.width, self.height, self.disabled_bg, self.disabled_fg, self.radius
         )
         self.shrink_image = self._create_button_image(
-            shrunken_width, shrunken_height, self.press_color, self.fg_color
+            shrunken_width,
+            shrunken_height,
+            self.press_color,
+            self.fg_color,
+            shrunken_radius,
         )
 
         self.shrink_offset_x = (self.width - shrunken_width) / 2
         self.shrink_offset_y = (self.height - shrunken_height) / 2
 
     def _create_button_image(
-        self, width: int, height: int, bg_color: str, fg_color: str
+        self, width: int, height: int, bg_color: str, fg_color: str, radius: float
     ) -> ImageTk.PhotoImage:
         """
         Cria uma única imagem de botão com cantos arredondados e texto.
@@ -220,7 +225,7 @@ class RoundedButton(tk.Canvas):
         # Desenha o retângulo arredondado em alta resolução
         draw.rounded_rectangle(
             (0, 0, width * self.scale_factor, height * self.scale_factor),
-            radius=self.radius * self.scale_factor,
+            radius=radius * self.scale_factor,
             fill=bg_color,
         )
 

@@ -46,7 +46,7 @@ class TreeviewSimples:
             self.mapa_texto_coluna[id_col] = texto
         logger.debug("Colunas TreeviewSimples: IDs=%s", self.ids_colunas)
 
-        self.frame = ttk.Frame(master)
+        self.frame = ttk.Frame(master, borderwidth=1, border=1)
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(0, weight=1)
 
@@ -60,14 +60,40 @@ class TreeviewSimples:
             bootstyle=bootstyle,  # type: ignore
         )
         self.view.grid(row=0, column=0, sticky="nsew")
+        self.sb_v = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.view.yview)
+        self.sb_h = ttk.Scrollbar(
+            self.frame, orient=HORIZONTAL, command=self.view.xview
+        )
 
-        sb_v = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.view.yview)
-        sb_v.grid(row=0, column=1, sticky="ns")
-        sb_h = ttk.Scrollbar(self.frame, orient=HORIZONTAL, command=self.view.xview)
-        sb_h.grid(row=1, column=0, sticky="ew")
-        self.view.configure(yscrollcommand=sb_v.set, xscrollcommand=sb_h.set)
+        # O Treeview irá chamar os métodos 'autohide' sempre que a visão for alterada
+        self.view.configure(
+            yscrollcommand=self._autohide_scrollbar_v,
+            xscrollcommand=self._autohide_scrollbar_h,
+        )
 
         self._configurar_colunas()
+
+    def _autohide_scrollbar_v(self, first, last):
+        """Gerencia a visibilidade da scrollbar vertical."""
+        # Converte para float para garantir a comparação
+        first, last = float(first), float(last)
+        # Se 'first' é 0 e 'last' é 1, a treeview inteira está visível
+        if first == 0.0 and last == 1.0:
+            # Oculta a scrollbar, mas lembra sua configuração de grid
+            self.sb_v.grid_remove()
+        else:
+            # Mostra a scrollbar
+            self.sb_v.grid(row=0, column=1, sticky="ns")
+        self.sb_v.set(first, last)
+
+    def _autohide_scrollbar_h(self, first, last):
+        """Gerencia a visibilidade da scrollbar horizontal."""
+        first, last = float(first), float(last)
+        if first == 0.0 and last == 1.0:
+            self.sb_h.grid_remove()
+        else:
+            self.sb_h.grid(row=1, column=0, sticky="ew")
+        self.sb_h.set(first, last)
 
     def _configurar_colunas(self):
         for i, cd in enumerate(self.dados_colunas):
