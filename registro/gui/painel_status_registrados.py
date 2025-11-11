@@ -132,18 +132,18 @@ class PainelStatusRegistrados(ttk.Frame):
         self._label_contagem_restantes.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
     def _criar_tabela_registrados(self):
-        frame_reg = ttk.Labelframe(
-            self,
-            text="✅ Alunos Registrados (Clique ❌ para Remover)",
-            padding=(5, 5),
-        )
-        frame_reg.grid(row=0, column=0, sticky="nsew")
-        frame_reg.rowconfigure(0, weight=1)
-        frame_reg.columnconfigure(0, weight=1)
+        #frame_reg = ttk.Labelframe(
+        #    self,
+        #    text="✅ Alunos Registrados (Clique ❌ para Remover)",
+        #    padding=(5, 5),
+        #)
+        #frame_reg.grid(row=0, column=0, sticky="nsew")
+        #frame_reg.rowconfigure(0, weight=1)
+        #frame_reg.columnconfigure(0, weight=1)
 
         self._definicao_cols_registrados = self._obter_definicao_cols_registrados()
         self._tabela_estudantes_registrados = TreeviewSimples(
-            master=frame_reg, dados_colunas=self._definicao_cols_registrados, height=15
+            master=self, dados_colunas=self._definicao_cols_registrados, height=15
         )
         self._tabela_estudantes_registrados.grid(row=0, column=0, sticky="nsew")
 

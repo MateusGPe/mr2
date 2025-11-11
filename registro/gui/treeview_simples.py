@@ -12,6 +12,7 @@ from tkinter import ttk
 from typing import Any, Dict, List, Optional, Tuple
 
 from ttkbootstrap.constants import END, HORIZONTAL, VERTICAL, W
+import ttkbootstrap as ttkb
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,9 @@ class TreeviewSimples:
             self.mapa_texto_coluna[id_col] = texto
         logger.debug("Colunas TreeviewSimples: IDs=%s", self.ids_colunas)
 
-        self.frame = ttk.Frame(master, borderwidth=1, border=1)
+        self.frame = ttk.Frame(
+            master, borderwidth=0, border=0, bootstyle="light", padding=(4, 0, 4, 4)
+        )
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(0, weight=1)
 
@@ -72,6 +75,28 @@ class TreeviewSimples:
         )
 
         self._configurar_colunas()
+
+    def apply_zebra_striping(self):
+        """Aplica cores alternadas às linhas e remove de outras."""
+
+        # Pega as cores do tema atual para consistência
+        try:
+            style = ttkb.Style.get_instance()
+            odd_color = style.colors.light  # Uma cor clara do tema
+        except:
+            odd_color = "#F0F0F0"  # Cor de fallback
+
+        self.view.tag_configure("oddrow", background=odd_color)
+        self.view.tag_configure(
+            "evenrow", background=""
+        )  # Garante que a linha par use a cor padrão
+
+        # Re-aplica as tags a todas as linhas na ordem VISUAL atual
+        for i, item_id in enumerate(self.view.get_children()):
+            if i % 2 == 1:
+                self.view.item(item_id, tags=("oddrow",))
+            else:
+                self.view.item(item_id, tags=("evenrow",))
 
     def _autohide_scrollbar_v(self, first, last):
         """Gerencia a visibilidade da scrollbar vertical."""
@@ -184,6 +209,7 @@ class TreeviewSimples:
             except tk.TclError as erro_mov:
                 logger.error("Erro ao mover item '%s' na ordenação: %s", iid, erro_mov)
 
+        self.apply_zebra_striping()
         try:
             self.view.heading(
                 id_col, command=partial(self.ordenar_coluna, id_col, not reverso)
@@ -221,6 +247,7 @@ class TreeviewSimples:
             return
         try:
             self.view.delete(*iids_alvo)
+            self.apply_zebra_striping()
         except tk.TclError as e:
             logger.error("Erro ao deletar linhas %s: %s", iids_alvo, e)
 
@@ -240,12 +267,15 @@ class TreeviewSimples:
                     )
             except Exception as e:
                 logger.error("Erro ao inserir linha %s: %s", valores_linha, e)
+        self.apply_zebra_striping()
 
     def inserir_linha(
         self, valores: Tuple, index: Any = END, iid: Optional[str] = None
     ) -> Optional[str]:
         try:
-            return self.view.insert("", index, values=valores, iid=iid)
+            iid = self.view.insert("", index, values=valores, iid=iid)
+            self.apply_zebra_striping()
+            return iid
         except tk.TclError as e:
             logger.error(
                 "Erro ao inserir linha com valores %s (IID: %s): %s", valores, iid, e
