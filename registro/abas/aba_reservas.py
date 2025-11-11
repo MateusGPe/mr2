@@ -9,6 +9,7 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 from ttkbootstrap.widgets import DateEntry
 
+from registro.abas.rounded_button import RoundedButton
 from registro.dialogos import ReservaDialog
 
 
@@ -16,6 +17,7 @@ class AbaReservas(ttk.Frame):
     def __init__(self, parent, fachada_nucleo):
         super().__init__(parent)
         self.fachada_nucleo = fachada_nucleo
+        self.filtro = {}
         self._criar_widgets()
         self._carregar_reservas()
 
@@ -29,46 +31,47 @@ class AbaReservas(ttk.Frame):
         top_panel.columnconfigure(1, weight=1)
 
         # Ações à esquerda
-        actions_frame = ttk.Frame(top_panel, padding=(0, 5, 0, 5))
+        actions_frame = ttk.Frame(top_panel)  # , padding=(0, 5, 0, 5))
         actions_frame.grid(row=0, column=0, sticky=W, padx=(0, 10))
+        self.fitro = {}
 
-        ttk.Button(
+        RoundedButton(
             actions_frame,
             text="Adicionar Reserva",
             command=self._adicionar_reserva,
-            bootstyle="success",
         ).pack(side=LEFT, padx=(0, 5))
 
-        self.btn_edit_reserva = ttk.Button(
-            actions_frame, text="Editar", command=self._editar_reserva, state="disabled"
+        self.btn_edit_reserva = RoundedButton(
+            actions_frame,
+            text="Editar",
+            command=self._editar_reserva,
+            state="disabled",
         )
         self.btn_edit_reserva.pack(side=LEFT, padx=5)
 
-        self.btn_delete_reserva = ttk.Button(
+        self.btn_delete_reserva = RoundedButton(
             actions_frame,
             text="Excluir",
             command=self._deletar_reserva,
-            bootstyle="danger-outline",
+            bootstyle="danger",
             state="disabled",
         )
         self.btn_delete_reserva.pack(side=LEFT, padx=5)
 
         # Filtros à direita
-        filter_frame = ttk.Frame(top_panel, padding=(0, 5, 0, 5))
+        filter_frame = ttk.Frame(top_panel)  # , padding=(0, 5, 0, 5))
         filter_frame.grid(row=0, column=1, sticky=EW)
 
         ttk.Label(filter_frame, text="Filtrar por Data:").pack(side=LEFT, padx=(0, 5))
         self.filter_date_entry = DateEntry(
             filter_frame,
-            dateformat="%Y-%m-%d",
+            dateformat=r"%d/%m/%Y",
             width=12,
         )
         self.filter_date_entry.pack(side=LEFT, padx=5)
-        self.filter_date_entry.entry.bind(
-            "<<DateEntrySelected>>", self._filtrar_reservas
-        )
+        self.filter_date_entry.bind("<<DateEntrySelected>>", self._filtrar_reservas)
         # Adiciona um botão para limpar o filtro de data
-        ttk.Button(
+        RoundedButton(
             filter_frame,
             text="Limpar",
             bootstyle="light",
@@ -103,7 +106,7 @@ class AbaReservas(ttk.Frame):
             coldata=self.reservas_coldata,
             rowdata=[],
             paginated=True,
-            pagesize=20,
+            pagesize=100,
             bootstyle="info",
         )
         self.reservas_table.pack(expand=True, fill=BOTH)
@@ -111,7 +114,7 @@ class AbaReservas(ttk.Frame):
 
     def _limpar_filtro_data(self):
         self.filter_date_entry.entry.delete(0, END)
-        self._filtrar_reservas()
+        self._filtrar_reservas(cmp_filtros=True)
 
     def _get_dados_linha_selecionada(self):
         """Retorna os dados da linha selecionada na tabela."""
@@ -122,8 +125,8 @@ class AbaReservas(ttk.Frame):
 
     def _on_reserva_select(self, _=None):
         is_selected = bool(self._get_dados_linha_selecionada())
-        self.btn_edit_reserva.config(state="normal" if is_selected else "disabled")
-        self.btn_delete_reserva.config(state="normal" if is_selected else "disabled")
+        self.btn_edit_reserva.configure(state="normal" if is_selected else "disabled")
+        self.btn_delete_reserva.configure(state="normal" if is_selected else "disabled")
 
     def _get_grupos_disponiveis(self):
         try:
@@ -133,19 +136,30 @@ class AbaReservas(ttk.Frame):
         except Exception:
             return []
 
-    def _filtrar_reservas(self, event=None):
+    def _filtrar_reservas(self, event=None, cmp_filtros=False):
+        filtro_ant = self.filtro
+        self.filtro = {}
         data_filtro = self.filter_date_entry.entry.get()
+
+        if data_filtro:
+            self.filtro["data"] = data_filtro
+
         turma_filtro = self.filter_turma_combobox.get()
 
         # Converte "Todas" para None para a chamada da fachada
         if turma_filtro == "Todas":
             turma_filtro = None
 
+        if turma_filtro:
+            self.filtro["grupos"] = [
+                turma_filtro,
+            ]
+
+        if cmp_filtros and self.filtro == filtro_ant:
+            return
+
         try:
-            reservas = self.fachada_nucleo.listar_reservas(
-                # data=data_filtro if data_filtro else None,
-                # grupo=turma_filtro,
-            )
+            reservas = self.fachada_nucleo.listar_reservas(filtros=self.filtro)
             dados = [
                 (
                     r["id"],
@@ -167,7 +181,7 @@ class AbaReservas(ttk.Frame):
 
     def _carregar_reservas(self):
         # Define a data atual como padrão para o filtro de data ao carregar
-        date_str = datetime.now().strftime("%Y-%m-%d")
+        date_str = datetime.now().strftime(r"%d/%m/%Y")
         self.filter_date_entry.entry.delete(0, END)
         self.filter_date_entry.entry.insert(0, date_str)
 

@@ -12,6 +12,7 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.scrolled import ScrolledFrame
 from ttkbootstrap.tableview import Tableview
 
+from registro.abas.rounded_button import RoundedButton
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 
 
@@ -63,7 +64,7 @@ class AbaImportacao(ttk.Frame):
         """Habilita ou desabilita recursivamente todos os widgets filhos."""
         for widget in parent_widget.winfo_children():
             try:
-                if isinstance(widget, ttk.Button) and "DateEntry" in str(widget.master):
+                if isinstance(widget, RoundedButton) and "DateEntry" in str(widget.master):
                     continue
                 widget.config(state=state)
             except (tk.TclError, AttributeError):
@@ -107,11 +108,10 @@ class AbaImportacao(ttk.Frame):
         content.pack(fill=X, expand=True)
         content.columnconfigure(1, weight=1)
 
-        ttk.Label(content, text="Tipo de Arquivo:").grid(
-            row=0, column=0, sticky=W, padx=(0, 10)
-        )
         type_frame = ttk.Frame(content)
-        type_frame.grid(row=0, column=1, sticky=EW, pady=(0, 15))
+
+        ttk.Label(type_frame, text="Tipo de Arquivo:").pack(side=LEFT, padx=(0, 10))
+        type_frame.grid(row=0, column=0, columnspan=2, sticky=EW, pady=(0, 15))
         self.import_type_var = tk.StringVar(value="detalhado")
         ttk.Radiobutton(
             type_frame,
@@ -135,13 +135,13 @@ class AbaImportacao(ttk.Frame):
         ttk.Entry(file_frame, textvariable=self.file_path_var, state="readonly").pack(
             side=LEFT, fill=X, expand=True
         )
-        ttk.Button(
+        RoundedButton(
             file_frame, text="Procurar...", command=self._selecionar_arquivo_importacao
         ).pack(side=LEFT, padx=5)
 
-        ttk.Button(
+        RoundedButton(
             step1,
-            text="Analisar Arquivo ➡️",
+            text="Analisar Arquivo",
             command=self._iniciar_analise,
             bootstyle="primary",
         ).pack(anchor=E, pady=(25, 0))
@@ -172,15 +172,15 @@ class AbaImportacao(ttk.Frame):
         btn_frame = ttk.Frame(step2)
         btn_frame.grid(row=3, column=0, sticky=EW, pady=(15, 0))
         btn_frame.columnconfigure(1, weight=1)
-        ttk.Button(
+        RoundedButton(
             btn_frame,
-            text="⬅️ Voltar",
+            text="Voltar",
             command=self._voltar_para_passo_1,
             bootstyle="outline-secondary",
         ).grid(row=0, column=0, sticky=W)
-        ttk.Button(
+        RoundedButton(
             btn_frame,
-            text="Confirmar e Importar ✔️",
+            text="Confirmar e Importar",
             command=self._executar_importacao,
             bootstyle="success",
         ).grid(row=0, column=2, sticky=E)
@@ -203,7 +203,7 @@ class AbaImportacao(ttk.Frame):
         )
         self.sumario_label.pack(pady=10, fill=X, expand=True)
 
-        ttk.Button(
+        RoundedButton(
             sumario_frame,
             text="Nova Importação",
             command=self._resetar_importacao,
@@ -326,23 +326,23 @@ class AbaImportacao(ttk.Frame):
             wraplength=200,
         ).pack(fill=X, pady=(0, 15))
 
-        ttk.Button(
+        RoundedButton(
             container,
             text="Exportar Alunos (CSV)",
             command=lambda: self._exportar_dados("alunos"),
-            bootstyle="outline-primary",
+            bootstyle="primary",
         ).pack(fill=X, pady=4)
-        ttk.Button(
+        RoundedButton(
             container,
             text="Exportar Reservas (CSV)",
             command=lambda: self._exportar_dados("reservas"),
-            bootstyle="outline-primary",
+            bootstyle="primary",
         ).pack(fill=X, pady=4)
-        ttk.Button(
+        RoundedButton(
             container,
             text="Exportar Consumo da Sessão (XLSX)",
             command=lambda: self._exportar_dados("consumo"),
-            bootstyle="outline-primary",
+            bootstyle="primary",
         ).pack(fill=X, pady=4)
         return container
 

@@ -2,7 +2,7 @@
 
 import traceback
 from tkinter import messagebox
-import tkinter as tk
+from typing import Dict
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import EW, NSEW
@@ -17,13 +17,15 @@ from registro.nucleo.facade import FachadaRegistro
 
 class App(ttk.Window):
     def __init__(self):
-        super().__init__(themename="litera", title="Sistema de Gestão de Refeitório")
+        super().__init__(themename="sandstone", title="Sistema de Gestão de Refeitório")
         self.geometry("1280x800")
 
         if not self._inicializar_fachadas():
             self.destroy()
             return
 
+        self.selected: str
+        self.buttons: Dict[str, ttk.Button] = {}
         self._criar_widgets()
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
@@ -40,7 +42,6 @@ class App(ttk.Window):
             return False
 
     def _on_closing(self):
-        # if messagebox.askokcancel("Sair", "Deseja realmente sair?"):
         try:
             self.fachada_nucleo.fechar_conexao()
         except Exception:
@@ -48,56 +49,27 @@ class App(ttk.Window):
         self.destroy()
 
     def _criar_widgets(self):
-        # Configuração do grid principal da janela
         self.rowconfigure(0, weight=1)
         self.columnconfigure(1, weight=1)
-
-        style = ttk.Style()
-        style.configure("Nav.TFrame", background="#f0f0f0")
-        # --- Frame de Navegação (Sidebar) ---
         navigation_frame = ttk.Frame(
             self,
-            # bootstyle="secondary",
-            style="Nav.TFrame",
-            padding=10,
+            bootstyle="dark",
+            padding=(5, 0, 0, 5),
         )
         navigation_frame.grid(row=0, column=0, sticky=NSEW)
-        navigation_frame.rowconfigure(
-            5, weight=1
-        )  # Espaço para empurrar o botão de sair para baixo
-
-        # --- Container de Conteúdo ---
+        navigation_frame.rowconfigure(5, weight=1)
         self.content_frame = ttk.Frame(self, padding=20)
         self.content_frame.grid(row=0, column=1, sticky=NSEW)
         self.content_frame.rowconfigure(0, weight=1)
         self.content_frame.columnconfigure(0, weight=1)
-
-        # --- Dicionário para armazenar os frames (antigas abas) ---
-        self.frames = {}
-
-        # --- Páginas (Frames) ---
+        self.frames: Dict[str, ttk.Frame] = {}
         paginas = {
             "dashboard": (AbaDashboard, "📊"),
             "alunos": (AbaAlunos, "👤"),
             "reservas": (AbaReservas, "📅"),
             "importacao": (AbaImportacao, "🔄"),
         }
-        style = ttk.Style()
-        style.configure(
-            "Custom.TButton",
-            background="#f0f0f0",
-            foreground="#000000",
-            relief="flat",
-            padding=4,
-        )
-        style.map(
-            "Custom.TButton",
-            background=[("active", "#ebebeb")],
-            foreground=[("active", "red")],
-        )
-        # --- Criação dos botões de navegação e dos frames de conteúdo ---
         for i, (nome, (FrameClass, texto_botao)) in enumerate(paginas.items()):
-            # Cria o frame
             if nome == "importacao":
                 frame = FrameClass(
                     self.content_frame, self.fachada_nucleo, self.fachada_importacao
@@ -106,37 +78,47 @@ class App(ttk.Window):
                 frame = FrameClass(self.content_frame, self.fachada_nucleo)
 
             self.frames[nome] = frame
-            frame.grid(row=0, column=0, sticky=NSEW)
-
-            # Cria o botão de navegação
             btn = ttk.Button(
                 navigation_frame,
                 text=texto_botao,
                 command=lambda n=nome: self.show_frame(n),
-                # bootstyle="outline-secondary",
-                style="Custom.TButton",
+                bootstyle="dark",
+                padding=(3, 6),
             )
-            btn.grid(row=i, column=0, sticky=EW, pady=5)
+            btn.grid(row=i, column=0, sticky=EW, pady=2)
+            self.buttons[nome] = btn
 
-        # Botão de sair no final da sidebar
+        self.selected = "dashboard"
+        self.buttons[self.selected].config(bootstyle="light")
+
+        self.frames[self.selected].grid(row=0, column=0, sticky=NSEW)
+
         btn_sair = ttk.Button(
             navigation_frame,
             text="❌",
             command=self._on_closing,
-            style="Custom.TButton",
+            bootstyle="dark",
         )
-        btn_sair.grid(row=6, column=0, sticky=EW, pady=10)
-
-        # Mostra a página inicial
+        btn_sair.grid(row=6, column=0, sticky=EW, pady=10, padx=(0,5))
         self.show_frame("dashboard")
 
     def show_frame(self, nome_pagina):
-        """Esconde todos os frames e mostra apenas o selecionado."""
-        for frame in self.frames.values():
-            frame.grid_remove()  # Usa grid_remove para não perder a configuração do grid
+        """Esconde tod os os frames e mostra apenas o selecionado."""
+        if self.selected == nome_pagina:
+            frame_ativo = self.frames[nome_pagina]
+            frame_ativo.focus()
+            return
 
+        for frame in self.frames.values():
+            frame.grid_remove()
+
+        self.buttons[self.selected].config(bootstyle="dark")
+        self.buttons[nome_pagina].config(bootstyle="light")
+        self.selected = nome_pagina
         frame_ativo = self.frames[nome_pagina]
-        frame_ativo.grid()
+
+        frame_ativo.grid(row=0, column=0, sticky=NSEW)
+        self.after(10, frame_ativo.focus)
 
 
 if __name__ == "__main__":

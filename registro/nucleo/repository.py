@@ -9,7 +9,14 @@ from typing import List, Set, Optional
 from sqlalchemy.orm import Session, selectinload
 
 from registro.nucleo.crud import CRUD
-from registro.nucleo.models import Consumo, Estudante, Grupo, Reserva, Sessao
+from registro.nucleo.models import (
+    Consumo,
+    Estudante,
+    Grupo,
+    Reserva,
+    Sessao,
+    associacao_estudante_grupo,
+)
 
 
 class RepositorioEstudante(CRUD[Estudante]):
@@ -59,6 +66,24 @@ class RepositorioReserva(CRUD[Reserva]):
 
     def __init__(self, sessao: Session):
         super().__init__(sessao, Reserva)
+
+    def por_data_e_grupos(
+        self, grupos_ids: List[int], data_formatada: Optional[str] = None
+    ):
+        subconsulta_estudantes = (
+            self._sessao_db.query(associacao_estudante_grupo.c.estudante_id)
+            .filter(associacao_estudante_grupo.c.grupo_id.in_(grupos_ids))
+            .distinct()
+        )
+
+        consulta_reserva = self._sessao_db.query(Reserva).filter(
+            Reserva.estudante_id.in_(subconsulta_estudantes)
+        )
+
+        if data_formatada:
+            consulta_reserva = consulta_reserva.filter(Reserva.data == data_formatada)
+
+        return consulta_reserva.all()
 
 
 class RepositorioSessao(CRUD[Sessao]):

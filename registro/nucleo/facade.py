@@ -296,7 +296,17 @@ class FachadaRegistro:
         Lista todas as reservas, com suporte a filtros.
         """
         filtros = filtros or {}
-        reservas = self.repo_reserva.ler_filtrado(**filtros)
+        if "grupos" in filtros or "grupo" in filtros:
+            grupos = set(filtros.get("grupos", [])) or set(
+                filtros.get("grupo", ""),
+            )
+            grupos_ids = [g.id for g in self.repo_grupo.por_nomes(grupos)]
+            reservas = self.repo_reserva.por_data_e_grupos(
+                grupos_ids=grupos_ids, data_formatada=filtros.get("data")
+            )
+        else:
+            reservas = self.repo_reserva.ler_filtrado(**filtros)
+
         return [
             {
                 "id": res.id,

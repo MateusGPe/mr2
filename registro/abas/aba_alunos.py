@@ -8,6 +8,7 @@ from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, E, W, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.tableview import Tableview
 
+from registro.abas.rounded_button import RoundedButton
 from registro.dialogos import StudentDialog
 
 
@@ -31,20 +32,23 @@ class AbaAlunos(ttk.Frame):
         actions_frame = ttk.Frame(top_panel)
         actions_frame.grid(row=0, column=0, sticky=W, padx=(0, 10))
 
-        btn_add = ttk.Button(
+        btn_add = RoundedButton(
             actions_frame,
             text="Adicionar Aluno",
             command=self._adicionar_aluno,
             bootstyle="success",
         )
-        btn_add.pack(side=LEFT, padx=5)
+        btn_add.pack(side=LEFT, padx=(0, 5))
 
-        self.btn_edit_aluno = ttk.Button(
-            actions_frame, text="Editar", command=self._editar_aluno, state="disabled"
+        self.btn_edit_aluno = RoundedButton(
+            actions_frame,
+            text="Editar",
+            command=self._editar_aluno,
+            state="disabled",
         )
         self.btn_edit_aluno.pack(side=LEFT, padx=5)
 
-        self.btn_delete_aluno = ttk.Button(
+        self.btn_delete_aluno = RoundedButton(
             actions_frame,
             text="Excluir",
             command=self._deletar_aluno,
@@ -79,7 +83,7 @@ class AbaAlunos(ttk.Frame):
             coldata=self.alunos_coldata,
             rowdata=[],
             paginated=True,
-            pagesize=20,
+            pagesize=100,
             bootstyle="primary",
             searchable=False,
         )

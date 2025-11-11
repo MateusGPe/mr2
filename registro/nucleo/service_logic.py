@@ -241,7 +241,6 @@ def obter_estudantes_para_sessao(
         )
 
     return detalhes_estudantes
-    #return sorted(detalhes_estudantes, key=lambda x: x["nome"])
 
 
 def deletar_sessao(repo_sessao: RepositorioSessao, id_sessao: int):
