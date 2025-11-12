@@ -9,6 +9,7 @@ from tkinter import filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import EW, LEFT, NSEW, E, W, X
 from ttkbootstrap.dialogs import Messagebox
+from ttkbootstrap.localization import MessageCatalog
 from ttkbootstrap.scrolled import ScrolledFrame
 from ttkbootstrap.tableview import Tableview
 
@@ -64,7 +65,9 @@ class AbaImportacao(ttk.Frame):
         """Habilita ou desabilita recursivamente todos os widgets filhos."""
         for widget in parent_widget.winfo_children():
             try:
-                if isinstance(widget, RoundedButton) and "DateEntry" in str(widget.master):
+                if isinstance(widget, RoundedButton) and "DateEntry" in str(
+                    widget.master
+                ):
                     continue
                 widget.config(state=state)
             except (tk.TclError, AttributeError):
@@ -226,7 +229,10 @@ class AbaImportacao(ttk.Frame):
     def _iniciar_analise(self):
         caminho = self.file_path_var.get()
         if not caminho:
-            Messagebox.show_warning("Selecione um arquivo para análise.", "Aviso")
+            Messagebox.show_warning(
+                "Selecione um arquivo para análise.",
+                "Aviso",
+            )
             return
         try:
             detalhado = self.import_type_var.get() == "detalhado"
@@ -240,7 +246,8 @@ class AbaImportacao(ttk.Frame):
             self.step2_frame.pack(fill=X, pady=(0, 15))
         except Exception:
             Messagebox.show_error(
-                "Falha ao analisar arquivo. Verifique o console.", "Erro"
+                "Falha ao analisar arquivo. Verifique o console.",
+                "Erro",
             )
             traceback.print_exc()
 
@@ -273,10 +280,10 @@ class AbaImportacao(ttk.Frame):
         self.review_table.build_table_data(self.review_coldata, dados)
 
     def _executar_importacao(self):
-        if not self.linhas_analisadas or not Messagebox.okcancel(
+        if not self.linhas_analisadas or Messagebox.okcancel(
             "Confirmar Importação",
             "Esta ação irá modificar o banco de dados. Deseja continuar?",
-        ):
+        ) == MessageCatalog.translate("No"):
             return
         try:
             resumo = self.fachada_importacao.executar()
@@ -393,12 +400,17 @@ class AbaImportacao(ttk.Frame):
                         d["grupos"] = ", ".join(d["grupos"])
                 writer.writerows(dados)
             Messagebox.show_info(
-                "Sucesso", f"Dados de {tipo} exportados para:\n{filepath}"
+                "Sucesso",
+                f"Dados de {tipo} exportados para:\n{filepath}",
             )
         except ErroSessaoNaoAtiva:
             Messagebox.show_warning(
-                "Nenhuma sessão ativa para exportar o consumo.", "Aviso"
+                "Nenhuma sessão ativa para exportar o consumo.",
+                "Aviso",
             )
         except Exception:
-            Messagebox.show_error("Falha na exportação. Verifique o console.", "Erro")
+            Messagebox.show_error(
+                "Falha na exportação. Verifique o console.",
+                "Erro",
+            )
             traceback.print_exc()

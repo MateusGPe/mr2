@@ -6,6 +6,7 @@ from datetime import datetime
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, END, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
+from ttkbootstrap.localization import MessageCatalog
 from ttkbootstrap.tableview import Tableview
 from ttkbootstrap.widgets import DateEntry
 
@@ -174,7 +175,8 @@ class AbaReservas(ttk.Frame):
             self.reservas_table.build_table_data(self.reservas_coldata, dados)
         except Exception:
             Messagebox.show_error(
-                "Erro ao carregar reservas. Verifique o console.", "Erro"
+                "Erro ao carregar reservas. Verifique o console.",
+                "Erro",
             )
             traceback.print_exc()
         self._on_reserva_select()
@@ -210,12 +212,16 @@ class AbaReservas(ttk.Frame):
             return
 
         confirmado = Messagebox.okcancel(
-            f"Deseja excluir a reserva com ID {reserva_id}?", "Confirmar Exclusão"
-        )
+            f"Deseja excluir a reserva com ID {reserva_id}?",
+            "Confirmar Exclusão",
+        ) != MessageCatalog.translate("OK")
         if confirmado:
             try:
                 self.fachada_nucleo.deletar_reserva(reserva_id)
                 self._filtrar_reservas()
             except Exception as e:
-                Messagebox.show_error(f"Erro ao excluir reserva: {e}", "Erro")
+                Messagebox.show_error(
+                    f"Erro ao excluir reserva: {e}",
+                    "Erro",
+                )
                 traceback.print_exc()

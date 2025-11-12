@@ -8,7 +8,7 @@ import logging
 import re
 import tkinter as tk
 from datetime import datetime
-from tkinter import messagebox
+from ttkbootstrap.dialogs import Messagebox
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import ttkbootstrap as ttk
@@ -136,8 +136,15 @@ class PainelAcaoBusca(ttk.Frame):
         cols_elegiveis = [
             {"text": "Nome", "stretch": True, "iid": "name"},
             {
-                "text": "Turma | Pront",
-                "width": 160,
+                "text": "Prontuario",
+                "width": 80,
+                "anchor": W,
+                "iid": "info",
+                "minwidth": 100,
+            },
+            {
+                "text": "Turma",
+                "width": 80,
                 "anchor": W,
                 "iid": "info",
                 "minwidth": 100,
@@ -151,7 +158,11 @@ class PainelAcaoBusca(ttk.Frame):
             },
         ]
         self._tree_estudantes_elegiveis = TreeviewSimples(
-            master=self, dados_colunas=cols_elegiveis, height=10
+            master=self,
+            dados_colunas=cols_elegiveis,
+            height=10,
+            enable_hover=True,
+            header_bootstyle="secondary",
         )
         self._tree_estudantes_elegiveis.grid(row=2, column=0, sticky="nsew")
 
@@ -489,7 +500,9 @@ class PainelAcaoBusca(ttk.Frame):
             status_prato = m.get("Prato") or "Sem Reserva"
             linha = (
                 str(m.get("Nome", "N/A")),
-                str(m.get("info", "N/A")),
+                # str(m.get("info", "N/A")),
+                str(m.get("Pront", "N/A")),
+                str(m.get("Turma", "N/A")),
                 str(status_prato),
             )
             dados_linhas.append(linha)
@@ -500,8 +513,10 @@ class PainelAcaoBusca(ttk.Frame):
             )
         except Exception as e:
             logger.exception("Erro ao construir tabela de elegíveis: %s", e)
-            messagebox.showerror(
-                "Erro de UI", "Não foi possível exibir os resultados.", parent=self._app
+            Messagebox.show_error(
+                "Erro de UI",
+                "Não foi possível exibir os resultados.",
+                parent=self._app,
             )
 
     def _ao_selecionar_estudante_elegivel(self, _=None):
@@ -523,7 +538,7 @@ class PainelAcaoBusca(ttk.Frame):
                 for dados_estudante in self._dados_correspondencias_elegiveis_atuais:
                     if (
                         dados_estudante.get("Nome") == nome_selecionado
-                        and dados_estudante.get("info") == info_selecionada
+                        and dados_estudante.get("Pront") == info_selecionada
                     ):
                         dados_estudante_encontrado = dados_estudante
                         break
@@ -624,7 +639,7 @@ class PainelAcaoBusca(ttk.Frame):
             logger.error(
                 "Prontuário ausente para registro: %s", self._dados_elegivel_selecionado
             )
-            messagebox.showerror(
+            Messagebox.show_error(
                 "Erro no Registro",
                 "Prontuário do aluno selecionado está ausente ou inválido.",
                 parent=self._app,
@@ -659,7 +674,7 @@ class PainelAcaoBusca(ttk.Frame):
             logger.warning("Falha ao registrar %s: %s", pront, e)
             ja_servido = "já consumiu" in str(e).lower()
             if ja_servido:
-                messagebox.showwarning(
+                Messagebox.show_warning(
                     "Já Registrado",
                     f"{nome} ({pront})\nJá consta como registrado nesta sessão.",
                     parent=self._app,
@@ -672,7 +687,7 @@ class PainelAcaoBusca(ttk.Frame):
                     self._botao_registrar.config(state=DISABLED)
                 self.limpar_busca()
             else:
-                messagebox.showerror(
+                Messagebox.show_error(
                     "Erro no Registro",
                     f"Não foi possível registrar o consumo para:\n{nome} ({pront})\n"
                     f"Erro: {e}",

@@ -6,11 +6,12 @@
 
 import logging
 import tkinter as tk
-from tkinter import BOTH, EW, HORIZONTAL, NSEW, YES, W, messagebox
+from tkinter import BOTH, EW, HORIZONTAL, NSEW, YES, W
 from typing import TYPE_CHECKING, Callable, List, Set, Tuple, Union
 
 import ttkbootstrap as ttk
 from ttkbootstrap.scrolled import ScrolledFrame
+from ttkbootstrap.dialogs import Messagebox
 
 from registro.nucleo.facade import FachadaRegistro
 
@@ -161,7 +162,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
                 type(e).__name__,
                 e,
             )
-            messagebox.showerror(
+            Messagebox.show_error(
                 "Erro de Banco de Dados",
                 "Não foi possível buscar as turmas.",
                 parent=self,
@@ -279,7 +280,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
             logger.exception(
                 "Erro ocorreu durante a execução do callback de aplicação de filtro."
             )
-            messagebox.showerror(
+            Messagebox.show_error(
                 "Erro no Callback",
                 f"Falha ao aplicar filtros:\n{e}",
                 parent=self,

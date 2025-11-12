@@ -6,15 +6,16 @@
 
 import logging
 import tkinter as tk
-from tkinter import messagebox
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import CENTER, PRIMARY, WARNING
+from ttkbootstrap.dialogs import Messagebox
+from ttkbootstrap.localization import MessageCatalog
 
+from registro.gui.treeview_simples import TreeviewSimples
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
-from registro.gui.treeview_simples import TreeviewSimples
 
 if TYPE_CHECKING:
     from registro.gui.app_registro import AppRegistro
@@ -132,18 +133,22 @@ class PainelStatusRegistrados(ttk.Frame):
         self._label_contagem_restantes.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
     def _criar_tabela_registrados(self):
-        #frame_reg = ttk.Labelframe(
+        # frame_reg = ttk.Labelframe(
         #    self,
         #    text="✅ Alunos Registrados (Clique ❌ para Remover)",
         #    padding=(5, 5),
-        #)
-        #frame_reg.grid(row=0, column=0, sticky="nsew")
-        #frame_reg.rowconfigure(0, weight=1)
-        #frame_reg.columnconfigure(0, weight=1)
+        # )
+        # frame_reg.grid(row=0, column=0, sticky="nsew")
+        # frame_reg.rowconfigure(0, weight=1)
+        # frame_reg.columnconfigure(0, weight=1)
 
         self._definicao_cols_registrados = self._obter_definicao_cols_registrados()
         self._tabela_estudantes_registrados = TreeviewSimples(
-            master=self, dados_colunas=self._definicao_cols_registrados, height=15
+            master=self,
+            dados_colunas=self._definicao_cols_registrados,
+            height=15,
+            enable_hover=True,
+            header_bootstyle="dark",
         )
         self._tabela_estudantes_registrados.grid(row=0, column=0, sticky="nsew")
 
@@ -194,7 +199,7 @@ class PainelStatusRegistrados(ttk.Frame):
             self.atualizar_contadores()
         except Exception as e:
             logger.exception("Erro ao carregar tabela de registrados: %s", e)
-            messagebox.showerror(
+            Messagebox.show_error(
                 "Erro",
                 "Não foi possível carregar a lista de registrados.",
                 parent=self._app,
@@ -307,8 +312,10 @@ class PainelStatusRegistrados(ttk.Frame):
             logger.error(
                 "Não foi possível obter valores para iid %s.", iid_para_deletar
             )
-            messagebox.showerror(
-                "Erro Interno", "Erro ao obter dados da linha.", parent=self._app
+            Messagebox.show_error(
+                "Erro Interno",
+                "Erro ao obter dados da linha.",
+                parent=self._app,
             )
             return
 
@@ -319,15 +326,20 @@ class PainelStatusRegistrados(ttk.Frame):
                 raise ValueError("Prontuário vazio.")
         except (IndexError, ValueError) as e:
             logger.error("Erro ao extrair dados da linha %s: %s.", iid_para_deletar, e)
-            messagebox.showerror(
-                "Erro de Dados", "Erro ao processar dados da linha.", parent=self._app
+            Messagebox.show_error(
+                "Erro de Dados",
+                "Erro ao processar dados da linha.",
+                parent=self._app,
             )
             return
 
         msg_confirmacao = f"Remover registro para:\n{pront} - {nome}?"
-        if messagebox.askyesno(
-            "Confirmar Remoção", msg_confirmacao, icon=WARNING, parent=self._app
-        ):
+        if Messagebox.yesno(
+            "Confirmar Remoção",
+            msg_confirmacao,
+            icon=WARNING,
+            parent=self._app,
+        ) == MessageCatalog.translate("Yes"):
             logger.info(
                 "Confirmada exclusão para %s (iid: %s).", pront, iid_para_deletar
             )

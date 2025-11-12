@@ -4,8 +4,9 @@ import tkinter as tk
 import traceback
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, E, W, X
+from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
+from ttkbootstrap.localization import MessageCatalog
 from ttkbootstrap.tableview import Tableview
 
 from registro.abas.rounded_button import RoundedButton
@@ -150,8 +151,9 @@ class AbaAlunos(ttk.Frame):
             return
 
         confirmado = Messagebox.okcancel(
-            f"Deseja excluir o aluno com ID {aluno_id}?", "Confirmar Exclusão"
-        )
+            f"Deseja excluir o aluno com ID {aluno_id}?",
+            "Confirmar Exclusão",
+        ) == MessageCatalog.translate("OK")
         if confirmado:
             try:
                 self.fachada_nucleo.deletar_estudante(aluno_id)

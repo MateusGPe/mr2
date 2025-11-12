@@ -1,8 +1,8 @@
 # gestao_refeitorio/app_principal.py
 
 import traceback
-from tkinter import messagebox
 from typing import Dict
+from ttkbootstrap.dialogs import Messagebox
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import EW, NSEW
@@ -35,8 +35,9 @@ class App(ttk.Window):
             self.fachada_importacao = FachadaImportacao(self.fachada_nucleo)
             return True
         except Exception:
-            messagebox.showerror(
-                "Erro Fatal", "Não foi possível iniciar o backend. Verifique o console."
+            Messagebox.show_error(
+                "Erro Fatal",
+                "Não foi possível iniciar o backend. Verifique o console.",
             )
             traceback.print_exc()
             return False
@@ -99,7 +100,7 @@ class App(ttk.Window):
             command=self._on_closing,
             bootstyle="dark",
         )
-        btn_sair.grid(row=6, column=0, sticky=EW, pady=10, padx=(0,5))
+        btn_sair.grid(row=6, column=0, sticky=EW, pady=10, padx=(0, 5))
         self.show_frame("dashboard")
 
     def show_frame(self, nome_pagina):

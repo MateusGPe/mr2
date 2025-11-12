@@ -9,18 +9,19 @@ import logging
 import tkinter as tk
 from pathlib import Path
 from threading import Thread
-from tkinter import messagebox
 from typing import TYPE_CHECKING, Callable, Dict, List, Set, Tuple, Union
 
 import ttkbootstrap as ttk
-from registro.nucleo.facade import FachadaRegistro
+from ttkbootstrap.dialogs import Messagebox
+
 from registro.gui.constants import (
+    CAMINHO_JSON_LANCHES,
     NOME_LANCHE_PADRAO,
     TURMAS_INTEGRADO,
-    CAMINHO_JSON_LANCHES,
     DadosNovaSessao,
 )
 from registro.gui.utils import capitalizar, carregar_json, salvar_json
+from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
     from registro.gui.app_registro import AppRegistro
@@ -132,7 +133,7 @@ class DialogoSessao(tk.Toplevel):
                 type(e).__name__,
                 e,
             )
-            messagebox.showerror(
+            Messagebox.show_error(
                 "Erro de Banco de Dados",
                 "Não foi possível buscar as turmas.",
                 parent=self,
@@ -386,7 +387,7 @@ class DialogoSessao(tk.Toplevel):
         try:
             dt.datetime.strptime(self._entrada_hora.get(), "%H:%M")
         except ValueError:
-            messagebox.showwarning(
+            Messagebox.show_warning(
                 "Entrada Inválida",
                 "Formato de hora inválido. Use HH:MM.",
                 parent=self,
@@ -398,7 +399,7 @@ class DialogoSessao(tk.Toplevel):
             data_str = self._entrada_data.entry.get()
             dt.datetime.strptime(data_str, "%d/%m/%Y")
         except ValueError:
-            messagebox.showwarning(
+            Messagebox.show_warning(
                 "Entrada Inválida",
                 "Formato de data inválido. Use DD/MM/YYYY.",
                 parent=self,
@@ -411,7 +412,7 @@ class DialogoSessao(tk.Toplevel):
             )
 
         if self._combobox_refeicao.get() not in ["Lanche", "Almoço"]:
-            messagebox.showwarning(
+            Messagebox.show_warning(
                 "Entrada Inválida",
                 "Selecione um Tipo de Refeição válido.",
                 parent=self,
@@ -421,7 +422,7 @@ class DialogoSessao(tk.Toplevel):
         tipo_refeicao = self._combobox_refeicao.get()
         selecao_lanche = self._combobox_lanche.get().strip()
         if tipo_refeicao == "Lanche" and not selecao_lanche:
-            messagebox.showwarning(
+            Messagebox.show_warning(
                 "Entrada Inválida",
                 "Especifique o nome do lanche para 'Lanche'.",
                 parent=self,
@@ -430,7 +431,7 @@ class DialogoSessao(tk.Toplevel):
             return False
 
         if not any(var.get() for _, var, _ in self._dados_checkbox_turmas):
-            messagebox.showwarning(
+            Messagebox.show_warning(
                 "Seleção Inválida",
                 "Selecione pelo menos uma turma participante.",
                 parent=self,
@@ -462,7 +463,7 @@ class DialogoSessao(tk.Toplevel):
                     )
                     self._combobox_lanche.set(lanche_normalizado)
                 else:
-                    messagebox.showerror(
+                    Messagebox.show_error(
                         "Erro ao Salvar",
                         "Não foi possível salvar a nova opção de lanche.",
                         parent=self,
@@ -474,7 +475,7 @@ class DialogoSessao(tk.Toplevel):
                     type(e).__name__,
                     e,
                 )
-                messagebox.showerror(
+                Messagebox.show_error(
                     "Erro ao Salvar",
                     "Erro inesperado ao salvar lista de lanches.",
                     parent=self,
@@ -529,7 +530,9 @@ class DialogoSessao(tk.Toplevel):
                 )
             except (ValueError, AttributeError) as e:
                 logger.error("Erro ao converter data: %s", e)
-                messagebox.showerror("Erro Interno", "Data inválida.", parent=self)
+                Messagebox.show_error(
+                    "Erro Interno", "Data inválida.", parent=self, localize=True
+                )
                 return
 
             dados_nova_sessao: Dict[str, Union[str, List[str], None]] = {
@@ -587,14 +590,14 @@ class DialogoSessao(tk.Toplevel):
 
             if erro:
                 logger.error("Sincronização de reservas falhou: %s", erro)
-                messagebox.showerror(
+                Messagebox.show_error(
                     "Erro de Sincronização",
                     f"Falha ao sincronizar reservas:\n{erro}",
                     parent=self,
                 )
             elif sucesso:
                 logger.info("Sincronização de reservas concluída com sucesso.")
-                messagebox.showinfo(
+                Messagebox.show_info(
                     "Sincronização Concluída",
                     "Reservas sincronizadas com sucesso com o banco de dados.",
                     parent=self,
@@ -602,7 +605,7 @@ class DialogoSessao(tk.Toplevel):
                 self._atualizar_combobox_sessoes_existentes()
             else:
                 logger.warning("Thread de sincronização finalizou indeterminada.")
-                messagebox.showwarning(
+                Messagebox.show_warning(
                     "Status Incerto",
                     "Sincronização finalizada.",
                     parent=self,

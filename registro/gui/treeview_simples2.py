@@ -9,7 +9,7 @@ import re
 import tkinter as tk
 from functools import partial
 from tkinter import ttk
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union, cast
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import ttkbootstrap as ttkb
 from ttkbootstrap.constants import END, HORIZONTAL, VERTICAL, W
@@ -24,51 +24,35 @@ class TreeviewSimples:
         master: tk.Widget,
         dados_colunas: List[Dict[str, Any]],
         height: int = 10,
-        rowheight: int = 30,
-        font: Optional[Tuple[str, int]] = None,
-        heading_font: Optional[Tuple[str, int]] = None,
-        header_bootstyle: str = "light",
-        select_bootstyle: str = "primary",
+        bootstyle: str = "primary",  # << MUDADO: 'primary' é o padrão
         enable_hover: bool = False,
         enable_sorting: bool = True,
         style_overrides: Optional[Dict[str, str]] = None,
     ):
         """
-        Um wrapper de ttk.Treeview autônomo e altamente personalizável.
+        Um wrapper de ttk.Treeview com funcionalidades e estilo inspirados no Bootstrap.
 
         Args:
             master: O widget pai.
             dados_colunas: Configuração das colunas.
             height: Altura da Treeview em número de linhas.
-            rowheight: A altura de cada linha em pixels.
-            font: Uma tupla (nome, tamanho) para a fonte das linhas.
-            heading_font: Uma tupla (nome, tamanho, peso) para a fonte do cabeçalho.
-            header_bootstyle: Cor base do tema para o CABEÇALHO (light, primary, etc.).
-            select_bootstyle: Cor base do tema para a SELEÇÃO de linha e HOVER.
+            bootstyle: A cor base do tema (primary, success, etc.) para seleção e hover.
             enable_hover: Ativa o efeito de destaque de linha ao passar o mouse.
             enable_sorting: Ativa a ordenação ao clicar no cabeçalho.
-            style_overrides: Dicionário para sobrescrever cores específicas.
+            style_overrides: Dicionário para sobrescrever cores específicas do tema.
+                Chaves: 'odd_row_bg', 'hover_bg', 'hover_fg', 'selected_bg', 'selected_fg'.
         """
         self.master = master
         self.dados_colunas = dados_colunas
-        self.header_bootstyle = header_bootstyle
-        self.select_bootstyle = select_bootstyle
-
-        # Parâmetros de estilo
-        self.rowheight = rowheight
-        self.row_font = font or ("Segoe UI", 9)
-        self.heading_font = heading_font or ("Segoe UI", 10, "bold")
-
+        self.bootstyle = bootstyle
         self.ids_colunas: List[str] = []
         self.mapa_texto_coluna: Dict[str, str] = {}
         self._ultimo_iid_hover: Optional[str] = None
-        self._ultimo_tags_hover: Union[Tuple[str, ...], Literal['']] = ''
+        self._ultimo_tags_hover: Tuple[str, ...] = tuple()
         self.style_config: Dict[str, str] = {}
 
-        # --- Criação de Widgets ---
-        self.frame = ttk.Frame(
-            master, borderwidth=0, padding=(4, 1, 4, 4), bootstyle=header_bootstyle
-        )
+        # --- Criação de Widgets (semelhante a antes) ---
+        self.frame = ttk.Frame(master, borderwidth=0, padding=2, bootstyle=bootstyle)
         self.frame.grid_rowconfigure(0, weight=1)
         self.frame.grid_columnconfigure(0, weight=1)
 
@@ -78,12 +62,11 @@ class TreeviewSimples:
             show="headings",
             height=height,
             selectmode="browse",
+            style="Custom.Treeview",  # Usa o estilo global da app
         )
+        # --- Configuração de Estilo Centralizada ---
+        self._setup_styles(style_overrides or {})
         self.view.grid(row=0, column=0, sticky="nsew")
-
-        # --- Configuração de Estilo Único ---
-        self._create_and_apply_style(style_overrides or {})
-
         self.sb_v = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.view.yview)
         self.sb_h = ttk.Scrollbar(
             self.frame, orient=HORIZONTAL, command=self.view.xview
@@ -100,109 +83,11 @@ class TreeviewSimples:
         if enable_hover:
             self._ativar_efeito_hover()
 
+        # Vincula o evento de seleção para aplicar a tag 'selected'
         self.view.bind("<<TreeviewSelect>>", self._ao_selecionar_item)
 
-    def _create_and_apply_style(self, overrides: Dict[str, str]):
-        """Cria e aplica um conjunto de estilos únicos para esta instância da Treeview."""
-        style = ttkb.Style.get_instance()
-        unique_id = self.view.winfo_id()
-
-        # Nomes de estilo únicos para evitar conflitos globais
-        body_style_name = f"tv_s_body_{unique_id}.Treeview"
-        heading_style_name = f"{body_style_name}.Heading"
-
-        # 1. Configurar o corpo da Treeview (linhas)
-        style.configure(
-            body_style_name,
-            font=self.row_font,
-            rowheight=self.rowheight,
-            borderwidth=0,
-            highlightthickness=0,
-        )
-
-        # 2. Configurar o Cabeçalho
-        try:
-            colors: Colors = cast(Colors, style.colors)
-            header_bg = colors.get(self.header_bootstyle) or colors.light
-            header_fg = colors.get_foreground(
-                self.header_bootstyle
-            ) or colors.get_foreground("light")
-
-            style.configure(
-                heading_style_name,
-                font=self.heading_font,
-                background=header_bg,
-                foreground=header_fg,
-            )
-
-            # Mapeamento de hover e press para o cabeçalho
-            hover_color = Colors.update_hsv(header_bg, vd=0.15)
-            press_color = Colors.update_hsv(header_bg, vd=-0.15)
-            style.map(
-                heading_style_name,
-                background=[
-                    ("pressed", press_color),
-                    ("active", hover_color),
-                ],
-            )
-        except Exception:
-            logger.warning(
-                "Não foi possível aplicar estilos de cabeçalho ttkbootstrap."
-            )
-
-        # 3. Configurar as cores das TAGS (zebra, seleção, hover)
-        self._setup_tag_styles(overrides)
-
-        # 4. Aplicar o estilo principal ao widget
-        self.view.configure(style=body_style_name)
-
-    def _setup_tag_styles(self, overrides: Dict[str, str]):
-        """Define a paleta de cores para as tags, usando o tema e overrides."""
-        defaults = {}
-        try:
-            style = ttkb.Style.get_instance()
-            colors: Colors = cast(Colors, style.colors)
-
-            defaults["odd_row_bg"] = colors.light
-
-            accent_bg = colors.get(self.select_bootstyle) or colors.primary
-            accent_fg = colors.get_foreground(
-                self.select_bootstyle
-            ) or colors.get_foreground("primary")
-
-            defaults["selected_bg"] = accent_bg
-            defaults["selected_fg"] = accent_fg
-
-            defaults["hover_bg"] = Colors.update_hsv(accent_bg, vd=0.15, sd=-0.15)
-            defaults["hover_fg"] = accent_fg
-
-        except Exception:
-            logger.warning("Usando cores de fallback para tags.")
-            defaults = {
-                "odd_row_bg": "#F0F0F0",
-                "hover_bg": "#E6F7FF",
-                "hover_fg": "#000000",
-                "selected_bg": "#007bff",
-                "selected_fg": "#FFFFFF",
-            }
-
-        self.style_config = {**defaults, **overrides}
-
-        self.view.tag_configure("oddrow", background=self.style_config["odd_row_bg"])
-        self.view.tag_configure("evenrow", background="")
-        self.view.tag_configure(
-            "selected",
-            background=self.style_config["selected_bg"],
-            foreground=self.style_config["selected_fg"],
-        )
-        self.view.tag_configure(
-            "hover",
-            background=self.style_config["hover_bg"],
-            foreground=self.style_config["hover_fg"],
-        )
-
-    # ... (O resto da classe permanece exatamente o mesmo da versão anterior) ...
     def _setup_column_ids(self) -> List[str]:
+        """Processa e armazena os IDs das colunas."""
         for i, cd in enumerate(self.dados_colunas):
             iid = cd.get("iid")
             texto = cd.get("text", f"col_{i}")
@@ -214,6 +99,58 @@ class TreeviewSimples:
             self.mapa_texto_coluna[id_col] = texto
         return self.ids_colunas
 
+    def _setup_styles(self, overrides: Dict[str, str]):
+        """Define a paleta de cores, usando o tema como base e aplicando overrides."""
+        defaults = {}
+        try:
+            style = ttkb.Style.get_instance()
+            colors: Colors = cast(Colors, style.colors)
+
+            # Cores base do tema
+            defaults["odd_row_bg"] = colors.light
+
+            # Cores baseadas no bootstyle (ex: 'primary', 'success')
+            accent_bg = colors.get(self.bootstyle) or colors.primary
+            accent_fg = colors.get_foreground(self.bootstyle) or colors.get_foreground(
+                "primary"
+            )
+
+            defaults["selected_bg"] = accent_bg
+            defaults["selected_fg"] = accent_fg
+
+            # A cor de hover é uma versão mais clara da cor de seleção
+            defaults["hover_bg"] = Colors.update_hsv(accent_bg, vd=0.15, sd=-0.15)
+            defaults["hover_fg"] = accent_fg
+
+        except Exception:
+            logger.warning(
+                "Não foi possível obter estilo ttkbootstrap. Usando cores de fallback."
+            )
+            defaults = {
+                "odd_row_bg": "#F0F0F0",
+                "hover_bg": "#E6F7FF",
+                "hover_fg": "#000000",
+                "selected_bg": "#007bff",
+                "selected_fg": "#FFFFFF",
+            }
+
+        self.style_config = defaults
+        self.style_config.update(overrides)  # Aplica personalizações do usuário
+
+        # Configura todas as tags de uma vez
+        self.view.tag_configure("oddrow", background=self.style_config["odd_row_bg"])
+        self.view.tag_configure("evenrow", background="")  # Padrão
+        self.view.tag_configure(
+            "selected",
+            background=self.style_config["selected_bg"],
+            foreground=self.style_config["selected_fg"],
+        )
+        self.view.tag_configure(
+            "hover",
+            background=self.style_config["hover_bg"],
+            foreground=self.style_config["hover_fg"],
+        )
+
     def _ativar_efeito_hover(self):
         self.view.bind("<Motion>", self._ao_mover_mouse)
         self.view.bind("<Leave>", self._ao_sair_mouse)
@@ -221,30 +158,36 @@ class TreeviewSimples:
     def _ao_mover_mouse(self, event: tk.Event):
         iid = self.view.identify_row(event.y)
         if iid != self._ultimo_iid_hover:
-            if self._ultimo_iid_hover and self.view.exists(self._ultimo_iid_hover):
+            if self._ultimo_iid_hover:
                 self.view.item(self._ultimo_iid_hover, tags=self._ultimo_tags_hover)
             if iid:
                 tags_existentes = self.view.item(iid, "tags")
                 self._ultimo_tags_hover = tags_existentes
+                # Não aplica hover se o item já estiver selecionado
                 if "selected" not in tags_existentes:
                     self.view.item(iid, tags=["hover"])
             self._ultimo_iid_hover = iid
 
-    def _ao_sair_mouse(self, _event: tk.Event):
+    def _ao_sair_mouse(self, event: tk.Event):
         if self._ultimo_iid_hover:
-            if self.view.exists(self._ultimo_iid_hover):
-                self.view.item(self._ultimo_iid_hover, tags=self._ultimo_tags_hover)
+            self.view.item(self._ultimo_iid_hover, tags=self._ultimo_tags_hover)
             self._ultimo_iid_hover = None
-            self._ultimo_tags_hover = ''
+            self._ultimo_tags_hover = tuple()
 
-    def _ao_selecionar_item(self, _event: tk.Event):
+    def _ao_selecionar_item(self, event: tk.Event):
+        """Aplica a tag 'selected' ao item selecionado e limpa dos outros."""
+        # Limpa a tag 'selected' de todos os itens primeiro
         for item_id in self.view.get_children():
             tags = list(self.view.item(item_id, "tags"))
             if "selected" in tags:
                 tags.remove("selected")
                 self.view.item(item_id, tags=tags)
-        if iid_selecionado := self.obter_iid_selecionado():
+
+        # Aplica a tag 'selected' ao item recém-selecionado
+        iid_selecionado = self.obter_iid_selecionado()
+        if iid_selecionado:
             tags = list(self.view.item(iid_selecionado, "tags"))
+            # Remove o hover se ele existir, pois a seleção tem prioridade
             if "hover" in tags:
                 tags.remove("hover")
             if "selected" not in tags:
@@ -252,15 +195,20 @@ class TreeviewSimples:
             self.view.item(iid_selecionado, tags=tags)
 
     def apply_zebra_striping(self):
+        """Aplica cores alternadas às linhas, respeitando a seleção."""
         for i, item_id in enumerate(self.view.get_children()):
-            tags = [
-                t
-                for t in self.view.item(item_id, "tags")
-                if t not in ("oddrow", "evenrow")
-            ]
-            tags.append("oddrow" if i % 2 == 1 else "evenrow")
+            tags = list(self.view.item(item_id, "tags"))
+            # Remove tags de estilo antigas
+            tags = [t for t in tags if t not in ("oddrow", "evenrow")]
+
+            # Adiciona a tag de zebra apropriada
+            if i % 2 == 1:
+                tags.append("oddrow")
+            else:
+                tags.append("evenrow")
             self.view.item(item_id, tags=tags)
 
+    # ... O resto dos métodos (ordenar, deletar, etc.) permanece o mesmo ...
     def _autohide_scrollbar_v(self, first, last):
         first, last = float(first), float(last)
         if first == 0.0 and last == 1.0:
@@ -321,7 +269,7 @@ class TreeviewSimples:
     def identificar_celula_clicada(
         self, event: tk.Event
     ) -> Tuple[Optional[str], Optional[str]]:
-        if self.view.identify_region(event.x, event.y) != "cell":
+        if (regiao := self.view.identify_region(event.x, event.y)) != "cell":
             return None, None
         iid = self.view.identify_row(event.y)
         simbolo_col = self.view.identify_column(event.x)
@@ -336,11 +284,13 @@ class TreeviewSimples:
 
     def deletar_linhas(self, iids: Optional[List[str]] = None):
         self.view.delete(*(iids if iids is not None else self.view.get_children()))
+        # A zebra é aplicada ao construir a tabela, não precisa aqui
 
     def construir_dados_tabela(self, dados_linhas: List[Tuple]):
         self.deletar_linhas()
-        [self.view.insert("", END, values=v) for v in dados_linhas]
-        self.apply_zebra_striping()
+        for valores in dados_linhas:
+            self.view.insert("", END, values=valores)
+        self.apply_zebra_striping()  # Aplica a zebra depois de inserir todos os dados
 
     def obter_iids_filhos(self) -> Tuple[str, ...]:
         return self.view.get_children()
@@ -349,13 +299,9 @@ class TreeviewSimples:
         return sel[0] if (sel := self.view.selection()) else None
 
     def obter_valores_linha(self, iid: str) -> Optional[Tuple]:
-        return (
-            tuple(self.view.set(iid).get(c, "") for c in self.ids_colunas)
-            if self.view.exists(iid)
-            else None
-        )
+        if not self.view.exists(iid):
+            return None
+        return tuple(self.view.set(iid).get(cid, "") for cid in self.ids_colunas)
 
     def id_coluna_pelo_indice(self, indice: int) -> Optional[str]:
-        return (
-            self.ids_colunas[i] if 0 <= (i := indice) < len(self.ids_colunas) else None
-        )
+        return self.ids_colunas[indice] if 0 <= indice < len(self.ids_colunas) else None

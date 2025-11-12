@@ -9,12 +9,13 @@ import logging
 import sys
 import tkinter as tk
 from threading import Thread
-from tkinter import CENTER, TclError, messagebox
+from tkinter import CENTER, TclError
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
-
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
+from ttkbootstrap.dialogs import Messagebox
+from ttkbootstrap.localization import MessageCatalog
 
 from registro.gui.constants import CAMINHO_SESSAO
 from registro.gui.dialogo_filtro_turmas import DialogoFiltroTurmas
@@ -27,7 +28,7 @@ from registro.nucleo.facade import FachadaRegistro
 
 logger = logging.getLogger(__name__)
 
-#logging.basicConfig(level=logging.DEBUG)
+# logging.basicConfig(level=logging.DEBUG)
 
 
 class AppRegistro(tk.Tk):
@@ -45,7 +46,7 @@ class AppRegistro(tk.Tk):
             return
 
         self._barra_superior: Optional[ttk.Frame] = None
-        self._janela_principal_dividida: Optional[ttk.PanedWindow] = None
+        self._janela_principal_dividida: Optional[ttk.Panedwindow] = None
         self._barra_status: Optional[ttk.Frame] = None
         self._painel_acao: Optional[PainelAcaoBusca] = None
         self._painel_status: Optional[PainelStatusRegistrados] = None
@@ -86,7 +87,7 @@ class AppRegistro(tk.Tk):
                 temp_root = tk.Tk()
                 temp_root.withdraw()
 
-            messagebox.showerror(
+            Messagebox.show_error(
                 "Erro de Inicialização",
                 f"Falha: {componente}\n{erro}\n\nAplicação será encerrada.",
                 parent=(self if self.winfo_exists() else None),
@@ -111,17 +112,37 @@ class AppRegistro(tk.Tk):
             fonte_cabecalho = (fonte_padrao[0], 10, "bold")
             fonte_label = (fonte_padrao[0], 11, "bold")
             fonte_pequena = (fonte_padrao[0], 9)
-            self.style.configure(
-                "Custom.Treeview", font=(fonte_padrao[0], 9), rowheight=30,
-                borderwidth=0,
-                highlightthickness=0,
-            )
-            self.style.configure(
-                "Custom.Treeview.Heading",
-                font=fonte_cabecalho,
-                background=self.style.colors.light,
-                foreground=self.style.colors.get_foreground("light"),
-            )
+            # self.style.configure(
+            #     "Custom.Treeview",
+            #     font=(fonte_padrao[0], 9),
+            #     rowheight=40,
+            #     borderwidth=0,
+            #     highlightthickness=0,
+            # )
+
+            # header_bg = self.style.colors.light
+            # header_fg = self.style.colors.get_foreground("light")
+
+            # self.style.configure(
+            #     "Custom.Treeview.Heading",
+            #     font=fonte_cabecalho,
+            #     background=header_bg,
+            #     foreground=header_fg,
+            # )
+
+            # # --- LINHA MÁGICA ADICIONADA AQUI ---
+            # #
+            # # Cria uma cor de 'hover' que é um pouco mais clara que a cor de fundo original do cabeçalho
+            # hover_color = Colors.update_hsv(header_bg, vd=0.15)
+            # press_color = Colors.update_hsv(header_bg, vd=-0.15)
+
+            # self.style.map(
+            #     "Custom.Treeview.Heading",
+            #     background=[
+            #         ("pressed", press_color),
+            #         ("active", hover_color),
+            #     ],
+            # )
             self.style.configure("TLabelframe.Label", font=fonte_label)
             self.style.configure("Status.TLabel", font=fonte_pequena)
             self.style.configure("Feedback.TLabel", font=fonte_pequena)
@@ -264,7 +285,11 @@ class AppRegistro(tk.Tk):
         sucesso = False
         desc_acao = ""
         if not self._fachada:
-            messagebox.showerror("Erro Interno", "Fachada não encontrada.", parent=self)
+            Messagebox.show_error(
+                "Erro Interno",
+                "Fachada não encontrada.",
+                parent=self,
+            )
             return False
 
         try:
@@ -290,7 +315,7 @@ class AppRegistro(tk.Tk):
                     sucesso = True
         except Exception as e:
             logger.exception("Falha ao %s: %s", desc_acao, e)
-            messagebox.showerror(
+            Messagebox.show_error(
                 "Operação Falhou",
                 f"Não foi possível {desc_acao}.\nErro: {e}",
                 parent=self,
@@ -409,8 +434,10 @@ class AppRegistro(tk.Tk):
 
     def _abrir_dialogo_filtro_turmas(self):
         if not self._fachada or self._fachada.id_sessao_ativa is None:
-            messagebox.showwarning(
-                "Nenhuma Sessão Ativa", "É necessário iniciar uma sessão.", parent=self
+            Messagebox.show_warning(
+                "Nenhuma Sessão Ativa",
+                "É necessário iniciar uma sessão.",
+                parent=self,
             )
             return
         logger.info("Abrindo diálogo de filtro de turmas.")
@@ -440,7 +467,7 @@ class AppRegistro(tk.Tk):
             self._atualizar_ui_apos_mudanca_dados()
         except Exception as e:
             logger.exception("Falha ao aplicar filtros de turma: %s", e)
-            messagebox.showerror(
+            Messagebox.show_error(
                 "Erro ao Filtrar",
                 f"Não foi possível aplicar os filtros.\nErro: {e}",
                 parent=self,
@@ -469,11 +496,11 @@ class AppRegistro(tk.Tk):
     def _sincronizar_dados_mestre(self):
         if not self._fachada:
             return
-        if not messagebox.askyesno(
+        if Messagebox.yesno(
             "Confirmar Sincronização",
             "Deseja sincronizar os dados mestre?",
             parent=self,
-        ):
+        ) == MessageCatalog.translate("No"):
             return
         self.mostrar_barra_progresso(True, "Sincronizando cadastros...")
         self._iniciar_thread_sinc(
@@ -482,7 +509,7 @@ class AppRegistro(tk.Tk):
 
     def sincronizar_sessao_com_planilha(self):
         if not self._fachada or self._fachada.id_sessao_ativa is None:
-            messagebox.showwarning(
+            Messagebox.show_warning(
                 "Nenhuma Sessão Ativa",
                 "É necessário ter uma sessão ativa para sincronizar.",
                 parent=self,
@@ -528,12 +555,14 @@ class AppRegistro(tk.Tk):
 
         if erro:
             logger.error("%s falhou: %s", nome_tarefa, erro)
-            messagebox.showerror(
-                "Erro na Sincronização", f"{nome_tarefa} falhou:\n{erro}", parent=self
+            Messagebox.show_error(
+                "Erro na Sincronização",
+                f"{nome_tarefa} falhou:\n{erro}",
+                parent=self,
             )
         elif sucesso:
             logger.info("%s concluída com sucesso.", nome_tarefa)
-            messagebox.showinfo(
+            Messagebox.show_info(
                 "Sincronização Concluída",
                 f"{nome_tarefa} concluída com sucesso.",
                 parent=self,
@@ -541,7 +570,7 @@ class AppRegistro(tk.Tk):
             self._atualizar_ui_apos_mudanca_dados()
         else:
             logger.warning("%s finalizada com estado indeterminado.", nome_tarefa)
-            messagebox.showwarning(
+            Messagebox.show_warning(
                 "Status Desconhecido",
                 f"{nome_tarefa} finalizada, mas o status é incerto.",
                 parent=self,
@@ -553,51 +582,53 @@ class AppRegistro(tk.Tk):
         try:
             caminho_arquivo = self._fachada.exportar_sessao_para_xlsx()
             logger.info("Dados da sessão exportados para: %s", caminho_arquivo)
-            messagebox.showinfo(
+            Messagebox.show_info(
                 "Exportação Concluída",
                 f"Dados exportados com sucesso para:\n{caminho_arquivo}",
                 parent=self,
             )
             return True
         except ErroSessaoNaoAtiva:
-            messagebox.showwarning(
+            Messagebox.show_warning(
                 "Nenhuma Sessão Ativa",
                 "Não há sessão ativa para exportar.",
                 parent=self,
             )
         except ValueError as ve:
-            messagebox.showwarning("Nada para Exportar", str(ve), parent=self)
+            Messagebox.show_warning("Nada para Exportar", str(ve), parent=self)
         except Exception as e:
             logger.exception("Erro inesperado durante a exportação.")
-            messagebox.showerror(
-                "Erro na Exportação", f"Ocorreu um erro ao exportar:\n{e}", parent=self
+            Messagebox.show_error(
+                "Erro na Exportação",
+                f"Ocorreu um erro ao exportar:\n{e}",
+                parent=self,
             )
         return False
 
     def exportar_e_encerrar_sessao(self):
         if not self._fachada or self._fachada.id_sessao_ativa is None:
-            messagebox.showwarning(
+            Messagebox.show_warning(
                 "Nenhuma Sessão Ativa",
                 "Não há sessão ativa para encerrar.",
                 parent=self,
             )
             return
-        if not messagebox.askyesno(
+        if Messagebox.yesno(
             "Confirmar Encerramento",
             "Deseja exportar os dados e encerrar esta sessão?",
             icon="warning",
             parent=self,
-        ):
+        ) == MessageCatalog.translate("No"):
             return
 
         exportacao_bem_sucedida = self.exportar_sessao_para_excel()
         if not exportacao_bem_sucedida:
-            if not messagebox.askyesno(
+            if Messagebox.yesno(
                 "Falha na Exportação",
                 "A exportação falhou. Deseja encerrar mesmo assim?",
                 icon="error",
                 parent=self,
-            ):
+            ) == MessageCatalog.translate("No"):
                 return
 
         CAMINHO_SESSAO.unlink(missing_ok=True)
