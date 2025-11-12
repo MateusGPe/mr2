@@ -148,7 +148,7 @@ class PainelStatusRegistrados(ttk.Frame):
             dados_colunas=self._definicao_cols_registrados,
             height=15,
             enable_hover=True,
-            header_bootstyle="dark",
+            #header_bootstyle="dark",
         )
         self._tabela_estudantes_registrados.grid(row=0, column=0, sticky="nsew")
 

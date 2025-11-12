@@ -62,7 +62,7 @@ class TreeviewSimples:
         self.ids_colunas: List[str] = []
         self.mapa_texto_coluna: Dict[str, str] = {}
         self._ultimo_iid_hover: Optional[str] = None
-        self._ultimo_tags_hover: Union[Tuple[str, ...], Literal['']] = ''
+        self._ultimo_tags_hover: Union[Tuple[str, ...], Literal[""]] = ""
         self.style_config: Dict[str, str] = {}
 
         # --- Criação de Widgets ---
@@ -235,7 +235,7 @@ class TreeviewSimples:
             if self.view.exists(self._ultimo_iid_hover):
                 self.view.item(self._ultimo_iid_hover, tags=self._ultimo_tags_hover)
             self._ultimo_iid_hover = None
-            self._ultimo_tags_hover = ''
+            self._ultimo_tags_hover = ""
 
     def _ao_selecionar_item(self, _event: tk.Event):
         for item_id in self.view.get_children():
@@ -349,6 +349,16 @@ class TreeviewSimples:
         return sel[0] if (sel := self.view.selection()) else None
 
     def obter_valores_linha(self, iid: str) -> Optional[Tuple]:
+        return (
+            tuple(self.view.set(iid).get(c, "") for c in self.ids_colunas)
+            if self.view.exists(iid)
+            else None
+        )
+
+    def obter_linha_selecionada(self) -> Optional[Tuple]:
+        if not (ln := self.view.selection()):
+            return None
+        iid = ln[0]
         return (
             tuple(self.view.set(iid).get(c, "") for c in self.ids_colunas)
             if self.view.exists(iid)

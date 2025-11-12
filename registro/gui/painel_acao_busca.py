@@ -38,7 +38,8 @@ logger = logging.getLogger(__name__)
 
 
 class PainelAcaoBusca(ttk.Frame):
-    ATRASO_DEBOUNCE_BUSCA = 350
+    TERMOS_BUSCA_TODOS: List[str] = ["todos", "---", "***",".."]
+    ATRASO_DEBOUNCE_BUSCA:int = 100
 
     def __init__(
         self,
@@ -76,6 +77,9 @@ class PainelAcaoBusca(ttk.Frame):
         if self._entrada_busca:
             self._entrada_busca.bind(
                 "<Return>", lambda _: self._registrar_elegivel_selecionado()
+            )
+            self._entrada_busca.bind(
+                "<Enter>", lambda _: self._registrar_elegivel_selecionado()
             )
             self._entrada_busca.bind(
                 "<Down>", lambda _: self._selecionar_proximo_elegivel(1)
@@ -162,7 +166,7 @@ class PainelAcaoBusca(ttk.Frame):
             dados_colunas=cols_elegiveis,
             height=10,
             enable_hover=True,
-            header_bootstyle="secondary",
+            #header_bootstyle="primary",
         )
         self._tree_estudantes_elegiveis.grid(row=2, column=0, sticky="nsew")
 
@@ -365,7 +369,7 @@ class PainelAcaoBusca(ttk.Frame):
             for s in elegiveis
         ]
 
-        if termo_busca in ["todos", "---", "***"]:
+        if termo_busca in self.TERMOS_BUSCA_TODOS:
             correspondencias = self._obter_elegiveis_nao_servidos(elegiveis_renomeados)
         else:
             correspondencias = self._executar_busca_fuzzy(
@@ -508,9 +512,10 @@ class PainelAcaoBusca(ttk.Frame):
             dados_linhas.append(linha)
 
         try:
-            self._tree_estudantes_elegiveis.construir_dados_tabela(
-                dados_linhas=dados_linhas
-            )
+            self._tree_estudantes_elegiveis.deletar_linhas()
+            view = self._tree_estudantes_elegiveis.view
+            [view.insert("", tk.END, iid=v[1], values=v) for v in dados_linhas]
+            self._tree_estudantes_elegiveis.apply_zebra_striping()
         except Exception as e:
             logger.exception("Erro ao construir tabela de elegíveis: %s", e)
             Messagebox.show_error(
@@ -526,23 +531,14 @@ class PainelAcaoBusca(ttk.Frame):
         iid_selecionado = self._tree_estudantes_elegiveis.obter_iid_selecionado()
         if iid_selecionado:
             try:
-                valores_selecionados = (
-                    self._tree_estudantes_elegiveis.obter_valores_linha(iid_selecionado)
+                dados_estudante_encontrado = next(
+                    (
+                        d
+                        for d in self._dados_correspondencias_elegiveis_atuais
+                        if d.get("Pront") == iid_selecionado
+                    ),
+                    None,
                 )
-                if not valores_selecionados:
-                    raise ValueError("Não foi possível obter valores da linha.")
-
-                nome_selecionado = valores_selecionados[0]
-                info_selecionada = valores_selecionados[1]
-                dados_estudante_encontrado = None
-                for dados_estudante in self._dados_correspondencias_elegiveis_atuais:
-                    if (
-                        dados_estudante.get("Nome") == nome_selecionado
-                        and dados_estudante.get("Pront") == info_selecionada
-                    ):
-                        dados_estudante_encontrado = dados_estudante
-                        break
-
                 if dados_estudante_encontrado:
                     self._dados_elegivel_selecionado = dados_estudante_encontrado
                     self._atualizar_label_preview()
@@ -555,7 +551,7 @@ class PainelAcaoBusca(ttk.Frame):
                         )
                 else:
                     logger.error(
-                        "Inconsistência de dados para linha: %s", valores_selecionados
+                        "Inconsistência de dados para o prontuário: %s", iid_selecionado
                     )
                     self._dados_elegivel_selecionado = None
                     self._atualizar_label_preview(erro=True)
