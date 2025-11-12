@@ -126,12 +126,12 @@ class PainelAcaoBusca(ttk.Frame):
         self._botao_limpar.grid(row=0, column=1)
 
     def _criar_lista_elegiveis(self):
-        frame_elegiveis = ttk.Labelframe(
-            self, text="🔍 Alunos Elegíveis (Resultados da Busca)", padding=(5, 5)
-        )
-        frame_elegiveis.grid(row=2, column=0, sticky="nsew", pady=(10, 10))
-        frame_elegiveis.grid_rowconfigure(0, weight=1)
-        frame_elegiveis.grid_columnconfigure(0, weight=1)
+        # frame_elegiveis = ttk.Labelframe(
+        #     self, text="🔍 Alunos Elegíveis (Resultados da Busca)", padding=(5, 5)
+        # )
+        # frame_elegiveis.grid(row=2, column=0, sticky="nsew", pady=(10, 10))
+        # frame_elegiveis.grid_rowconfigure(0, weight=1)
+        # frame_elegiveis.grid_columnconfigure(0, weight=1)
 
         cols_elegiveis = [
             {"text": "Nome", "stretch": True, "iid": "name"},
@@ -151,9 +151,9 @@ class PainelAcaoBusca(ttk.Frame):
             },
         ]
         self._tree_estudantes_elegiveis = TreeviewSimples(
-            master=frame_elegiveis, dados_colunas=cols_elegiveis, height=10
+            master=self, dados_colunas=cols_elegiveis, height=10
         )
-        self._tree_estudantes_elegiveis.grid(row=0, column=0, sticky="nsew")
+        self._tree_estudantes_elegiveis.grid(row=2, column=0, sticky="nsew")
 
     def _criar_area_preview(self):
         frame_preview = ttk.Frame(self, padding=(0, 0))
