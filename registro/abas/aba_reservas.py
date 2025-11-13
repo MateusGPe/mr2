@@ -7,11 +7,11 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, END, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization import MessageCatalog
-from ttkbootstrap.tableview import Tableview
 from ttkbootstrap.widgets import DateEntry
 
-from registro.abas.rounded_button import RoundedButton
+from registro.controles.rounded_button import RoundedButton
 from registro.dialogos import ReservaDialog
+from registro.controles.treeview_simples import TreeviewSimples
 
 
 class AbaReservas(ttk.Frame):
@@ -32,7 +32,7 @@ class AbaReservas(ttk.Frame):
         top_panel.columnconfigure(1, weight=1)
 
         # Ações à esquerda
-        actions_frame = ttk.Frame(top_panel)  # , padding=(0, 5, 0, 5))
+        actions_frame = ttk.Frame(top_panel)
         actions_frame.grid(row=0, column=0, sticky=W, padx=(0, 10))
         self.fitro = {}
 
@@ -60,7 +60,7 @@ class AbaReservas(ttk.Frame):
         self.btn_delete_reserva.pack(side=LEFT, padx=5)
 
         # Filtros à direita
-        filter_frame = ttk.Frame(top_panel)  # , padding=(0, 5, 0, 5))
+        filter_frame = ttk.Frame(top_panel)
         filter_frame.grid(row=0, column=1, sticky=EW)
 
         ttk.Label(filter_frame, text="Filtrar por Data:").pack(side=LEFT, padx=(0, 5))
@@ -102,13 +102,13 @@ class AbaReservas(ttk.Frame):
             {"text": "Prato", "width": 120},
             {"text": "Status", "width": 100},
         ]
-        self.reservas_table = Tableview(
+        self.reservas_table = TreeviewSimples(
             master=container,
-            coldata=self.reservas_coldata,
-            rowdata=[],
-            paginated=True,
-            pagesize=100,
-            bootstyle="info",
+            dados_colunas=self.reservas_coldata,
+            height=15,
+            header_bootstyle="info",
+            select_bootstyle="info",
+            enable_hover=True,
         )
         self.reservas_table.pack(expand=True, fill=BOTH)
         self.reservas_table.view.bind("<<TreeviewSelect>>", self._on_reserva_select)
@@ -119,10 +119,7 @@ class AbaReservas(ttk.Frame):
 
     def _get_dados_linha_selecionada(self):
         """Retorna os dados da linha selecionada na tabela."""
-        selecao = self.reservas_table.view.selection()
-        if not selecao:
-            return None
-        return self.reservas_table.view.item(selecao[0], "values")
+        return self.reservas_table.obter_linha_selecionada()
 
     def _on_reserva_select(self, _=None):
         is_selected = bool(self._get_dados_linha_selecionada())
@@ -172,7 +169,7 @@ class AbaReservas(ttk.Frame):
                 )
                 for r in reservas
             ]
-            self.reservas_table.build_table_data(self.reservas_coldata, dados)
+            self.reservas_table.construir_dados_tabela(dados)
         except Exception:
             Messagebox.show_error(
                 "Erro ao carregar reservas. Verifique o console.",
@@ -214,7 +211,7 @@ class AbaReservas(ttk.Frame):
         confirmado = Messagebox.okcancel(
             f"Deseja excluir a reserva com ID {reserva_id}?",
             "Confirmar Exclusão",
-        ) != MessageCatalog.translate("OK")
+        ) == MessageCatalog.translate("OK")
         if confirmado:
             try:
                 self.fachada_nucleo.deletar_reserva(reserva_id)

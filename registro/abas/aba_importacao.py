@@ -10,10 +10,9 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import EW, LEFT, NSEW, E, W, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization import MessageCatalog
-from ttkbootstrap.scrolled import ScrolledFrame
-from ttkbootstrap.tableview import Tableview
 
-from registro.abas.rounded_button import RoundedButton
+from registro.controles.rounded_button import RoundedButton
+from registro.controles.treeview_simples import TreeviewSimples
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 
 
@@ -25,7 +24,7 @@ class AbaImportacao(ttk.Frame):
         self.linhas_analisadas = []
 
         self.sumario_label: ttk.Label
-        self.review_table: Tableview
+        self.review_table: TreeviewSimples
         self.file_path_var: tk.StringVar
         self.import_type_var: tk.StringVar
         self.step1_frame: ttk.Frame
@@ -44,22 +43,22 @@ class AbaImportacao(ttk.Frame):
     def _criar_widgets(self):
         """
         Método revisado para usar um layout de grid para os painéis principais
-        e um layout de pack para o conteúdo do assistente (acordeão).
+        e um layout de wizard para a importação.
         """
-        self.rowconfigure(0, weight=1)
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=0)
-        self.columnconfigure(2, weight=0)
+        self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=0)
+        self.rowconfigure(2, weight=0)
 
         import_frame = self._criar_painel_importacao(self)
         import_frame.grid(row=0, column=0, sticky=NSEW, padx=(0, 5))
 
-        ttk.Separator(self, orient="vertical").grid(
-            row=0, column=1, sticky="ns", padx=5
+        ttk.Separator(self, orient="horizontal").grid(
+            row=1, column=0, sticky="ew", padx=5, pady=10
         )
 
         export_frame = self._criar_painel_exportacao(self)
-        export_frame.grid(row=0, column=2, sticky=NSEW, padx=(5, 0))
+        export_frame.grid(row=2, column=0, sticky=NSEW, padx=(5, 0), pady=(0, 10))
 
     def _toggle_widgets_state(self, parent_widget, state: str):
         """Habilita ou desabilita recursivamente todos os widgets filhos."""
@@ -85,36 +84,34 @@ class AbaImportacao(ttk.Frame):
             font=("-size 14 -weight bold"),
         ).grid(row=0, column=0, sticky=EW, padx=(5, 20), pady=(0, 10))
 
-        scrolled_container = ScrolledFrame(
-            container, autohide=True, padding=(5, 15, 20, 15)
-        )
-        scrolled_container.grid(row=1, column=0, sticky=NSEW)
+        wizard_area = ttk.Frame(container, padding=(5, 15, 20, 15))
+        wizard_area.grid(row=1, column=0, sticky=NSEW)
+        wizard_area.rowconfigure(0, weight=1)
+        wizard_area.columnconfigure(0, weight=1)
 
-        self.step1_frame = self._criar_passo_1_selecao(scrolled_container)
-        self.step2_frame = self._criar_passo_2_revisao(scrolled_container)
-        self.step3_frame = self._criar_passo_3_sumario(scrolled_container)
+        self.step1_frame = self._criar_passo_1_selecao(wizard_area)
+        self.step2_frame = self._criar_passo_2_revisao(wizard_area)
+        self.step3_frame = self._criar_passo_3_sumario(wizard_area)
 
-        self.step1_frame.pack(fill=X, pady=(0, 15))
+        self.step1_frame.grid(row=0, column=0, sticky="NEW")
 
         return container
 
     def _criar_passo_1_selecao(self, parent):
         step1 = ttk.Frame(parent)
-        step1.columnconfigure(0, weight=1)
 
         ttk.Label(step1, text="Passo 1: Selecionar Arquivo", font="-weight bold").pack(
             fill=X
         )
-        ttk.Separator(step1).pack(fill=X, pady=(5, 15))
+        ttk.Separator(step1).pack(fill="both", pady=(5, 15))
 
         content = ttk.Frame(step1)
         content.pack(fill=X, expand=True)
         content.columnconfigure(1, weight=1)
 
         type_frame = ttk.Frame(content)
-
+        type_frame.grid(row=0, column=0, columnspan=2, sticky="NEW", pady=(0, 15))
         ttk.Label(type_frame, text="Tipo de Arquivo:").pack(side=LEFT, padx=(0, 10))
-        type_frame.grid(row=0, column=0, columnspan=2, sticky=EW, pady=(0, 15))
         self.import_type_var = tk.StringVar(value="detalhado")
         ttk.Radiobutton(
             type_frame,
@@ -161,13 +158,11 @@ class AbaImportacao(ttk.Frame):
         )
         ttk.Separator(step2).grid(row=1, column=0, sticky=EW, pady=(5, 15))
 
-        self.review_table = Tableview(
+        self.review_table = TreeviewSimples(
             step2,
-            coldata=self.review_coldata,
-            rowdata=[],
-            bootstyle="info",
-            pagesize=10,
-            paginated=True,
+            dados_colunas=self.review_coldata,
+            header_bootstyle="info",
+            select_bootstyle="info",
             height=12,
         )
         self.review_table.grid(row=2, column=0, sticky=NSEW)
@@ -229,10 +224,7 @@ class AbaImportacao(ttk.Frame):
     def _iniciar_analise(self):
         caminho = self.file_path_var.get()
         if not caminho:
-            Messagebox.show_warning(
-                "Selecione um arquivo para análise.",
-                "Aviso",
-            )
+            Messagebox.show_warning("Selecione um arquivo para análise.", "Aviso")
             return
         try:
             detalhado = self.import_type_var.get() == "detalhado"
@@ -241,19 +233,17 @@ class AbaImportacao(ttk.Frame):
             )
             self._carregar_dados_revisao()
 
-            self._toggle_widgets_state(self.step1_frame, "disabled")
-            # Adiciona o Passo 2, preenchendo apenas na horizontal (X)
-            self.step2_frame.pack(fill=X, pady=(0, 15))
+            self.step1_frame.grid_forget()
+            self.step2_frame.grid(row=0, column=0, sticky=NSEW)
         except Exception:
             Messagebox.show_error(
-                "Falha ao analisar arquivo. Verifique o console.",
-                "Erro",
+                "Falha ao analisar arquivo. Verifique o console.", "Erro"
             )
             traceback.print_exc()
 
     def _voltar_para_passo_1(self):
-        self.step2_frame.pack_forget()
-        self.step3_frame.pack_forget()
+        self.step2_frame.grid_forget()
+        self.step1_frame.grid(row=0, column=0, sticky="NEW")
         self._toggle_widgets_state(self.step1_frame, "normal")
 
     def _carregar_dados_revisao(self):
@@ -277,21 +267,20 @@ class AbaImportacao(ttk.Frame):
                     sug_txt,
                 )
             )
-        self.review_table.build_table_data(self.review_coldata, dados)
+        self.review_table.construir_dados_tabela(dados)
 
     def _executar_importacao(self):
         if not self.linhas_analisadas or Messagebox.okcancel(
             "Confirmar Importação",
             "Esta ação irá modificar o banco de dados. Deseja continuar?",
-        ) == MessageCatalog.translate("No"):
+        ) != MessageCatalog.translate("OK"):
             return
         try:
             resumo = self.fachada_importacao.executar()
-            self._mostrar_sumario_importacao(resumo)
 
-            self._toggle_widgets_state(self.step2_frame, "disabled")
-            # Adiciona o Passo 3, preenchendo apenas na horizontal (X)
-            self.step3_frame.pack(fill=X, pady=(0, 15))
+            self.step2_frame.grid_forget()
+            self._mostrar_sumario_importacao(resumo)
+            self.step3_frame.grid(row=0, column=0, sticky=NSEW)
         except Exception:
             Messagebox.show_error(
                 "Erro ao executar importação. Verifique o console.", "Erro"
@@ -309,48 +298,51 @@ class AbaImportacao(ttk.Frame):
         self.sumario_label.config(text=texto)
 
     def _resetar_importacao(self):
+        # Limpa os dados
         self.file_path_var.set("")
-        self.review_table.delete_rows()
+        self.review_table.deletar_linhas()
         self.linhas_analisadas = []
 
-        self.step2_frame.pack_forget()
-        self.step3_frame.pack_forget()
+        self.step2_frame.grid_forget()
+        self.step3_frame.grid_forget()
+        self.step1_frame.grid(row=0, column=0, sticky="NEW")
 
         self._toggle_widgets_state(self.step1_frame, "normal")
         self._toggle_widgets_state(self.step2_frame, "normal")
 
     def _criar_painel_exportacao(self, parent):
-        container = ttk.Frame(parent, padding=(10, 0, 10, 10))
-        container.columnconfigure(0, weight=1)
+        container = ttk.Frame(parent, padding=10)
+        container.columnconfigure((0, 1, 2), weight=1)
 
         ttk.Label(
             container, text="📤 Exportar Relatórios", font=("-size 14 -weight bold")
-        ).pack(fill=X, pady=(0, 10))
+        ).grid(row=0, column=0, columnspan=3, sticky=W, pady=(0, 10))
 
         ttk.Label(
-            container,
-            text="Exporte os dados do sistema para arquivos CSV ou XLSX.",
-            wraplength=200,
-        ).pack(fill=X, pady=(0, 15))
+            container, text="Exporte os dados do sistema para arquivos CSV ou XLSX."
+        ).grid(row=1, column=0, columnspan=3, sticky=W, pady=(0, 15))
 
         RoundedButton(
             container,
             text="Exportar Alunos (CSV)",
             command=lambda: self._exportar_dados("alunos"),
-            bootstyle="primary",
-        ).pack(fill=X, pady=4)
+            bootstyle="primary-outline",
+        ).grid(row=2, column=0, sticky=EW, padx=(0, 5))
+
         RoundedButton(
             container,
             text="Exportar Reservas (CSV)",
             command=lambda: self._exportar_dados("reservas"),
-            bootstyle="primary",
-        ).pack(fill=X, pady=4)
+            bootstyle="primary-outline",
+        ).grid(row=2, column=1, sticky=EW, padx=5)
+
         RoundedButton(
             container,
             text="Exportar Consumo da Sessão (XLSX)",
             command=lambda: self._exportar_dados("consumo"),
-            bootstyle="primary",
-        ).pack(fill=X, pady=4)
+            bootstyle="primary-outline",
+        ).grid(row=2, column=2, sticky=EW, padx=(5, 0))
+
         return container
 
     def _exportar_dados(self, tipo: str):

@@ -7,10 +7,10 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization import MessageCatalog
-from ttkbootstrap.tableview import Tableview
 
-from registro.abas.rounded_button import RoundedButton
+from registro.controles.rounded_button import RoundedButton
 from registro.dialogos import StudentDialog
+from registro.controles.treeview_simples import TreeviewSimples
 
 
 class AbaAlunos(ttk.Frame):
@@ -79,24 +79,20 @@ class AbaAlunos(ttk.Frame):
             {"text": "Grupos", "stretch": True},
             {"text": "Ativo", "stretch": False, "width": 80},
         ]
-        self.alunos_table = Tableview(
+        self.alunos_table = TreeviewSimples(
             master=container,
-            coldata=self.alunos_coldata,
-            rowdata=[],
-            paginated=True,
-            pagesize=100,
-            bootstyle="primary",
-            searchable=False,
+            dados_colunas=self.alunos_coldata,
+            height=15,  # Ajuste a altura conforme necessário
+            header_bootstyle="primary",
+            select_bootstyle="primary",
+            enable_hover=True,
         )
         self.alunos_table.pack(expand=True, fill=BOTH)
         self.alunos_table.view.bind("<<TreeviewSelect>>", self._on_aluno_select)
 
     def _get_dados_linha_selecionada(self):
         """Retorna os dados da linha selecionada na tabela."""
-        selecao = self.alunos_table.view.selection()
-        if not selecao:
-            return None
-        return self.alunos_table.view.item(selecao[0], "values")
+        return self.alunos_table.obter_linha_selecionada()
 
     def _on_aluno_select(self, _=None):
         is_selected = bool(self._get_dados_linha_selecionada())
@@ -120,7 +116,7 @@ class AbaAlunos(ttk.Frame):
                 )
                 for aluno in alunos
             ]
-            self.alunos_table.build_table_data(self.alunos_coldata, dados)
+            self.alunos_table.construir_dados_tabela(dados)
         except Exception:
             Messagebox.show_error(
                 "Erro ao carregar alunos. Verifique o console.", "Erro"

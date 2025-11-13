@@ -29,7 +29,7 @@ from ttkbootstrap.constants import (
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 from registro.gui.constants import REGEX_LIMPEZA_PRONTUARIO
-from registro.gui.treeview_simples import TreeviewSimples
+from registro.controles.treeview_simples import TreeviewSimples
 
 if TYPE_CHECKING:
     from registro.gui.app_registro import AppRegistro

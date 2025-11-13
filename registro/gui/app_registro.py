@@ -112,37 +112,7 @@ class AppRegistro(tk.Tk):
             fonte_cabecalho = (fonte_padrao[0], 10, "bold")
             fonte_label = (fonte_padrao[0], 11, "bold")
             fonte_pequena = (fonte_padrao[0], 9)
-            # self.style.configure(
-            #     "Custom.Treeview",
-            #     font=(fonte_padrao[0], 9),
-            #     rowheight=40,
-            #     borderwidth=0,
-            #     highlightthickness=0,
-            # )
 
-            # header_bg = self.style.colors.light
-            # header_fg = self.style.colors.get_foreground("light")
-
-            # self.style.configure(
-            #     "Custom.Treeview.Heading",
-            #     font=fonte_cabecalho,
-            #     background=header_bg,
-            #     foreground=header_fg,
-            # )
-
-            # # --- LINHA MÁGICA ADICIONADA AQUI ---
-            # #
-            # # Cria uma cor de 'hover' que é um pouco mais clara que a cor de fundo original do cabeçalho
-            # hover_color = Colors.update_hsv(header_bg, vd=0.15)
-            # press_color = Colors.update_hsv(header_bg, vd=-0.15)
-
-            # self.style.map(
-            #     "Custom.Treeview.Heading",
-            #     background=[
-            #         ("pressed", press_color),
-            #         ("active", hover_color),
-            #     ],
-            # )
             self.style.configure("TLabelframe.Label", font=fonte_label)
             self.style.configure("Status.TLabel", font=fonte_pequena)
             self.style.configure("Feedback.TLabel", font=fonte_pequena)
@@ -161,52 +131,52 @@ class AppRegistro(tk.Tk):
         self.grid_columnconfigure(0, weight=1)
 
     def _criar_barra_superior(self):
-        self._barra_superior = ttk.Frame(self, padding=(10, 5), bootstyle=LIGHT)  # type: ignore
+        self._barra_superior = ttk.Frame(self, padding=(10, 5), bootstyle="dark")  # type: ignore
         self._barra_superior.grid(row=0, column=0, sticky="ew")
 
         self._label_info_sessao = ttk.Label(
             self._barra_superior,
             text="Carregando Sessão...",
             font="-size 14 -weight bold",
-            bootstyle="inverse-light",  # type: ignore
+            bootstyle="dark-inverse",  # type: ignore
         )
         self._label_info_sessao.pack(side=LEFT, padx=(0, 20), anchor="w")
 
-        frame_botoes = ttk.Frame(self._barra_superior, bootstyle=LIGHT)  # type: ignore
+        frame_botoes = ttk.Frame(self._barra_superior, bootstyle="dark")  # type: ignore
         frame_botoes.pack(side=RIGHT, anchor="e")
 
         ttk.Button(
             frame_botoes,
-            text="💾 Exportar e Encerrar",
+            text="💾",
             command=self.exportar_e_encerrar_sessao,
-            bootstyle="light",  # type: ignore
+            bootstyle="dark",  # type: ignore
         ).pack(side=RIGHT, padx=(10, 0))
         ttk.Button(
             frame_botoes,
-            text="📤 Sincronizar Servidos",
+            text="📤",
             command=self.sincronizar_sessao_com_planilha,
-            bootstyle="light",  # type: ignore
+            bootstyle="dark",  # type: ignore
         ).pack(side=RIGHT, padx=3)
         ttk.Button(
             frame_botoes,
-            text="🔄 Sincronizar Cadastros",
+            text="📥",
             command=self._sincronizar_dados_mestre,
-            bootstyle="light",  # type: ignore
+            bootstyle="dark",  # type: ignore
         ).pack(side=RIGHT, padx=3)
-        ttk.Separator(frame_botoes, orient=VERTICAL).pack(
+        ttk.Separator(frame_botoes, orient=VERTICAL, bootstyle="light").pack(
             side=RIGHT, padx=8, fill="y", pady=3
         )
         ttk.Button(
             frame_botoes,
-            text="📊 Filtrar Turmas",
+            text="📊",
             command=self._abrir_dialogo_filtro_turmas,
-            bootstyle="light",  # type: ignore
+            bootstyle="dark",  # type: ignore
         ).pack(side=RIGHT, padx=3)
         ttk.Button(
             frame_botoes,
-            text="⚙️ Alterar Sessão",
+            text="⚙️",
             command=self._abrir_dialogo_sessao,
-            bootstyle="light",  # type: ignore
+            bootstyle="dark",  # type: ignore
         ).pack(side=RIGHT, padx=3)
 
     def _criar_paineis_principais(self, fachada: FachadaRegistro):
@@ -303,7 +273,8 @@ class AppRegistro(tk.Tk):
                 id_sessao = self._fachada.iniciar_nova_sessao(resultado)  # type: ignore
                 if id_sessao is None:
                     raise ErroSessao(
-                        "Não é possível iniciar uma sessão de almoço sem reservas ativas para a data."
+                        "Não é possível iniciar uma sessão de almoço"
+                        " sem reservas ativas para a data."
                     )
                 logger.info("Nova sessão criada com ID: %s", id_sessao)
                 if id_sessao:
@@ -316,8 +287,8 @@ class AppRegistro(tk.Tk):
         except Exception as e:
             logger.exception("Falha ao %s: %s", desc_acao, e)
             Messagebox.show_error(
-                "Operação Falhou",
                 f"Não foi possível {desc_acao}.\nErro: {e}",
+                "Operação Falhou",
                 parent=self,
             )
             return False
@@ -340,7 +311,7 @@ class AppRegistro(tk.Tk):
             self.title("Refeições Reg [Sem Sessão]")
             if self._label_info_sessao:
                 self._label_info_sessao.config(
-                    text="Erro: Nenhuma Sessão Ativa", bootstyle="inverse-danger"  # type: ignore
+                    text="Erro: Nenhuma Sessão Ativa",  # bootstyle="inverse-danger"  # type: ignore
                 )
             if self._painel_acao:
                 self._painel_acao.desabilitar_controles()
@@ -370,7 +341,7 @@ class AppRegistro(tk.Tk):
                 f"[ID:{id_sessao}]"
             )
             self.title(titulo)
-            self._label_info_sessao.config(text=titulo, bootstyle="inverse-light")  # type: ignore
+            self._label_info_sessao.config(text=titulo, bootstyle="inverse-dark")  # type: ignore
         except Exception as e:
             logger.exception("Erro ao formatar detalhes da sessão para UI: %s", e)
             self.title("RU Registro [Erro na Sessão]")

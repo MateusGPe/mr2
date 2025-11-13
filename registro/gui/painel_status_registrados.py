@@ -13,7 +13,7 @@ from ttkbootstrap.constants import CENTER, PRIMARY, WARNING
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization import MessageCatalog
 
-from registro.gui.treeview_simples import TreeviewSimples
+from registro.controles.treeview_simples import TreeviewSimples
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 
@@ -41,7 +41,7 @@ class PainelStatusRegistrados(ttk.Frame):
         self._label_contagem_restantes: Optional[ttk.Label] = None
         self._tabela_estudantes_registrados: Optional[TreeviewSimples] = None
 
-        self.grid_rowconfigure(0, weight=1)
+        self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
         self._definicao_cols_registrados: List[Dict[str, Any]] = []
 
@@ -107,8 +107,8 @@ class PainelStatusRegistrados(ttk.Frame):
         ]
 
     def _criar_area_contadores(self):
-        frame_contadores = ttk.Frame(self, padding=(0, 5))
-        frame_contadores.grid(row=1, column=0, sticky="ew")
+        frame_contadores = ttk.Frame(self, padding=(5, 5))
+        frame_contadores.grid(row=0, column=0, sticky="ew")
         frame_contadores.columnconfigure(0, weight=1)
         frame_contadores.columnconfigure(1, weight=1)
 
@@ -133,24 +133,17 @@ class PainelStatusRegistrados(ttk.Frame):
         self._label_contagem_restantes.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
     def _criar_tabela_registrados(self):
-        # frame_reg = ttk.Labelframe(
-        #    self,
-        #    text="✅ Alunos Registrados (Clique ❌ para Remover)",
-        #    padding=(5, 5),
-        # )
-        # frame_reg.grid(row=0, column=0, sticky="nsew")
-        # frame_reg.rowconfigure(0, weight=1)
-        # frame_reg.columnconfigure(0, weight=1)
-
         self._definicao_cols_registrados = self._obter_definicao_cols_registrados()
         self._tabela_estudantes_registrados = TreeviewSimples(
             master=self,
             dados_colunas=self._definicao_cols_registrados,
             height=15,
             enable_hover=True,
-            #header_bootstyle="dark",
+            # header_bootstyle="dark",
         )
-        self._tabela_estudantes_registrados.grid(row=0, column=0, sticky="nsew")
+        self._tabela_estudantes_registrados.grid(
+            row=1, column=0, sticky="nsew", pady=(0, 10)
+        )
 
         cols_ordenaveis = [
             str(cd.get("iid"))
