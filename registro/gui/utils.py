@@ -3,6 +3,12 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+"""
+Módulo com funções utilitárias para a aplicação, incluindo manipulação de
+strings, normalização de dados, operações de arquivo (JSON, CSV) e funções
+específicas do sistema operacional.
+"""
+
 import csv
 import ctypes
 import ctypes.wintypes
@@ -15,38 +21,54 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
 from registro.gui.constants import (
-    EXCECOES_CAPITALIZACAO,
     CSIDL_PERSONAL,
-    TRADUCAO_CHAVE_EXTERNA,
-    REGEX_LIMPEZA_PRONTUARIO,
+    EXCECOES_CAPITALIZACAO,
     MAPA_OFUSCAMENTO_PRONTUARIO,
+    REGEX_LIMPEZA_PRONTUARIO,
     SHGFP_TYPE_CURRENT,
+    TRADUCAO_CHAVE_EXTERNA,
 )
 
 logger = logging.getLogger(__name__)
 
 
 def para_codigo(texto: str) -> str:
+    """
+    Ofusca um texto (geralmente prontuário) para um código pseudo-aleatório.
+
+    Args:
+        texto: A string de entrada a ser ofuscada.
+
+    Returns:
+        A string ofuscada.
+    """
     if not isinstance(texto, str):
         logger.warning(
-            "Entrada inválida para para_codigo: Esperado str, recebido %s.", type(texto)
+            "Entrada inválida para para_codigo: esperado str, recebido %s.", type(texto)
         )
         return ""
     texto_limpo = REGEX_LIMPEZA_PRONTUARIO.sub("", texto)
-    traduzido = texto_limpo.translate(MAPA_OFUSCAMENTO_PRONTUARIO)
-    return traduzido
+    return texto_limpo.translate(MAPA_OFUSCAMENTO_PRONTUARIO)
 
 
 def capitalizar(texto: str) -> str:
+    """
+    Capitaliza um texto (ex: nome completo) de forma inteligente, respeitando
+    exceções como preposições e artigos.
+
+    Args:
+        texto: A string a ser capitalizada.
+
+    Returns:
+        A string formatada.
+    """
     if not isinstance(texto, str):
         logger.warning(
-            "Entrada inválida para capitalizar: Esperado str, recebido %s.", type(texto)
+            "Entrada inválida para capitalizar: esperado str, recebido %s.", type(texto)
         )
         return ""
-    texto = texto.strip()
-    if not texto:
-        return ""
-    palavras = texto.split(" ")
+
+    palavras = texto.strip().split()
     palavras_capitalizadas = []
     for palavra in palavras:
         if not palavra:
@@ -57,182 +79,186 @@ def capitalizar(texto: str) -> str:
         elif len(palavra) == 1 or (len(palavra) == 2 and palavra.endswith(".")):
             palavras_capitalizadas.append(palavra.upper())
         else:
-            palavras_capitalizadas.append(palavra[0].upper() + lpalavra[1:])
+            palavras_capitalizadas.append(palavra.capitalize())
+
     return " ".join(palavras_capitalizadas)
 
 
 def ajustar_chaves(dicionario_entrada: Dict[Any, Any]) -> Dict[str, Any]:
-    dicionario_ajustado: Dict[str, Any] = {}
+    """
+    Normaliza as chaves de um dicionário para um formato padrão interno,
+    convertendo-as para minúsculas e aplicando traduções predefinidas.
+
+    Args:
+        dicionario_entrada: O dicionário com chaves a serem normalizadas.
+
+    Returns:
+        Um novo dicionário com as chaves ajustadas.
+    """
     if not isinstance(dicionario_entrada, dict):
         logger.warning(
-            "Entrada inválida para ajustar_chaves: Esperado dict, recebido %s.",
+            "Entrada inválida para ajustar_chaves: esperado dict, recebido %s.",
             type(dicionario_entrada),
         )
-        return dicionario_ajustado
+        return {}
 
-    for chave_original, valor in dicionario_entrada.items():
-        chave_normalizada: str
-        if isinstance(chave_original, str):
-            chave_normalizada = chave_original.strip().lower()
-            chave_normalizada = TRADUCAO_CHAVE_EXTERNA.get(
-                chave_normalizada, chave_normalizada
-            )
-        else:
-            try:
-                chave_normalizada = str(chave_original).strip().lower()
-                logger.debug(
-                    "Chave não-string '%s' convertida para '%s'.",
-                    chave_original,
-                    chave_normalizada,
-                )
-            except Exception:
-                chave_normalizada = repr(chave_original)
-                logger.warning(
-                    "Não foi possível converter a chave %s (%s) para string.",
-                    chave_original,
-                    type(chave_original),
-                )
+    dicionario_ajustado = {}
+    for chave, valor in dicionario_entrada.items():
+        chave_str = str(chave).strip().lower()
+        chave_norm = TRADUCAO_CHAVE_EXTERNA.get(chave_str, chave_str)
 
-        valor_processado: Any = valor.strip() if isinstance(valor, str) else valor
-        if chave_normalizada in ["nome", "dish"] and isinstance(valor_processado, str):
-            valor_processado = capitalizar(valor_processado)
-        elif chave_normalizada == "pront" and isinstance(valor_processado, str):
-            valor_processado = REGEX_LIMPEZA_PRONTUARIO.sub(
-                "", valor_processado
-            ).upper()
+        valor_proc = valor.strip() if isinstance(valor, str) else valor
+        if chave_norm in ["nome", "dish"] and isinstance(valor_proc, str):
+            valor_proc = capitalizar(valor_proc)
+        elif chave_norm == "pront" and isinstance(valor_proc, str):
+            valor_proc = REGEX_LIMPEZA_PRONTUARIO.sub("", valor_proc).upper()
 
-        dicionario_ajustado[chave_normalizada] = valor_processado
+        dicionario_ajustado[chave_norm] = valor_proc
 
     return dicionario_ajustado
 
 
 def obter_caminho_documentos() -> str:
+    """
+    Retorna o caminho para a pasta 'Documentos' do usuário de forma
+    compatível com diferentes sistemas operacionais (Windows, Linux).
+
+    Returns:
+        O caminho absoluto para a pasta de documentos.
+    """
     sistema = platform.system()
-    caminho_padrao: Path = Path.home() / "Documents"
-    caminho_a_retornar: Path
+    caminho_padrao = Path.home() / "Documents"
 
     if sistema == "Windows":
         try:
             buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
-            ctypes.windll.shell32.SHGetFolderPathW(  # type: ignore
+            ctypes.windll.shell32.SHGetFolderPathW(
                 None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf
             )
-            caminho_a_retornar = Path(buf.value)
-            logger.debug("Caminho Documentos (Windows API): %s", caminho_a_retornar)
-        except (AttributeError, OSError, Exception) as e:
-            logger.warning("Falha ao obter caminho Documentos via API Windows: %s.", e)
-            caminho_a_retornar = caminho_padrao
+            caminho = Path(buf.value)
+        except Exception as e: # pylint: disable=broad-exception-caught
+            logger.warning(
+                "Falha ao obter caminho de Documentos via API Windows: %s. Usando padrão.",
+                e,
+            )
+            caminho = caminho_padrao
     elif sistema == "Linux":
-        xdg_documents = os.environ.get("XDG_DOCUMENTS_DIR")
-        if xdg_documents and Path(xdg_documents).is_dir():
-            caminho_a_retornar = Path(xdg_documents)
-            logger.debug("Caminho Documentos (XDG): %s", caminho_a_retornar)
-        else:
-            logger.debug("XDG_DOCUMENTS_DIR não definido. Usando padrão.")
-            caminho_a_retornar = caminho_padrao
+        xdg_path = os.environ.get("XDG_DOCUMENTS_DIR")
+        caminho = (
+            Path(xdg_path) if xdg_path and Path(xdg_path).is_dir() else caminho_padrao
+        )
     else:
-        logger.debug("Sistema %s. Usando caminho padrão para Documentos.", sistema)
-        caminho_a_retornar = caminho_padrao
+        caminho = caminho_padrao
 
     try:
-        caminho_a_retornar.mkdir(parents=True, exist_ok=True)
+        caminho.mkdir(parents=True, exist_ok=True)
     except OSError as e:
         logger.error(
-            "Não foi possível criar o diretório Documentos em '%s': %s.",
-            caminho_a_retornar,
-            e,
+            "Não foi possível criar o diretório Documentos em '%s': %s.", caminho, e
         )
-    except Exception as e:
-        logger.exception("Erro inesperado ao criar o diretório Documentos: %s", e)
 
-    return str(caminho_a_retornar.resolve())
-
-
-def _tratar_erro_arquivo(e: Exception, nome_arquivo: Union[str, Path], operacao: str):
-    caminho_arquivo = str(nome_arquivo)
-    if isinstance(e, FileNotFoundError):
-        logger.error("Arquivo não encontrado em '%s': %s", operacao, caminho_arquivo)
-    elif isinstance(e, PermissionError):
-        logger.error(
-            "Permissão negada em '%s' no arquivo: %s", operacao, caminho_arquivo
-        )
-    elif isinstance(e, JSONDecodeError):
-        logger.error("Erro de JSON em '%s' no arquivo: %s", operacao, caminho_arquivo)
-    elif isinstance(e, csv.Error):
-        logger.error("Erro de CSV em '%s' no arquivo: %s", operacao, caminho_arquivo)
-    elif isinstance(e, (IOError, OSError)):
-        logger.error("Erro de I/O em '%s' em %s: %s", operacao, caminho_arquivo, e)
-    else:
-        logger.exception(
-            "Erro inesperado em '%s' de %s: %s", operacao, caminho_arquivo, e
-        )
+    return str(caminho.resolve())
 
 
 def carregar_json(nome_arquivo: str) -> Optional[Any]:
+    """
+    Carrega dados de um arquivo JSON de forma segura.
+
+    Args:
+        nome_arquivo: O caminho para o arquivo JSON.
+
+    Returns:
+        Os dados desserializados do JSON, ou None em caso de erro.
+    """
     logger.debug("Carregando JSON de: %s", nome_arquivo)
     try:
         with open(nome_arquivo, "r", encoding="utf-8") as f:
-            dados = json.load(f)
-            logger.debug("JSON carregado com sucesso de: %s", nome_arquivo)
-            return dados
-    except Exception as e:
+            return json.load(f)
+    except Exception as e: # pylint: disable=broad-exception-caught
         _tratar_erro_arquivo(e, nome_arquivo, "leitura JSON")
         return None
 
 
-def salvar_json(nome_arquivo: str, dados: Union[Dict[str, Any], List[Any]]) -> bool:
+def salvar_json(nome_arquivo: str, dados: Union[Dict, List]) -> bool:
+    """
+    Salva dados em um arquivo JSON com formatação legível.
+
+    Args:
+        nome_arquivo: O caminho onde o arquivo será salvo.
+        dados: Os dados (dicionário ou lista) a serem serializados.
+
+    Returns:
+        True se a operação foi bem-sucedida, False caso contrário.
+    """
     logger.debug("Salvando JSON em: %s", nome_arquivo)
     try:
-        caminho_arquivo = Path(nome_arquivo)
-        caminho_arquivo.parent.mkdir(parents=True, exist_ok=True)
-        with open(caminho_arquivo, "w", encoding="utf-8") as f:
+        caminho = Path(nome_arquivo)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        with open(caminho, "w", encoding="utf-8") as f:
             json.dump(dados, f, indent=2, ensure_ascii=False)
-        logger.debug("JSON salvo com sucesso em: %s", nome_arquivo)
         return True
-    except TypeError as te:
-        logger.error("Erro de tipo ao salvar JSON em %s: %s", nome_arquivo, te)
-        _tratar_erro_arquivo(te, nome_arquivo, "escrita JSON (erro de tipo)")
-        return False
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         _tratar_erro_arquivo(e, nome_arquivo, "escrita JSON")
         return False
 
 
 def carregar_csv_como_dict(nome_arquivo: str) -> Optional[List[Dict[str, str]]]:
+    """
+    Lê um arquivo CSV e o retorna como uma lista de dicionários.
+
+    Args:
+        nome_arquivo: O caminho para o arquivo CSV.
+
+    Returns:
+        Uma lista de dicionários representando as linhas do CSV, ou None em caso de erro.
+    """
     logger.debug("Carregando CSV como dict de: %s", nome_arquivo)
-    linhas: List[Dict[str, str]] = []
     try:
-        with open(nome_arquivo, "r", newline="", encoding="utf-8") as file:
-            reader = csv.DictReader(file)
-            linhas = list(reader)
-            logger.debug("Carregadas %s linhas do CSV: %s", len(linhas), nome_arquivo)
-            return linhas
-    except Exception as e:
+        with open(nome_arquivo, "r", newline="", encoding="utf-8") as f:
+            return list(csv.DictReader(f))
+    except Exception as e: # pylint: disable=broad-exception-caught
         _tratar_erro_arquivo(e, nome_arquivo, "leitura CSV (como dict)")
         return None
 
 
-def salvar_csv_de_lista(
-    dados: List[List[Any]],
-    nome_arquivo: str,
-    delimitador: str = ",",
-    quotechar: str = '"',
-    quoting: int = csv.QUOTE_MINIMAL,
-) -> bool:
+def salvar_csv_de_lista(dados: List[List[Any]], nome_arquivo: str, **kwargs) -> bool:
+    """
+    Salva uma lista de listas em um arquivo CSV.
+
+    Args:
+        dados: Uma lista de listas, onde a primeira lista é o cabeçalho.
+        nome_arquivo: O caminho onde o arquivo será salvo.
+        **kwargs: Argumentos adicionais para csv.writer (delimiter, etc.).
+
+    Returns:
+        True se a operação foi bem-sucedida, False caso contrário.
+    """
     logger.debug("Salvando lista para CSV: %s", nome_arquivo)
     if not dados:
         logger.warning("Nenhum dado para salvar em: %s.", nome_arquivo)
         return True
     try:
-        caminho_arquivo = Path(nome_arquivo)
-        caminho_arquivo.parent.mkdir(parents=True, exist_ok=True)
-        with open(caminho_arquivo, "w", newline="", encoding="utf-8") as csvfile:
-            writer = csv.writer(
-                csvfile, delimiter=delimitador, quotechar=quotechar, quoting=quoting
-            )
+        caminho = Path(nome_arquivo)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        with open(caminho, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, **kwargs)
             writer.writerows(dados)
         logger.info("%s linhas salvas no CSV: %s", len(dados), nome_arquivo)
         return True
-    except Exception as e:
+    except Exception as e: # pylint: disable=broad-exception-caught
         _tratar_erro_arquivo(e, nome_arquivo, "escrita CSV (de lista)")
         return False
+
+
+def _tratar_erro_arquivo(e: Exception, caminho: Union[str, Path], operacao: str):
+    """Função auxiliar para registrar erros de I/O de forma padronizada."""
+    if isinstance(e, FileNotFoundError):
+        logger.error("Arquivo não encontrado em '%s': %s", operacao, caminho)
+    elif isinstance(e, PermissionError):
+        logger.error("Permissão negada em '%s' no arquivo: %s", operacao, caminho)
+    elif isinstance(e, (JSONDecodeError, csv.Error)):
+        logger.error("Erro de formato em '%s' no arquivo: %s", operacao, caminho)
+    elif isinstance(e, (IOError, OSError)):
+        logger.error("Erro de I/O em '%s' em %s: %s", operacao, caminho, e)
+    else:
+        logger.exception("Erro inesperado em '%s' de %s: %s", operacao, caminho, e)

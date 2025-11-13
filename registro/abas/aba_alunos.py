@@ -6,7 +6,7 @@ import traceback
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.localization import MessageCatalog
+from ttkbootstrap.localization.msgcat import MessageCatalog
 
 from registro.controles.rounded_button import RoundedButton
 from registro.dialogos import StudentDialog
@@ -117,7 +117,7 @@ class AbaAlunos(ttk.Frame):
                 for aluno in alunos
             ]
             self.alunos_table.construir_dados_tabela(dados)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             Messagebox.show_error(
                 "Erro ao carregar alunos. Verifique o console.", "Erro"
             )
@@ -154,7 +154,7 @@ class AbaAlunos(ttk.Frame):
             try:
                 self.fachada_nucleo.deletar_estudante(aluno_id)
                 self._carregar_alunos()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 Messagebox.show_error(
                     f"Erro ao excluir. Verifique registros associados: {e}",
                     "Erro",

@@ -6,7 +6,7 @@ from datetime import datetime
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, END, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.localization import MessageCatalog
+from ttkbootstrap.localization.msgcat import MessageCatalog
 from ttkbootstrap.widgets import DateEntry
 
 from registro.controles.rounded_button import RoundedButton
@@ -131,10 +131,10 @@ class AbaReservas(ttk.Frame):
             return sorted(
                 [g["nome"] for g in self.fachada_nucleo.listar_todos_os_grupos()]
             )
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             return []
 
-    def _filtrar_reservas(self, event=None, cmp_filtros=False):
+    def _filtrar_reservas(self, _event=None, cmp_filtros=False):
         filtro_ant = self.filtro
         self.filtro = {}
         data_filtro = self.filter_date_entry.entry.get()
@@ -170,7 +170,7 @@ class AbaReservas(ttk.Frame):
                 for r in reservas
             ]
             self.reservas_table.construir_dados_tabela(dados)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             Messagebox.show_error(
                 "Erro ao carregar reservas. Verifique o console.",
                 "Erro",
@@ -216,7 +216,7 @@ class AbaReservas(ttk.Frame):
             try:
                 self.fachada_nucleo.deletar_reserva(reserva_id)
                 self._filtrar_reservas()
-            except Exception as e:
+            except Exception as e:  # pylint: disable=broad-exception-caught
                 Messagebox.show_error(
                     f"Erro ao excluir reserva: {e}",
                     "Erro",

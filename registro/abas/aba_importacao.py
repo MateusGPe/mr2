@@ -9,7 +9,7 @@ from tkinter import filedialog
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import EW, LEFT, NSEW, E, W, X
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.localization import MessageCatalog
+from ttkbootstrap.localization.msgcat import MessageCatalog
 
 from registro.controles.rounded_button import RoundedButton
 from registro.controles.treeview_simples import TreeviewSimples
@@ -235,7 +235,7 @@ class AbaImportacao(ttk.Frame):
 
             self.step1_frame.grid_forget()
             self.step2_frame.grid(row=0, column=0, sticky=NSEW)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             Messagebox.show_error(
                 "Falha ao analisar arquivo. Verifique o console.", "Erro"
             )
@@ -281,7 +281,7 @@ class AbaImportacao(ttk.Frame):
             self.step2_frame.grid_forget()
             self._mostrar_sumario_importacao(resumo)
             self.step3_frame.grid(row=0, column=0, sticky=NSEW)
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             Messagebox.show_error(
                 "Erro ao executar importação. Verifique o console.", "Erro"
             )
@@ -400,7 +400,7 @@ class AbaImportacao(ttk.Frame):
                 "Nenhuma sessão ativa para exportar o consumo.",
                 "Aviso",
             )
-        except Exception:
+        except Exception:  # pylint: disable=broad-exception-caught
             Messagebox.show_error(
                 "Falha na exportação. Verifique o console.",
                 "Erro",
