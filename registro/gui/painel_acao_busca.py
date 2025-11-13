@@ -79,9 +79,6 @@ class PainelAcaoBusca(ttk.Frame):
                 "<Return>", lambda _: self._registrar_elegivel_selecionado()
             )
             self._entrada_busca.bind(
-                "<Enter>", lambda _: self._registrar_elegivel_selecionado()
-            )
-            self._entrada_busca.bind(
                 "<Down>", lambda _: self._selecionar_proximo_elegivel(1)
             )
             self._entrada_busca.bind(
