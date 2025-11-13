@@ -541,10 +541,10 @@ class PainelAcaoBusca(ttk.Frame):
                     self._atualizar_label_preview()
                     if self._botao_registrar:
                         self._botao_registrar.config(state=NORMAL)
-                    pront = self._dados_elegivel_selecionado.get("Pront", "?")
+                    nome = self._dados_elegivel_selecionado.get("Nome", "?")
                     if self._label_feedback_acao:
                         self._label_feedback_acao.config(
-                            text=f"Selecionado: {pront}", bootstyle=INFO  # type: ignore
+                            text=nome, bootstyle=INFO  # type: ignore
                         )
                 else:
                     logger.error(
