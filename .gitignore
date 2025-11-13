@@ -201,3 +201,5 @@ __marimo__/
 .streamlit/secrets.toml
 ./config/
 config/**
+.session_state.json
+untitled folder/

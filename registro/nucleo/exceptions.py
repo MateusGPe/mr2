@@ -1,24 +1,30 @@
+# --- Arquivo: registro/nucleo/exceptions.py ---
+
 """Exceções customizadas para a camada de serviço."""
 
 
-class RegistrationCoreError(Exception):
+class ErroNucleoRegistro(Exception):
     """Classe base para exceções neste módulo."""
 
 
-class SessionError(RegistrationCoreError):
+class ErroEstudanteJaConsumiu(ErroNucleoRegistro):
+    """Erro para quando um estudante tenta consumir mais de uma refeição."""
+
+
+class ErroSessao(ErroNucleoRegistro):
     """Erro relacionado ao gerenciamento de sessões de refeição."""
 
 
-class NoActiveSessionError(SessionError):
+class ErroSessaoNaoAtiva(ErroSessao):
     """
     Erro para quando uma operação requer uma sessão ativa,
     mas não há nenhuma.
     """
 
 
-class DataImportError(RegistrationCoreError):
+class ErroImportacaoDados(ErroNucleoRegistro):
     """Erro durante a importação de dados de arquivos (CSV, etc.)."""
 
 
-class GoogleAPIError(RegistrationCoreError):
+class ErroAPIGoogle(ErroNucleoRegistro):
     """Erro na comunicação com as APIs do Google (Sheets, Drive)."""

@@ -1,103 +1,130 @@
+# --- Arquivo: registro/nucleo/crud.py ---
+
 """
 Fornece uma classe CRUD (Create, Read, Update, Delete) genérica para
 interações com o banco de dados via SQLAlchemy.
 """
 
-from typing import Any, Dict, Generic, List, Optional, Self, Sequence, Type, TypeVar, cast
+from typing import Any, Dict, Generic, List, Optional, Self, Sequence, Type, TypeVar
 
 from sqlalchemy import ColumnElement, insert, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session as DBSession
-from sqlalchemy.orm.mapper import Mapper
 
 from registro.nucleo.models import Base
 
-MODEL = TypeVar('MODEL', bound=Base)
+MODELO = TypeVar("MODELO", bound=Base)
 
 
-class CRUD(Generic[MODEL]):
+class CRUD(Generic[MODELO]):
     """
     Classe base para operações CRUD usando SQLAlchemy.
     """
 
-    def __init__(self: Self, session: DBSession, model: Type[MODEL]):
+    def __init__(self: Self, sessao: DBSession, modelo: Type[MODELO]):
         """Inicializa o CRUD com a sessão de DB e o modelo."""
-        self._db_session = session
-        self._model = model
-        pk_name = model.__mapper__.primary_key[0].name
-        self._primary_key_column = getattr(self._model, pk_name)
+        self._sessao_db = sessao
+        self._modelo = modelo
+        nome_pk = modelo.__mapper__.primary_key[0].name
+        self._coluna_chave_primaria = getattr(self._modelo, nome_pk)
 
-    def create(self: Self, data: Dict) -> MODEL:
-        """Cria um novo registro no banco de dados."""
-        db_item = self._model(**data)
-        self._db_session.add(db_item)
-        self._db_session.commit()
-        self._db_session.refresh(db_item)
-        return db_item
+    def obter_sessao(self) -> DBSession:
+        """Retorna a sessão do banco de dados associada."""
+        return self._sessao_db
 
-    def read_one(self: Self, item_id: int) -> Optional[MODEL]:
-        """Lê um registro único pela sua chave primária."""
-        return self._db_session.scalar(
-            select(self._model).where(self._primary_key_column == item_id)
-        )
+    def criar(self: Self, dados: Dict[str, Any]) -> MODELO:
+        """
+        Cria um novo registro, o adiciona à sessão e atualiza seu estado.
+        A transação não é confirmada aqui.
+        """
+        item_db = self._modelo(**dados)
+        self._sessao_db.add(item_db)
+        self._sessao_db.flush()
+        self._sessao_db.refresh(item_db)
+        return item_db
 
-    def read_filtered(self: Self, **filters: Any) -> Sequence[MODEL]:
-        """Lê múltiplos registros com base em filtros."""
-        query = select(self._model)
-        where_clause = []
-        for key, value in filters.items():
-            column = getattr(self._model, key)
-            if isinstance(value, ColumnElement):
-                where_clause.append(value)
+    def ler_um(
+        self: Self, id_item: int, opcoes_carregamento: Optional[List] = None
+    ) -> Optional[MODELO]:
+        """Lê um registro único pela sua chave primária, com opções de carregamento."""
+        consulta = select(self._modelo).where(self._coluna_chave_primaria == id_item)
+        if opcoes_carregamento:
+            consulta = consulta.options(*opcoes_carregamento)
+        return self._sessao_db.scalar(consulta)
+
+    def ler_filtrado(
+        self: Self, opcoes_carregamento: Optional[List] = None, **filtros: Any
+    ) -> Sequence[MODELO]:
+        """Lê múltiplos registros com base em filtros e com opções de carregamento."""
+        consulta = select(self._modelo)
+        if opcoes_carregamento:
+            consulta = consulta.options(*opcoes_carregamento)
+
+        clausula_where = []
+        for chave, valor in filtros.items():
+            coluna = getattr(self._modelo, chave)
+            if isinstance(valor, ColumnElement):
+                clausula_where.append(valor)
             else:
-                where_clause.append(column == value)
+                clausula_where.append(coluna == valor)
 
-        if where_clause:
-            query = query.where(*where_clause)
+        if clausula_where:
+            consulta = consulta.where(*clausula_where)
 
-        return self._db_session.scalars(query).all()
+        return self._sessao_db.scalars(consulta).all()
 
-    def read_all(self: Self) -> Sequence[MODEL]:
+    def ler_todos(self: Self) -> Sequence[MODELO]:
         """Lê todos os registros de uma tabela."""
-        return self._db_session.scalars(select(self._model)).all()
+        return self._sessao_db.scalars(select(self._modelo)).all()
 
-    def update(self: Self, item_id: int, row: Dict) -> Optional[MODEL]:
-        """Atualiza um registro existente pela sua chave primária."""
-        item_to_update = self.read_one(item_id)
-        if item_to_update:
-            for key, value in row.items():
-                setattr(item_to_update, key, value)
-            self._db_session.commit()
-            self._db_session.refresh(item_to_update)
-        return item_to_update
+    def atualizar(self: Self, id_item: int, linha: Dict[str, Any]) -> Optional[MODELO]:
+        """
+        Atualiza um registro existente.
+        A transação não é confirmada aqui.
+        """
+        item_para_atualizar = self.ler_um(id_item)
+        if item_para_atualizar:
+            for chave, valor in linha.items():
+                setattr(item_para_atualizar, chave, valor)
+            self._sessao_db.flush()
+            self._sessao_db.refresh(item_para_atualizar)
+        return item_para_atualizar
 
-    def delete(self: Self, item_id: int) -> bool:
-        """Deleta um registro pela sua chave primária."""
-        item_to_delete = self.read_one(item_id)
-        if item_to_delete:
-            self._db_session.delete(item_to_delete)
-            self._db_session.commit()
+    def deletar(self: Self, id_item: int) -> bool:
+        """
+        Deleta um registro.
+        A transação não é confirmada aqui.
+        """
+        item_para_deletar = self.ler_um(id_item)
+        if item_para_deletar:
+            self._sessao_db.delete(item_para_deletar)
+            self._sessao_db.flush()
             return True
         return False
 
-    def bulk_create(self: Self, rows: List[Dict]) -> bool:
+    def criar_em_massa(self: Self, linhas: List[Dict[str, Any]]) -> bool:
         """Cria múltiplos registros em uma única operação."""
+        if not linhas:
+            return True
         try:
-            if not rows:
-                return True
-            self._db_session.execute(insert(self._model), rows)
+            self._sessao_db.execute(insert(self._modelo), linhas)
             return True
         except DBAPIError as e:
-            print(f"Error during bulk insert of {type(self._model)}: {e}")
+            print(
+                f"Erro de banco de dados durante a inserção em massa de {type(self._modelo)}: {e}"
+            )
             return False
 
-    def bulk_update(self: Self, rows: List[Dict]) -> bool:
+    def atualizar_em_massa(self: Self, linhas: List[Dict[str, Any]]) -> bool:
         """Atualiza múltiplos registros em uma única operação."""
+        if not linhas:
+            return True
         try:
-            if not rows:
-                return True
-            self._db_session.bulk_update_mappings(cast(Mapper[Any], self._model), rows)
+            self._sessao_db.bulk_update_mappings(self._modelo, linhas)  # type: ignore
             return True
         except DBAPIError as e:
-            print(f"DB error during bulk update of {type(self._model)}: {e}")
+            print(
+                "Erro de banco de dados durante a atualização em massa de "
+                f"{type(self._modelo)}: {e}"
+            )
             return False
