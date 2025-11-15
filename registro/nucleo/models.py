@@ -1,5 +1,3 @@
-# --- Arquivo: registro/nucleo/models.py ---
-
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

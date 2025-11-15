@@ -39,14 +39,14 @@ class AnalisadorDeLinhas:
 
         data = dados_mapeados.get("data")
         if data and not self._validar_formato_data(str(data)):
-            return "Formato de data inválido. Use AAAA-MM-DD."
+            return "Formato de data inválido. Use DD/MM/AA (AAAA)."
 
         return None
 
     @staticmethod
     def _validar_formato_data(data_str: str) -> bool:
-        """Valida se a data está no formato AAAA-MM-DD."""
-        return bool(re.match(r"^\d{4}-\d{2}-\d{2}$", data_str.strip()))
+        """Valida se a data está no formato DD/MM/AA (AAAA)."""
+        return bool(re.match(r"^\d{2}/\d{2}/\d{2,4}$", data_str.strip()))
 
     def _encontrar_correspondencias(
         self, nome: str, prontuario: Optional[str]

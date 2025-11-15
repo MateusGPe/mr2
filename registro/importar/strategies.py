@@ -10,6 +10,7 @@ import abc
 import csv
 from typing import Dict, List
 
+from registro.importar.patterns_find import detectar_tipo_valor
 from registro.nucleo import google_api_service
 from registro.nucleo.exceptions import ErroImportacaoDados
 from registro.nucleo.utils import ajustar_chaves_e_valores
@@ -30,8 +31,16 @@ class CarregarCSVSimples(EstrategiaCarregamento):
     def carregar(self, fonte: str) -> List[Dict[str, str]]:
         try:
             with open(fonte, "r", encoding="utf-8") as f:
-                # O cabeçalho é fixo ('nome'), pois o arquivo não o contém.
-                return [{"nome": linha.strip()} for linha in f if linha.strip()]
+                linhas = set()
+                for linha in f:
+                    linha = linha.strip()
+                    chave = detectar_tipo_valor(linha)
+                    print({chave: linha})
+
+                    if chave in ["pront", "nome"]:
+                        linhas.add((chave, linha))
+                return list({c: v} for c, v in linhas)
+
         except FileNotFoundError as e:
             raise ErroImportacaoDados(f"Arquivo não encontrado: {fonte}") from e
 
@@ -45,6 +54,36 @@ class CarregarCSVDetalhado(EstrategiaCarregamento):
                 leitor = csv.DictReader(f)
                 # `ajustar_chaves_e_valores` padroniza os cabeçalhos para facilitar o mapeamento.
                 return [ajustar_chaves_e_valores(linha) for linha in leitor]
+        except (FileNotFoundError, csv.Error) as e:
+            raise ErroImportacaoDados(f"Falha ao ler CSV detalhado: {e}") from e
+
+
+class CarregarCSVSeguro(EstrategiaCarregamento):
+    """Carrega dados de um arquivo CSV com cabeçalhos."""
+
+    def carregar(self, fonte: str) -> List[Dict[str, str]]:
+        try:
+            with open(fonte, "r", encoding="utf-8") as f:
+                leitor = csv.reader(f)
+
+                next(leitor)
+                linhas = []
+
+                for valores in leitor:
+                    itens = {
+                        "prontuario": None,
+                        "nome": None,
+                        "prato": None,
+                        "data": None,
+                    }
+                    for valor in valores:
+                        c, v = detectar_tipo_valor(valor)
+                        if c is None:
+                            continue
+                        itens[c] = v
+                    linhas.append(itens)
+
+                return linhas
         except (FileNotFoundError, csv.Error) as e:
             raise ErroImportacaoDados(f"Falha ao ler CSV detalhado: {e}") from e
 

@@ -143,6 +143,11 @@ class ServicoImportacao:
                     pront = res.pop("_prontuario_")
                     res["estudante_id"] = mapa_prontuario_id.get(pront)
 
+        for r in reservas_para_criar:
+            print(r)
+        for r in estudantes_para_criar:
+            print(r)
+
         # 4. Cria as reservas
         reservas_finais = [
             res for res in reservas_para_criar if res.get("estudante_id")
@@ -150,7 +155,7 @@ class ServicoImportacao:
         if reservas_finais:
             self._fachada_nucleo.repo_reserva.criar_em_massa(reservas_finais)
 
-        self._fachada_nucleo.repo_sessao.obter_sessao().commit()
+        # self._fachada_nucleo.repo_sessao.obter_sessao().commit()
 
         return {
             "alunos_criados": len(estudantes_para_criar),

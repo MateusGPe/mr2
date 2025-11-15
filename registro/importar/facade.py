@@ -9,7 +9,7 @@ from typing import Dict, List, Optional
 
 from registro.importar.definitions import AcaoFinal, LinhaAnalisada
 from registro.importar.service import ServicoImportacao
-from registro.importar.strategies import CarregarCSVDetalhado, CarregarCSVSimples
+from registro.importar.strategies import CarregarCSVDetalhado, CarregarCSVSeguro, CarregarCSVSimples
 from registro.nucleo.facade import FachadaRegistro
 
 
@@ -34,7 +34,7 @@ class FachadaImportacao:
             detalhado: Se True, espera um CSV com cabeçalho. Se False, espera
                        um arquivo de texto simples com um nome por linha.
         """
-        estrategia = CarregarCSVDetalhado() if detalhado else CarregarCSVSimples()
+        estrategia = CarregarCSVSeguro() if detalhado else CarregarCSVSimples()
         return self._servico.iniciar_analise(estrategia, caminho_arquivo)
 
     def obter_estado_analise(self) -> List[LinhaAnalisada]:
