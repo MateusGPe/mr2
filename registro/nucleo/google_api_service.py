@@ -7,7 +7,7 @@ Google Sheets, para sincronização de dados.
 
 import json
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import gspread
 from google.auth.transport.requests import Request
@@ -81,7 +81,9 @@ class GoogleSheetsService:
                 f"Falha ao abrir planilha com a chave '{spreadsheet_key}': {e}"
             ) from e
         except Exception as e:
-            raise ErroAPIGoogle(f"Erro inesperado na inicialização do serviço: {e}") from e
+            raise ErroAPIGoogle(
+                f"Erro inesperado na inicialização do serviço: {e}"
+            ) from e
 
     @property
     def planilha(self) -> gspread.Spreadsheet:
@@ -138,11 +140,14 @@ class _ServicoPadrao:
         return cls._instance
 
 
-def obter_planilha() -> gspread.Spreadsheet:
+def obter_planilha(sheet_key: Optional[str] = None) -> gspread.Spreadsheet:
     """
     Inicializa o cliente gspread e abre a planilha do arquivo de config.
     Retorna o objeto `gspread.Spreadsheet` para compatibilidade com código antigo.
     """
+    if sheet_key:
+        return GoogleSheetsService(sheet_key).planilha
+
     servico = _ServicoPadrao.get_instance()
     return servico.planilha
 

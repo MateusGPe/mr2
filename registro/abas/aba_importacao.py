@@ -36,17 +36,19 @@ class RowItemRevisao(ttk.Frame):
     def __init__(self, parent, item: ItemRevisao, *args, **kwargs):
         super().__init__(parent, padding=5, bootstyle="light", *args, **kwargs)
         self.item = item
-        self.pack(fill=X, pady=2)
+        self.pack(fill=X, pady=2, padx=5)
 
         # 1. Dados Originais (Esquerda)
-        info_frame = ttk.Frame(self)
+        info_frame = ttk.Frame(self, bootstyle="light")
         info_frame.pack(side=LEFT, fill=X, expand=True)
 
         nome_csv = item["dados_csv"].get("nome", "Sem Nome")
         pront_csv = item["dados_csv"].get("prontuario", "")
         dados_txt = f"{nome_csv} ({pront_csv})" if pront_csv else nome_csv
 
-        lbl_dados = ttk.Label(info_frame, text=dados_txt, font="-weight bold")
+        lbl_dados = ttk.Label(
+            info_frame, text=dados_txt, font="-weight bold", bootstyle="inverse-light"
+        )
         lbl_dados.pack(anchor=W)
 
         detalhe_txt = item["tipo_conflito"].replace("_", " ").title()
@@ -54,16 +56,18 @@ class RowItemRevisao(ttk.Frame):
             info_frame,
             text=f"Status: {detalhe_txt}",
             font="-size 8",
-            bootstyle="secondary",
+            bootstyle="light-inverse",
         )
         lbl_detalhe.pack(anchor=W)
 
         # 2. Controles de Ação (Direita)
-        ctrl_frame = ttk.Frame(self)
-        ctrl_frame.pack(side=RIGHT)
+        ctrl_frame = ttk.Frame(self, bootstyle="light")
+        ctrl_frame.pack(side=RIGHT, padx=(0, 5))
 
         # Combobox de Candidatos (Só aparece se houver candidatos)
-        self.cbo_candidatos = ttk.Combobox(ctrl_frame, state="readonly", width=30)
+        self.cbo_candidatos = ttk.Combobox(
+            ctrl_frame, state="readonly", width=30, bootstyle="info"
+        )
         self.mapa_candidatos = {}  # Mapa "Texto Combobox -> ID Banco"
 
         if item["candidatos"]:
@@ -91,6 +95,7 @@ class RowItemRevisao(ttk.Frame):
             values=["CRIAR_NOVO", "VINCULAR", "IGNORAR"],
             state="readonly",
             width=12,
+            bootstyle="info",
         )
         cbo_acao.pack(side=LEFT, padx=5)
         cbo_acao.bind("<<ComboboxSelected>>", self._ao_mudar_acao)
@@ -316,7 +321,9 @@ class AbaImportacao(ttk.Frame):
         def_frame.grid(row=1, column=0, sticky=EW, pady=(0, 10))
 
         ttk.Label(def_frame, text="Data:").pack(side=LEFT)
-        self.entry_data_default = DateEntry(def_frame, bootstyle="primary", width=12)
+        self.entry_data_default = DateEntry(
+            def_frame, dateformat="%d/%m/%Y", bootstyle="primary", width=12
+        )
         self.entry_data_default.pack(side=LEFT, padx=(5, 15))
 
         ttk.Label(def_frame, text="Refeição:").pack(side=LEFT)
@@ -368,19 +375,18 @@ class AbaImportacao(ttk.Frame):
         )
         self.lbl_resumo_topo.config(text=txt)
 
-        # Limpa lista antiga usando .container do ScrolledFrame
-        for widget in self.lista_revisao_frame.container.winfo_children():
+        for widget in self.lista_revisao_frame.winfo_children():
             widget.destroy()
 
         if not self.itens_revisao:
             ttk.Label(
-                self.lista_revisao_frame.container,
+                self.lista_revisao_frame,
                 text="Tudo certo! Nenhum conflito encontrado.",
                 font="-size 12",
             ).pack(pady=20)
         else:
             for item in self.itens_revisao:
-                RowItemRevisao(self.lista_revisao_frame.container, item)
+                RowItemRevisao(self.lista_revisao_frame, item)
 
     def _obter_defaults(self) -> Dict[str, Any]:
         """Captura os valores padrão definidos na UI."""
@@ -514,9 +520,7 @@ class AbaImportacao(ttk.Frame):
             )
 
             self._mostrar_sucesso_final(resultado)
-            self._navegar(
-                self.step3_frame, self.step4_frame, "✅ Importação Concluída"
-            )
+            self._navegar(self.step3_frame, self.step4_frame, "✅ Importação Concluída")
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             traceback.print_exc()
@@ -526,18 +530,15 @@ class AbaImportacao(ttk.Frame):
     def _criar_passo_4_sucesso(self, parent):
         frame = ttk.Frame(parent)
         # REMOVIDO: frame.place(...) - Isso causava a sobreposição imediata
-        
+
         # Criamos um container interno para centralizar o conteúdo dentro do frame
         # O 'frame' será gerenciado pelo grid do wizard, e este 'container' ficará no meio dele
 
-
-        self.lbl_msg_sucesso = ttk.Label(
-            frame, text="", font="-size 12", justify=LEFT
-        )
+        self.lbl_msg_sucesso = ttk.Label(frame, text="", font="-size 12", justify=LEFT)
         self.lbl_msg_sucesso.pack(pady=20)
 
         RoundedButton(
-            frame, # Note que o pai agora é o container, não o frame
+            frame,  # Note que o pai agora é o container, não o frame
             text="Realizar Nova Importação",
             bootstyle="primary",
             command=self._resetar_tudo,
@@ -556,7 +557,7 @@ class AbaImportacao(ttk.Frame):
     def _resetar_tudo(self):
         self.file_path_var.set("")
         # Reseta e volta para o início, garantindo que o layout de grid seja restaurado
-        #self.step4_frame.place_forget()
+        # self.step4_frame.place_forget()
         self._navegar(self.step4_frame, self.step1_frame, "📥 Importação - Passo 1")
 
     # --- EXPORTAÇÃO ---

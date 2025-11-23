@@ -126,8 +126,13 @@ class CarregarGoogleSheets(EstrategiaCarregamento):
     def carregar(self, fonte: str) -> List[Dict[str, Optional[str]]]:
         """fonte: 'NomeDaAba' ou 'IDPlanilha:NomeDaAba'."""
         try:
-            nome_aba = fonte.split(":", 1)[-1] if ":" in fonte else fonte
-            planilha = google_api_service.obter_planilha()
+            if ":" in fonte:
+                sheet_key, nome_aba = fonte.split(":", 1)
+            else:
+                sheet_key = None
+                nome_aba = fonte
+
+            planilha = google_api_service.obter_planilha(sheet_key)
             valores = google_api_service.buscar_valores_aba(planilha, nome_aba)
 
             if not valores or len(valores) < 2:

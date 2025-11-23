@@ -120,7 +120,8 @@ class ServicoImportacao:
             if decisao == "IGNORAR":
                 continue
             elif decisao == "VINCULAR" and item["id_estudante_vinculo"]:
-                dados["_id_banco"] = item["id_estudante_vinculo"]
+                novo = dados.copy()
+                novo["_id_banco"] = item["id_estudante_vinculo"]
                 try:
                     if iid := item.get("id_estudante_vinculo"):
                         cand = next(
@@ -128,11 +129,11 @@ class ServicoImportacao:
                             for cand in item.get("candidatos", [])
                             if cand["id"] == iid
                         )
-                        dados["nome"] = cand["nome"]
-                        dados["prontuario"] = cand["prontuario"]
+                        novo["nome"] = cand["nome"]
+                        novo["prontuario"] = cand["prontuario"]
                 except Exception:
                     pass
-                lista_final.append(dados)
+                lista_final.append(novo)
             elif decisao == "CRIAR_NOVO":
                 dados.pop("_id_banco", None)
                 lista_final.append(dados)
@@ -143,8 +144,6 @@ class ServicoImportacao:
                 for chave, valor in valores_padrao.items():
                     if not linha.get(chave):
                         linha[chave] = valor
-        # for linha in lista_final:
-        #     print(linha)
         return lista_final
 
     def _persistir_dados(self, dados: List[Dict]) -> Dict[str, int]:
