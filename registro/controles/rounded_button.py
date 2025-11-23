@@ -302,6 +302,10 @@ class RoundedButton(tk.Canvas):
                 else:
                     self.itemconfig(self.shape_id, image=self.normal_image)
             return
+        elif "text" in kwargs:
+            self.text = kwargs.get("text")
+            self._redraw_images(self.width, self.height)
+            return
         elif cnf and cnf == "state":
             return "normal" if self.enabled else "disable"
         return super().configure(cnf, **kwargs)

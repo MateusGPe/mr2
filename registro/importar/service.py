@@ -1,163 +1,223 @@
-# --- Arquivo: registro/importar/service.py ---
-
 """
-Gerencia o estado e a lógica de uma sessão de importação de ponta a ponta.
-Orquestra o carregamento, análise, resolução e execução da importação.
+Serviço de orquestração da importação.
+Gerencia estado entre etapas e garante persistência segura.
 """
 
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
-from registro.importar.analyzer import AnalisadorDeLinhas
-from registro.importar.definitions import AcaoFinal, LimiaresConfianca, LinhaAnalisada
-from registro.importar.exceptions import ErroSessaoImportacao
+from registro.importar.analyzer import AnalisadorSimplificado
+from registro.importar.definitions import ItemRevisao, ResumoImportacao
 from registro.importar.strategies import EstrategiaCarregamento
+from registro.nucleo.exceptions import ErroImportacaoDados
 from registro.nucleo.facade import FachadaRegistro
 
 
 class ServicoImportacao:
-    """Gerencia uma única sessão de importação."""
+    """Gerencia o ciclo de vida de uma importação."""
 
     def __init__(self, fachada_nucleo: FachadaRegistro):
-        self._fachada_nucleo = fachada_nucleo
-        self._linhas_analisadas: List[LinhaAnalisada] = []
-        self._proximo_id_linha = 1
+        self._fachada = fachada_nucleo
+        self._cache_automaticos: List[Dict] = []
+        self._cache_resumo: Optional[ResumoImportacao] = None
 
-    def iniciar_analise(
+    def preparar_importacao(
         self, estrategia: EstrategiaCarregamento, fonte: str
-    ) -> List[LinhaAnalisada]:
-        """
-        Inicia o processo: carrega os dados usando uma estratégia e os analisa.
-        """
-        # Limpa o estado de sessões anteriores
-        self._linhas_analisadas = []
-        self._proximo_id_linha = 1
-
+    ) -> Dict[str, Any]:
+        """Etapa 1: Carrega, Analisa e Separa dados."""
+        self._cache_automaticos = []
         dados_brutos = estrategia.carregar(fonte)
 
-        # Configuração dos limiares de confiança para o match
-        limiares: LimiaresConfianca = {"match_automatico": 95, "match_ambiguo": 80}
+        if not dados_brutos:
+            raise ErroImportacaoDados("Nenhum dado válido encontrado na fonte.")
 
-        analisador = AnalisadorDeLinhas(self._fachada_nucleo.repo_estudante, limiares)
+        analisador = AnalisadorSimplificado(self._fachada.repo_estudante)
+        autos, revisao, invalidos = analisador.processar_lote(dados_brutos)
 
-        for dados_linha in dados_brutos:
-            # Assume que os dados já vêm mapeados pela estratégia
-            linha_analisada = analisador.analisar_linha(
-                id_linha=self._proximo_id_linha,
-                dados_originais=dados_linha,
-                dados_mapeados=dados_linha.copy(),
-            )
-            # A ação final inicial é a mesma que a sugerida
-            linha_analisada["acao_final"] = linha_analisada["acao_final_sugerida"]
-            self._linhas_analisadas.append(linha_analisada)
-            self._proximo_id_linha += 1
+        self._cache_automaticos = autos
+        self._cache_resumo = {
+            "total_linhas": len(dados_brutos),
+            "automaticos": len(autos),
+            "invalidos": len(invalidos),
+            "para_revisao": len(revisao),
+        }
 
-        return self._linhas_analisadas
+        return {"resumo": self._cache_resumo, "itens_revisao": revisao}
 
-    def obter_linhas_analisadas(self) -> List[LinhaAnalisada]:
-        """Retorna o estado atual das linhas analisadas."""
-        return self._linhas_analisadas
-
-    def atualizar_acao_linha(
+    def simular_importacao(
         self,
-        id_linha: int,
-        acao: AcaoFinal,
-        id_estudante_resolvido: Optional[int] = None,
-    ):
+        itens_revisados: List[ItemRevisao],
+        valores_padrao: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, List[Dict]]:
         """
-        Permite que a interface de usuário atualize a ação para uma linha
-        específica, por exemplo, após uma escolha manual.
+        Gera uma previsão do que será feito, sem salvar no banco.
+        Retorna listas de 'novos_estudantes' e 'reservas_a_criar'.
         """
-        for linha in self._linhas_analisadas:
-            if linha["id_linha"] == id_linha:
-                linha["acao_final"] = acao
-                if id_estudante_resolvido:
-                    # Armazena o ID do estudante escolhido para a criação da reserva
-                    linha["dados_mapeados"][
-                        "_estudante_id_resolvido"
-                    ] = id_estudante_resolvido
-                return
-        raise ErroSessaoImportacao(f"Linha com ID {id_linha} não encontrada.")
+        lista_consolidada = self._processar_dados_finais(
+            itens_revisados, valores_padrao
+        )
 
-    def executar_importacao(self) -> Dict[str, int]:
-        """
-        Executa as ações finais definidas para cada linha, persistindo os
-        dados no banco de dados de forma otimizada.
-        """
-        if not self._linhas_analisadas:
-            raise ErroSessaoImportacao("Nenhuma análise foi iniciada para executar.")
+        # Simula a separação dos dados
+        novos = []
+        reservas = []
 
-        reservas_para_criar = []
-        estudantes_para_criar = []
+        for linha in lista_consolidada:
+            id_banco = linha.get("_id_banco")
+            pront = linha.get("prontuario")
+            data = linha.get("data")
 
-        # 1. Separa os dados para criação
-        for linha in self._linhas_analisadas:
-            acao = linha["acao_final"]
-            dados = linha["dados_mapeados"]
-
-            if acao == "IGNORAR":
+            # Sem data, não é possível criar reserva)
+            if not data:
                 continue
 
-            # Prepara a reserva base
-            reserva_payload = {
-                "prato": dados.get("prato", "Não especificado"),
-                "data": dados.get("data"),
-                "cancelada": False,
-            }
+            # Detecta novo estudante
+            if not id_banco and pront:
+                # Usa um set ou dict auxiliar para evitar duplicatas visuais na simulação
+                exists = any(n["prontuario"] == pront for n in novos)
+                if not exists:
+                    novos.append(
+                        {
+                            "prontuario": pront,
+                            "nome": linha.get("nome", "Desconhecido"),
+                            "turma": linha.get("turma", "-"),  # Se houver
+                        }
+                    )
 
-            if acao == "CRIAR_RESERVA":
-                id_estudante = dados.get("_estudante_id_resolvido")
-                if id_estudante:
-                    reserva_payload["estudante_id"] = id_estudante
-                    reservas_para_criar.append(reserva_payload)
-
-            elif acao == "CRIAR_ALUNO_E_RESERVA":
-                prontuario = dados.get("prontuario")
-                novo_estudante = {
-                    "prontuario": prontuario,
-                    "nome": dados.get("nome"),
-                    "ativo": True,
+            # Detecta reserva
+            nome_display = linha.get("nome")
+            # Se for vinculado, tentamos pegar o nome original ou mantemos o do CSV
+            reservas.append(
+                {
+                    "data": data,
+                    "prato": linha.get("prato"),
+                    "aluno": nome_display,
+                    "prontuario": pront,
                 }
-                estudantes_para_criar.append(novo_estudante)
-
-                # Associa a reserva ao prontuário para resolução posterior
-                reserva_payload["_prontuario_"] = prontuario
-                reservas_para_criar.append(reserva_payload)
-
-        # 2. Executa as operações no banco de dados
-        # NOTA: Para máxima eficiência, a FachadaRegistro deveria ter métodos
-        # de criação em massa que chamam os `criar_em_massa` dos repositórios.
-        # Aqui, estamos chamando diretamente para simplificar.
-        if estudantes_para_criar:
-            self._fachada_nucleo.repo_estudante.criar_em_massa(estudantes_para_criar)
-
-        # 3. Mapeia prontuários para IDs para as novas reservas
-        if any("_prontuario_" in res for res in reservas_para_criar):
-            prontuarios = {est["prontuario"] for est in estudantes_para_criar}
-            estudantes_criados = self._fachada_nucleo.repo_estudante.por_prontuarios(
-                prontuarios
             )
-            mapa_prontuario_id = {e.prontuario: e.id for e in estudantes_criados}
 
-            for res in reservas_para_criar:
-                if "_prontuario_" in res:
-                    pront = res.pop("_prontuario_")
-                    res["estudante_id"] = mapa_prontuario_id.get(pront)
+        return {"novos_estudantes": novos, "reservas": reservas}
 
-        for r in reservas_para_criar:
-            print(r)
-        for r in estudantes_para_criar:
-            print(r)
+    def finalizar_importacao(
+        self,
+        itens_revisados: List[ItemRevisao],
+        valores_padrao: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, int]:
+        """Consolida e Persiste."""
+        lista_final = self._processar_dados_finais(itens_revisados, valores_padrao)
+        return self._persistir_dados(lista_final)
 
-        # 4. Cria as reservas
-        reservas_finais = [
-            res for res in reservas_para_criar if res.get("estudante_id")
-        ]
+    def _processar_dados_finais(
+        self,
+        itens_revisados: List[ItemRevisao],
+        valores_padrao: Optional[Dict[str, Any]],
+    ) -> List[Dict]:
+        """Lógica interna: Junta Automáticos + Revisados + Defaults."""
+        lista_final = list(self._cache_automaticos)
+        # 1. Aplica decisões da revisão
+        for item in itens_revisados:
+            decisao = item["resolucao_escolhida"]
+            dados = item["dados_csv"]
+
+            if decisao == "IGNORAR":
+                continue
+            elif decisao == "VINCULAR" and item["id_estudante_vinculo"]:
+                dados["_id_banco"] = item["id_estudante_vinculo"]
+                try:
+                    if iid := item.get("id_estudante_vinculo"):
+                        cand = next(
+                            cand
+                            for cand in item.get("candidatos", [])
+                            if cand["id"] == iid
+                        )
+                        dados["nome"] = cand["nome"]
+                        dados["prontuario"] = cand["prontuario"]
+                except Exception:
+                    pass
+                lista_final.append(dados)
+            elif decisao == "CRIAR_NOVO":
+                dados.pop("_id_banco", None)
+                lista_final.append(dados)
+
+        # 2. Aplica Defaults
+        if valores_padrao:
+            for linha in lista_final:
+                for chave, valor in valores_padrao.items():
+                    if not linha.get(chave):
+                        linha[chave] = valor
+        # for linha in lista_final:
+        #     print(linha)
+        return lista_final
+
+    def _persistir_dados(self, dados: List[Dict]) -> Dict[str, int]:
+        """Persistência segura com tratamento de dependências (IDs)."""
+        novos_estudantes = []
+        reservas_para_criar = []
+
+        # Separação
+        for linha in dados:
+            id_banco = linha.get("_id_banco")
+            pront = linha.get("prontuario")
+            data = linha.get("data")
+
+            # Sem data, não é possível criar reserva
+            if not data:
+                continue
+
+            # Identifica novos alunos
+            if not id_banco and pront:
+                novos_estudantes.append(
+                    {
+                        "prontuario": pront,
+                        "nome": linha.get("nome", "Desconhecido"),
+                        "ativo": True,
+                    }
+                )
+
+            # Prepara payload da reserva com chave de resolução
+            reservas_para_criar.append(
+                {
+                    "payload": {
+                        "prato": linha.get("prato"),
+                        "data": data,
+                        "cancelada": False,
+                    },
+                    "chave": id_banco if id_banco else pront,
+                }
+            )
+
+        # Criação de Novos Alunos (Unicos)
+        if novos_estudantes:
+            unicos = {e["prontuario"]: e for e in novos_estudantes}.values()
+            self._fachada.repo_estudante.criar_em_massa(list(unicos))
+
+        # Recuperação de IDs (Fix para SQLite não retornar IDs em bulk)
+        mapa_ids = {}
+        if novos_estudantes:
+            pronts = {e["prontuario"] for e in novos_estudantes}
+            objs = self._fachada.repo_estudante.por_prontuarios(pronts)
+            mapa_ids = {e.prontuario: e.id for e in objs}
+
+        # Criação de Reservas
+        reservas_finais = []
+        for item in reservas_para_criar:
+            chave = item["chave"]
+            id_final = None
+
+            if isinstance(chave, int):
+                id_final = chave
+            elif isinstance(chave, str):
+                id_final = mapa_ids.get(chave)
+
+            if id_final:
+                payload = item["payload"]
+                payload["estudante_id"] = id_final
+                reservas_finais.append(payload)
+
         if reservas_finais:
-            self._fachada_nucleo.repo_reserva.criar_em_massa(reservas_finais)
+            self._fachada.repo_reserva.criar_em_massa(reservas_finais)
 
-        # self._fachada_nucleo.repo_sessao.obter_sessao().commit()
+        self._fachada.repo_estudante.obter_sessao().commit()
 
         return {
-            "alunos_criados": len(estudantes_para_criar),
+            "estudantes_criados": len(novos_estudantes),
             "reservas_criadas": len(reservas_finais),
         }

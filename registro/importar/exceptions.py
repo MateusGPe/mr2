@@ -1,5 +1,3 @@
-# --- Arquivo: registro/importar/exceptions.py ---
-
 """Exceções customizadas para o módulo de importação."""
 
 
@@ -8,7 +6,4 @@ class ErroImportacao(Exception):
 
 
 class ErroSessaoImportacao(ErroImportacao):
-    """
-    Erro para quando uma operação é tentada sem que a análise
-    tenha sido iniciada.
-    """
+    """Erro operado quando o fluxo da sessão de importação é violado."""

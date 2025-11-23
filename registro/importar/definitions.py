@@ -1,48 +1,56 @@
-# --- Arquivo: registro/nucleo/importers/definitions.py ---
-
 """
-Define tipos de dados, constantes e estruturas para o submódulo de importação.
-Centralizar essas definições torna o código mais legível e fácil de manter.
+Define as estruturas de dados (TypedDicts) utilizadas para comunicação
+entre a camada de serviço de importação e a interface de usuário.
 """
 
-from typing import Dict, List, Literal, Optional, TypedDict
+import re
+from typing import Any, Dict, List, Literal, Optional, TypedDict
 
-# Status possíveis para uma linha durante a análise da importação
-StatusAnalise = Literal[
-    "ERRO", "MATCH_AUTOMATICO", "MATCH_AMBIGUO", "NOVO_ALUNO", "PENDENTE"
+REGEX_LIMPEZA_PRONTUARIO: re.Pattern[str] = re.compile(r"^[Ii][Qq]\d0+")
+
+# Tipos de inconsistência que requerem atenção do usuário
+TipoConflito = Literal[
+    "NOVO_ESTUDANTE",  # Não existe no banco -> Sugere criar
+    "MULTIPLOS_MATCHES",  # Fuzzy achou gente parecida -> Sugere vincular
+    "DADOS_DIVERGENTES",  # Prontuário bate, mas Nome difere -> Atenção
 ]
 
-# Ação final a ser executada para uma linha, definida pelo usuário ou automaticamente
-AcaoFinal = Literal["CRIAR_RESERVA", "CRIAR_ALUNO_E_RESERVA", "IGNORAR"]
+# Ação que o usuário escolhe na GUI
+ResolucaoUsuario = Literal[
+    "CRIAR_NOVO",  # Aceita o dado do CSV como um novo aluno
+    "VINCULAR",  # Aceita que o dado do CSV é o Estudante X do banco
+    "IGNORAR",  # Não faz nada com essa linha
+]
 
 
-class LimiaresConfianca(TypedDict):
-    """Define os limiares para classificação de correspondência."""
-
-    match_automatico: int  # Ex: 95
-    match_ambiguo: int  # Ex: 80
-
-
-class SugestaoMatch(TypedDict):
-    """Representa uma sugestão de estudante correspondente encontrada durante a análise."""
+class CandidatoMatch(TypedDict):
+    """Representa uma sugestão de estudante existente no banco."""
 
     id: int
     prontuario: str
     nome: str
-    pontuacao: int
+    turma: str
+    score: int
 
 
-class LinhaAnalisada(TypedDict):
+class ItemRevisao(TypedDict):
     """
-    Estrutura de dados completa para uma linha após a análise,
-    pronta para ser exibida na interface de revisão do usuário.
+    Representa uma linha da importação que requer decisão do usuário.
+    Estrutura otimizada para renderização em tabelas na GUI.
     """
 
-    id_linha: int  # Identificador único para a linha na sessão de importação
-    dados_originais: Dict[str, str]
-    dados_mapeados: Dict[str, Optional[str]|int]
-    status: StatusAnalise
-    mensagem_erro: Optional[str]
-    sugestoes: List[SugestaoMatch]
-    acao_final_sugerida: Optional[AcaoFinal]
-    acao_final: Optional[AcaoFinal]  # Ação que será de fato executada
+    id_temp: int  # Identificador temporário para controle da GUI
+    dados_csv: Dict[str, Any]  # Dados brutos (Nome, Pront, Data, Prato)
+    tipo_conflito: TipoConflito
+    candidatos: List[CandidatoMatch]  # Sugestões para preencher Combobox
+    resolucao_escolhida: ResolucaoUsuario  # Ação padrão sugerida
+    id_estudante_vinculo: Optional[int]  # ID selecionado (se VINCULAR)
+
+
+class ResumoImportacao(TypedDict):
+    """Estatísticas da análise inicial da importação."""
+
+    total_linhas: int
+    automaticos: int  # Processados sem intervenção (Verdes)
+    invalidos: int  # Descartados por erro de dados (Vermelhos)
+    para_revisao: int  # Enviados para a GUI (Amarelos)
