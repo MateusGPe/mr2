@@ -369,7 +369,10 @@ def atualizar_grupos_sessao(
 
 
 def exportar_sessao_para_xlsx(
-    repo_sessao: RepositorioSessao, repo_consumo: RepositorioConsumo, id_sessao: int
+    repo_sessao: RepositorioSessao,
+    repo_consumo: RepositorioConsumo,
+    id_sessao: int,
+    nome_arquivo_arg: Optional[Path] = None,
 ) -> str:
     """Exporta os dados de consumo da sessão para um arquivo XLSX."""
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
@@ -381,15 +384,18 @@ def exportar_sessao_para_xlsx(
         opcoes_carregamento=opcoes, sessao_id=id_sessao
     )
 
-    nome_arquivo = ".".join(
-        (
-            sessao.refeicao.capitalize(),
-            sessao.data.replace("/", "-"),
-            sessao.hora.replace(":", "."),
-            "xlsx",
+    if nome_arquivo_arg:
+        caminho_arquivo = nome_arquivo_arg
+    else:
+        nome_arquivo = ".".join(
+            (
+                sessao.refeicao.capitalize(),
+                sessao.data.replace("/", "-"),
+                sessao.hora.replace(":", "."),
+                "xlsx",
+            )
         )
-    )
-    caminho_arquivo = obter_caminho_documentos() / nome_arquivo
+        caminho_arquivo = obter_caminho_documentos() / nome_arquivo
 
     with xlsxwriter.Workbook(str(caminho_arquivo)) as workbook:
         worksheet = workbook.add_worksheet(nome_arquivo)

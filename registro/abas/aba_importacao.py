@@ -1,6 +1,7 @@
 # gestao_refeitorio/abas/aba_importacao.py
 
 import csv
+from pathlib import Path
 import tkinter as tk
 import traceback
 from datetime import datetime
@@ -14,10 +15,17 @@ from ttkbootstrap.localization.msgcat import MessageCatalog
 from registro.controles.rounded_button import RoundedButton
 from registro.controles.treeview_simples import TreeviewSimples
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
+from registro.nucleo.facade import FachadaRegistro
+from registro.importar.facade import FachadaImportacao
 
 
 class AbaImportacao(ttk.Frame):
-    def __init__(self, parent, fachada_nucleo, fachada_importacao):
+    def __init__(
+        self,
+        parent,
+        fachada_nucleo: FachadaRegistro,
+        fachada_importacao: FachadaImportacao,
+    ):
         super().__init__(parent)
         self.fachada_nucleo = fachada_nucleo
         self.fachada_importacao = fachada_importacao
@@ -364,7 +372,7 @@ class AbaImportacao(ttk.Frame):
                 return
 
             if tipo == "consumo":
-                caminho = self.fachada_nucleo.exportar_sessao_para_xlsx(filepath)
+                caminho = self.fachada_nucleo.exportar_sessao_para_xlsx(Path(filepath))
                 Messagebox.show_info(
                     "Sucesso", f"Relatório de consumo exportado para:\n{caminho}"
                 )

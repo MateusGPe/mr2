@@ -34,11 +34,10 @@ class CarregarCSVSimples(EstrategiaCarregamento):
                 linhas = set()
                 for linha in f:
                     linha = linha.strip()
-                    chave = detectar_tipo_valor(linha)
-                    print({chave: linha})
+                    valor = detectar_tipo_valor(linha)
 
-                    if chave in ["pront", "nome"]:
-                        linhas.add((chave, linha))
+                    if valor[0] in ["prontuario", "nome"]:
+                        linhas.add(valor)
                 return list({c: v} for c, v in linhas)
 
         except FileNotFoundError as e:
@@ -78,9 +77,9 @@ class CarregarCSVSeguro(EstrategiaCarregamento):
                     }
                     for valor in valores:
                         c, v = detectar_tipo_valor(valor)
-                        if c is None:
-                            continue
-                        itens[c] = v
+                        if c and v is not None:
+                            itens[c] = v
+
                     linhas.append(itens)
 
                 return linhas

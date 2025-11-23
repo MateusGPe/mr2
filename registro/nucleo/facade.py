@@ -9,6 +9,7 @@ FachadaRegistro, que gerencia internamente a sessão do banco de dados,
 os repositórios e a lógica de serviço.
 """
 
+from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional, Sequence, Set
 
@@ -410,12 +411,15 @@ class FachadaRegistro:
             self.repo_sessao, self.repo_grupo, self.id_sessao_ativa, grupos
         )
 
-    def exportar_sessao_para_xlsx(self) -> str:
+    def exportar_sessao_para_xlsx(
+        self,
+        nome_arquivo: Optional[Path] = None,
+    ) -> str:
         """Exporta os dados de consumo da sessão ativa para um arquivo XLSX."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
         return service_logic.exportar_sessao_para_xlsx(
-            self.repo_sessao, self.repo_consumo, self.id_sessao_ativa
+            self.repo_sessao, self.repo_consumo, self.id_sessao_ativa, nome_arquivo
         )
 
     def sincronizar_do_google_sheets(self):

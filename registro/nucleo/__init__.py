@@ -17,6 +17,7 @@ from registro.nucleo.exceptions import (
 )
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.utils import DADOS_SESSAO
+from registro.nucleo import service_logic
 
 __all__ = [
     "FachadaRegistro",
@@ -26,4 +27,5 @@ __all__ = [
     "ErroSessaoNaoAtiva",
     "ErroImportacaoDados",
     "ErroAPIGoogle",
+    "service_logic"
 ]
