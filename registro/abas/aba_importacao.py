@@ -33,7 +33,7 @@ class RowItemRevisao(ttk.Frame):
     Permite ao usuário escolher a ação e o candidato (se houver).
     """
 
-    def __init__(self, parent, item: ItemRevisao, *args, **kwargs):
+    def __init__(self, parent, item: ItemRevisao, cores={}, *args, **kwargs):
         super().__init__(parent, padding=5, bootstyle="light", *args, **kwargs)
         self.item = item
         self.pack(fill=X, pady=2, padx=5)
@@ -44,12 +44,18 @@ class RowItemRevisao(ttk.Frame):
 
         nome_csv = item["dados_csv"].get("nome", "Sem Nome")
         pront_csv = item["dados_csv"].get("prontuario", "")
-        dados_txt = f"{nome_csv} ({pront_csv})" if pront_csv else nome_csv
+        dados_txt = f"{pront_csv} - {nome_csv}" if pront_csv else nome_csv
 
-        lbl_dados = ttk.Label(
+        self.lbl_dados = ttk.Label(
             info_frame, text=dados_txt, font="-weight bold", bootstyle="inverse-light"
         )
-        lbl_dados.pack(anchor=W)
+        self.lbl_dados.pack(anchor=W)
+
+        self._clr_acao = {
+            "CRIAR_NOVO": cores.get("CRIAR_NOVO", "brown"),
+            "VINCULAR": cores.get("VINCULAR", "black"),
+            "IGNORAR": cores.get("IGNORAR", 'red'),
+        }
 
         detalhe_txt = item["tipo_conflito"].replace("_", " ").title()
         lbl_detalhe = ttk.Label(
@@ -118,6 +124,7 @@ class RowItemRevisao(ttk.Frame):
     def _atualizar_estado_visual(self):
         """Habilita/Desabilita combobox de candidatos dependendo da ação."""
         acao = self.var_acao.get()
+        self.lbl_dados.configure(foreground=self._clr_acao.get(acao, "black"))
         if acao == "VINCULAR" and self.mapa_candidatos:
             self.cbo_candidatos.configure(state="readonly")
             # Garante que o ID está setado com o valor atual do combo
@@ -219,7 +226,8 @@ class AbaImportacao(ttk.Frame):
         frame = ttk.Frame(parent)
 
         # Opções de Estratégia
-        lbl = ttk.Label(frame, text="1. Configuração da Fonte", font="-weight bold")
+        lbl = ttk.Label(frame, text="1. Configuração da Fonte",
+                        font="-weight bold")
         lbl.pack(anchor=W, pady=(0, 10))
 
         opts_frame = ttk.Labelframe(frame, text="Tipo de Arquivo", padding=10)
@@ -350,7 +358,8 @@ class AbaImportacao(ttk.Frame):
         ).pack(side=LEFT, padx=5)
 
         # Lista de Revisão
-        list_container = ttk.Labelframe(frame, text="Revisão de Conflitos", padding=0)
+        list_container = ttk.Labelframe(
+            frame, text="Revisão de Conflitos", padding=0)
         list_container.grid(row=2, column=0, sticky=NSEW)
 
         self.lista_revisao_frame = ScrolledFrame(list_container, autohide=True)
@@ -400,8 +409,16 @@ class AbaImportacao(ttk.Frame):
                 font="-size 12",
             ).pack(pady=20)
         else:
+            self.itens_revisao.sort(key=lambda item: item["dados_csv"].get(
+                "nome", "") or item["dados_csv"].get("prontuario", ""))
+            cores = ttk.Style().colors
+            clr_acao = {
+                "CRIAR_NOVO": cores.get("info"),
+                "VINCULAR": cores.get_foreground("light"),
+                "IGNORAR": cores.get("danger"),
+            }
             for item in self.itens_revisao:
-                RowItemRevisao(self.lista_revisao_frame, item)
+                RowItemRevisao(self.lista_revisao_frame, item, cores=clr_acao)
 
     def _obter_defaults(self) -> Dict[str, Any]:
         """Captura os valores padrão definidos na UI."""
@@ -535,7 +552,8 @@ class AbaImportacao(ttk.Frame):
             )
 
             self._mostrar_sucesso_final(resultado)
-            self._navegar(self.step3_frame, self.step4_frame, "✅ Importação Concluída")
+            self._navegar(self.step3_frame, self.step4_frame,
+                          "✅ Importação Concluída")
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             traceback.print_exc()
@@ -549,7 +567,8 @@ class AbaImportacao(ttk.Frame):
         # Criamos um container interno para centralizar o conteúdo dentro do frame
         # O 'frame' será gerenciado pelo grid do wizard, e este 'container' ficará no meio dele
 
-        self.lbl_msg_sucesso = ttk.Label(frame, text="", font="-size 12", justify=LEFT)
+        self.lbl_msg_sucesso = ttk.Label(
+            frame, text="", font="-size 12", justify=LEFT)
         self.lbl_msg_sucesso.pack(pady=20)
 
         RoundedButton(
@@ -573,7 +592,8 @@ class AbaImportacao(ttk.Frame):
         self.file_path_var.set("")
         # Reseta e volta para o início, garantindo que o layout de grid seja restaurado
         # self.step4_frame.place_forget()
-        self._navegar(self.step4_frame, self.step1_frame, "📥 Importação - Passo 1")
+        self._navegar(self.step4_frame, self.step1_frame,
+                      "📥 Importação - Passo 1")
 
     # --- EXPORTAÇÃO ---
     def _criar_painel_exportacao(self, parent):
@@ -614,7 +634,8 @@ class AbaImportacao(ttk.Frame):
         try:
             default_filename = f"export_{tipo}_{datetime.now().strftime('%Y%m%d')}"
             ext = ".xlsx" if tipo == "consumo" else ".csv"
-            ftypes = [("Excel", "*.xlsx")] if tipo == "consumo" else [("CSV", "*.csv")]
+            ftypes = [("Excel", "*.xlsx")
+                      ] if tipo == "consumo" else [("CSV", "*.csv")]
 
             filepath = filedialog.asksaveasfilename(
                 initialfile=default_filename,
@@ -645,6 +666,7 @@ class AbaImportacao(ttk.Frame):
             Messagebox.show_info(f"Arquivo salvo em:\n{filepath}", "Sucesso")
 
         except ErroSessaoNaoAtiva:
-            Messagebox.show_warning("Nenhuma sessão ativa para exportar consumo.")
+            Messagebox.show_warning(
+                "Nenhuma sessão ativa para exportar consumo.")
         except Exception as e:  # pylint: disable=broad-exception-caught
             Messagebox.show_error(f"Falha na exportação: {e}")

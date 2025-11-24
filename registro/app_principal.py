@@ -86,7 +86,7 @@ class App(ttk.Window):
                 bootstyle="dark",
                 padding=(3, 6),
             )
-            btn.grid(row=i, column=0, sticky=EW, pady=2)
+            btn.grid(row=i, column=0, sticky=EW, pady=0)
             self.buttons[nome] = btn
 
         self.selected = "dashboard"

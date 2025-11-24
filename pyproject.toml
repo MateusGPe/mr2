@@ -20,6 +20,7 @@ pytest = "^8.4.2"
 pytest-mock = "^3.15.1"
 customtkinter = "^5.2.2"
 regex = "^2025.11.3"
+flet = "^0.28.3"
 
 
 [build-system]

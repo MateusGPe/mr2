@@ -27,6 +27,7 @@ class AnalisadorSimplificado:
     SCORE_CORTE_BUSCA = 60
     SCORE_BONUS_PRONTUARIO = 98
     SCORE_PENALIDADE_PRONTUARIO = 20
+    NOME_DECONHECIDO = "Nome Desconhecido"
 
     def __init__(self, repo_estudante: RepositorioEstudante) -> None:
         """
@@ -40,7 +41,8 @@ class AnalisadorSimplificado:
         # Estrutura: (objeto_aluno, nome_lower, prontuario_limpo_lower)
         self._cache_busca: List[Tuple[Any, str, str]] = []
         for aluno in self._todos_alunos:
-            p_limpo = REGEX_LIMPEZA_PRONTUARIO.sub("", aluno.prontuario.lower())
+            p_limpo = REGEX_LIMPEZA_PRONTUARIO.sub(
+                "", aluno.prontuario.lower())
             self._cache_busca.append((aluno, aluno.nome.lower(), p_limpo))
 
     def processar_lote(
@@ -95,10 +97,11 @@ class AnalisadorSimplificado:
             elif prontuario_csv:
                 # Apenas prontuário fornecido, sem nome
                 candidatos = self._buscar_candidatos_pront(prontuario_csv)
-                linha["nome"] = "Nome Desconhecido"  # Placeholder visual
+                linha["nome"] = self.NOME_DECONHECIDO  # Placeholder visual
                 if not candidatos:
                     revisao.append(
-                        self._criar_item_revisao(id_temp, linha, "NOVO_ESTUDANTE", [])
+                        self._criar_item_revisao(
+                            id_temp, linha, "NOVO_ESTUDANTE", [])
                     )
                 else:
                     revisao.append(
@@ -219,7 +222,8 @@ class AnalisadorSimplificado:
             score = fuzz.token_sort_ratio(nome_lower, nome_db_lower)
 
             if score > self.SCORE_CORTE_BUSCA:
-                resultados.append(self._converter_aluno_para_match(aluno, score))
+                resultados.append(
+                    self._converter_aluno_para_match(aluno, score))
 
         return sorted(resultados, key=lambda x: x["score"], reverse=True)[:4]
 
@@ -233,7 +237,8 @@ class AnalisadorSimplificado:
             score = fuzz.partial_ratio(pront_lower, pront_db_lower)
 
             if score > self.SCORE_MATCH_PRONTUARIO:
-                resultados.append(self._converter_aluno_para_match(aluno, score))
+                resultados.append(
+                    self._converter_aluno_para_match(aluno, score))
 
         return sorted(resultados, key=lambda x: x["score"], reverse=True)[:4]
 
@@ -261,10 +266,10 @@ class AnalisadorSimplificado:
 
         if candidatos and (tipo == "MULTIPLOS_MATCHES" or tipo == "DADOS_DIVERGENTES"):
             id_vinculo = candidatos[0]["id"]
-            if tipo == "MULTIPLOS_MATCHES":
+            if candidatos[0]["score"] > self.SCORE_MATCH_CERTO:
                 resolucao = "VINCULAR"
-            else:
-                resolucao = "IGNORAR"
+        if not dados.get("prontuario") or dados.get("nome", self.NOME_DECONHECIDO) == self.NOME_DECONHECIDO:
+            resolucao = "IGNORAR"
 
         return {
             "id_temp": id_temp,
