@@ -82,6 +82,10 @@ class FachadaRegistro:
         """Retorna uma lista simplificada de todas as sessões."""
         return service_logic.listar_todas_sessoes(self.repo_sessao)
 
+    def listar_datas_reservas(self) -> List[str]:
+        """Retorna uma lista de datas de reservas."""
+        return list({s.data for s in self.repo_reserva.ler_unicos()})
+
     def listar_todos_os_grupos(self) -> List[Dict[str, Any]]:
         """Retorna uma lista de todos os grupos existentes."""
         return service_logic.listar_todos_os_grupos(self.repo_grupo)
@@ -234,6 +238,20 @@ class FachadaRegistro:
                 "grupos": [g.nome for g in est.grupos],
             }
             for est in estudantes
+        ]
+
+    def listar_todos_os_estudantes(self) -> List[Dict[str, Any]]:
+        query = self._sessao_db.query(Estudante)
+        estudantes = query.order_by(Estudante.nome).all()
+        return [
+            {
+                "id": e.id,
+                "prontuario": e.prontuario,
+                "nome": e.nome,
+                "ativo": e.ativo,
+                "grupos": [g.nome for g in e.grupos],
+            }
+            for e in estudantes
         ]
 
     def listar_estudantes(
@@ -420,6 +438,15 @@ class FachadaRegistro:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
         return service_logic.exportar_sessao_para_xlsx(
             self.repo_sessao, self.repo_consumo, self.id_sessao_ativa, nome_arquivo
+        )
+
+    def exportar_consumos_para_xlsx(
+        self,
+        nome_arquivo: Optional[Path] = None,
+    ) -> str:
+        """Exporta os dados de consumo para um arquivo XLSX."""
+        return service_logic.exportar_todos_os_consumos_para_xlsx(
+            self.repo_consumo, nome_arquivo
         )
 
     def sincronizar_do_google_sheets(self):

@@ -3,6 +3,7 @@
 import traceback
 from datetime import datetime
 
+import tkinter as tk
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, END, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
@@ -12,6 +13,7 @@ from ttkbootstrap.widgets import DateEntry
 from registro.controles.rounded_button import RoundedButton
 from registro.dialogos import ReservaDialog
 from registro.controles.treeview_simples import TreeviewSimples
+from registro.importar.patterns_find import obter_data
 
 
 class AbaReservas(ttk.Frame):
@@ -64,20 +66,40 @@ class AbaReservas(ttk.Frame):
         filter_frame.grid(row=0, column=1, sticky=EW)
 
         ttk.Label(filter_frame, text="Filtrar por Data:").pack(side=LEFT, padx=(0, 5))
-        self.filter_date_entry = DateEntry(
-            filter_frame,
-            dateformat=r"%d/%m/%Y",
-            width=12,
+
+        # self.filter_date_entry = DateEntry(
+        #     filter_frame,
+        #     dateformat=r"%d/%m/%Y",
+        #     width=12,
+        # )
+        def _data(texto: str) -> int:
+            obj = obter_data(texto)
+            return int(obj.timestamp()) if obj else 0
+
+        itens = sorted(
+            self.fachada_nucleo.listar_datas_reservas(), reverse=True, key=_data
         )
-        self.filter_date_entry.pack(side=LEFT, padx=5)
-        self.filter_date_entry.bind("<<DateEntrySelected>>", self._filtrar_reservas)
-        # Adiciona um botão para limpar o filtro de data
-        RoundedButton(
+
+        self.var_data = tk.StringVar(value=itens[0] if itens else None)
+        self.var_data.trace("w", lambda *_: self._filtrar_reservas(cmp_filtros=True))
+        cbo_data = ttk.Combobox(
             filter_frame,
-            text="Limpar",
-            bootstyle="light",
-            command=self._limpar_filtro_data,
-        ).pack(side=LEFT, padx=(0, 10))
+            textvariable=self.var_data,
+            values=itens,
+            state="readonly",
+            width=12,
+            bootstyle="info",
+        )
+        cbo_data.pack(side=LEFT, padx=5)
+        # self.filter_date_entry.pack(side=LEFT, padx=5)
+        # self.filter_date_entry.bind("<<DateEntrySelected>>", self._filtrar_reservas)
+        # Adiciona um botão para limpar o filtro de data
+        # RoundedButton(
+        #     filter_frame,
+        #     text="Limpar",
+        #     bootstyle="light",
+        #     command=self._limpar_filtro_data,
+        # ).pack(side=LEFT, padx=(0, 10))
 
         ttk.Label(filter_frame, text="Filtrar por Turma:").pack(side=LEFT, padx=(15, 5))
         self.filter_turma_combobox = ttk.Combobox(
@@ -114,7 +136,7 @@ class AbaReservas(ttk.Frame):
         self.reservas_table.view.bind("<<TreeviewSelect>>", self._on_reserva_select)
 
     def _limpar_filtro_data(self):
-        self.filter_date_entry.entry.delete(0, END)
+        # self.filter_date_entry.entry.delete(0, END)
         self._filtrar_reservas(cmp_filtros=True)
 
     def _get_dados_linha_selecionada(self):
@@ -137,7 +159,8 @@ class AbaReservas(ttk.Frame):
     def _filtrar_reservas(self, _event=None, cmp_filtros=False):
         filtro_ant = self.filtro
         self.filtro = {}
-        data_filtro = self.filter_date_entry.entry.get()
+        data_filtro = self.var_data.get()
+        # self.filter_date_entry.entry.get()
 
         if data_filtro:
             self.filtro["data"] = data_filtro
@@ -180,9 +203,9 @@ class AbaReservas(ttk.Frame):
 
     def _carregar_reservas(self):
         # Define a data atual como padrão para o filtro de data ao carregar
-        date_str = datetime.now().strftime(r"%d/%m/%Y")
-        self.filter_date_entry.entry.delete(0, END)
-        self.filter_date_entry.entry.insert(0, date_str)
+        # date_str = datetime.now().strftime(r"%d/%m/%Y")
+        # self.filter_date_entry.entry.delete(0, END)
+        # self.filter_date_entry.entry.insert(0, date_str)
 
         self._filtrar_reservas()
 

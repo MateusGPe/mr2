@@ -49,14 +49,14 @@ class AbaAlunos(ttk.Frame):
         )
         self.btn_edit_aluno.pack(side=LEFT, padx=5)
 
-        self.btn_delete_aluno = RoundedButton(
-            actions_frame,
-            text="Excluir",
-            command=self._deletar_aluno,
-            bootstyle="danger-outline",
-            state="disabled",
-        )
-        self.btn_delete_aluno.pack(side=LEFT, padx=5)
+        # self.btn_delete_aluno = RoundedButton(
+        #     actions_frame,
+        #     text="Excluir",
+        #     command=self._deletar_aluno,
+        #     bootstyle="danger-outline",
+        #     state="disabled",
+        # )
+        # self.btn_delete_aluno.pack(side=LEFT, padx=5)
 
         # Filtros/Busca à direita
         filter_frame = ttk.Frame(top_panel)
@@ -97,7 +97,7 @@ class AbaAlunos(ttk.Frame):
     def _on_aluno_select(self, _=None):
         is_selected = bool(self._get_dados_linha_selecionada())
         self.btn_edit_aluno.config(state="normal" if is_selected else "disabled")
-        self.btn_delete_aluno.config(state="normal" if is_selected else "disabled")
+        #self.btn_delete_aluno.config(state="normal" if is_selected else "disabled")
         self.search_entry.focus_set()
 
     def _carregar_alunos(self):
@@ -141,22 +141,22 @@ class AbaAlunos(ttk.Frame):
         if dialog.result:
             self._carregar_alunos()
 
-    def _deletar_aluno(self):
-        aluno_id = self._get_aluno_selecionado_id()
-        if not aluno_id:
-            return
+    #def _deletar_aluno(self):
+        # aluno_id = self._get_aluno_selecionado_id()
+        # if not aluno_id:
+        #     return
 
-        confirmado = Messagebox.okcancel(
-            f"Deseja excluir o aluno com ID {aluno_id}?",
-            "Confirmar Exclusão",
-        ) == MessageCatalog.translate("OK")
-        if confirmado:
-            try:
-                self.fachada_nucleo.deletar_estudante(aluno_id)
-                self._carregar_alunos()
-            except Exception as e:  # pylint: disable=broad-exception-caught
-                Messagebox.show_error(
-                    f"Erro ao excluir. Verifique registros associados: {e}",
-                    "Erro",
-                )
-                traceback.print_exc()
+        # confirmado = Messagebox.okcancel(
+        #     f"Deseja excluir o aluno com ID {aluno_id}?",
+        #     "Confirmar Exclusão",
+        # ) == MessageCatalog.translate("OK")
+        # if confirmado:
+        #     try:
+        #         self.fachada_nucleo.deletar_estudante(aluno_id)
+        #         self._carregar_alunos()
+        #     except Exception as e:  # pylint: disable=broad-exception-caught
+        #         Messagebox.show_error(
+        #             f"Erro ao excluir. Verifique registros associados: {e}",
+        #             "Erro",
+        #         )
+        #         traceback.print_exc()

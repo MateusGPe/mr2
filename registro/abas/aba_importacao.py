@@ -11,7 +11,7 @@ from tkinter import filedialog
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Literal, Optional
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, E, EW, LEFT, NSEW, RIGHT, W, X
@@ -227,29 +227,8 @@ class AbaImportacao(ttk.Frame):
 
         self.import_type_var = tk.StringVar(value="auto")
 
-        ttk.Radiobutton(
-            opts_frame,
-            text="Automático (Detectar colunas)",
-            variable=self.import_type_var,
-            value="auto",
-        ).pack(anchor=W, pady=2)
-
-        ttk.Radiobutton(
-            opts_frame,
-            text="Lista Simples (Apenas Nomes/Prontuários)",
-            variable=self.import_type_var,
-            value="simples",
-        ).pack(anchor=W, pady=2)
-
-        ttk.Radiobutton(
-            opts_frame,
-            text="CSV com Cabeçalho (Padrão)",
-            variable=self.import_type_var,
-            value="header",
-        ).pack(anchor=W, pady=2)
-
         # Seleção de Arquivo
-        file_frame = ttk.Labelframe(frame, text="Arquivo", padding=10)
+        file_frame = ttk.Labelframe(frame, text="Arquivo/ID", padding=10)
         file_frame.pack(fill=X, pady=10)
 
         self.file_path_var = tk.StringVar()
@@ -258,9 +237,14 @@ class AbaImportacao(ttk.Frame):
         )
         entry_path.pack(side=LEFT, fill=X, expand=True, padx=(0, 5))
 
-        RoundedButton(
+        search_btn = RoundedButton(
             file_frame, text="Buscar...", command=self._selecionar_arquivo
-        ).pack(side=LEFT)
+        )
+        search_btn.pack(side=LEFT)
+
+        def mudar_estado(ativo: bool):
+            entry_path.configure(state="readonly" if ativo else "normal")
+            search_btn.configure(state="normal" if ativo else "disabled")
 
         # Botão Avançar
         RoundedButton(
@@ -270,6 +254,37 @@ class AbaImportacao(ttk.Frame):
             command=self._iniciar_analise,
         ).pack(anchor=E, pady=20)
 
+        ttk.Radiobutton(
+            opts_frame,
+            text="Automático (Detectar colunas)",
+            variable=self.import_type_var,
+            value="auto",
+            command=lambda: mudar_estado(True),
+        ).pack(anchor=W, pady=2)
+
+        ttk.Radiobutton(
+            opts_frame,
+            text="Lista Simples (Apenas Nomes/Prontuários)",
+            variable=self.import_type_var,
+            value="simples",
+            command=lambda: mudar_estado(True),
+        ).pack(anchor=W, pady=2)
+
+        ttk.Radiobutton(
+            opts_frame,
+            text="CSV com Cabeçalho (Padrão)",
+            variable=self.import_type_var,
+            value="header",
+            command=lambda: mudar_estado(True),
+        ).pack(anchor=W, pady=2)
+
+        ttk.Radiobutton(
+            opts_frame,
+            text="Google Spreadsheets (IDPlanilha:NomeDaAba)",
+            variable=self.import_type_var,
+            value="sheets",
+            command=lambda: mudar_estado(False),
+        ).pack(anchor=W, pady=2)
         return frame
 
     def _selecionar_arquivo(self):
@@ -588,14 +603,14 @@ class AbaImportacao(ttk.Frame):
 
         RoundedButton(
             container,
-            text="Consumo Sessão (XLSX)",
+            text="Consumos (XLSX)",
             bootstyle="success-outline",
             command=lambda: self._exportar_dados("consumo"),
         ).grid(row=1, column=2, sticky=EW, padx=2)
 
         return container
 
-    def _exportar_dados(self, tipo: str):
+    def _exportar_dados(self, tipo: Literal["alunos", "reservas", "consumo"]):
         try:
             default_filename = f"export_{tipo}_{datetime.now().strftime('%Y%m%d')}"
             ext = ".xlsx" if tipo == "consumo" else ".csv"
@@ -610,9 +625,13 @@ class AbaImportacao(ttk.Frame):
                 return
 
             if tipo == "consumo":
-                self.fachada_nucleo.exportar_sessao_para_xlsx(Path(filepath))
+                self.fachada_nucleo.exportar_consumos_para_xlsx(Path(filepath))
             else:
-                dados = getattr(self.fachada_nucleo, f"listar_{tipo}")()
+                if tipo == "alunos":
+                    dados = self.fachada_nucleo.listar_todos_os_estudantes()
+                else:
+                    # Reservas
+                    dados = self.fachada_nucleo.listar_reservas()
                 keys = dados[0].keys() if dados else []
                 with open(filepath, "w", newline="", encoding="utf-8") as f:
                     writer = csv.DictWriter(f, fieldnames=keys)

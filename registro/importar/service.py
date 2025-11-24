@@ -155,10 +155,9 @@ class ServicoImportacao:
         for linha in dados:
             id_banco = linha.get("_id_banco")
             pront = linha.get("prontuario")
-            data = linha.get("data")
 
             # Sem data, não é possível criar reserva
-            if not data:
+            if not (data := linha.get("data")):
                 continue
 
             # Identifica novos alunos

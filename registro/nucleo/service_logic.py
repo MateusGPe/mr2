@@ -7,7 +7,7 @@ da aplicação de registro de refeições.
 
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Sequence, Set
 
 import xlsxwriter
 from sqlalchemy import select, union
@@ -368,6 +368,88 @@ def atualizar_grupos_sessao(
     repo_sessao.obter_sessao().commit()
 
 
+def _escrever_consumos_em_planilha(
+    workbook: xlsxwriter.Workbook,
+    worksheet_name: str,
+    consumos: Sequence[Consumo],
+    incluir_sessao_id: bool,
+):
+    """
+    Função auxiliar para escrever uma lista de consumos em uma planilha XLSX.
+
+    Args:
+        workbook: O objeto do workbook xlsxwriter.
+        worksheet_name: O nome para a nova planilha.
+        consumos: A lista de objetos de Consumo a serem escritos.
+        incluir_sessao_id: Se True, adiciona uma coluna com o ID da sessão.
+    """
+    worksheet = workbook.add_worksheet(worksheet_name)
+    cabecalho = ["Matrícula", "Data", "Nome", "Turma", "Refeição", "Hora"]
+    if incluir_sessao_id:
+        cabecalho.append("Sessão ID")
+
+    worksheet.write_row(0, 0, cabecalho)
+
+    for i, consumo in enumerate(consumos):
+        sessao_consumo = consumo.sessao
+        prato = "Sem Reserva (Exceção)"
+        if consumo.reserva:
+            prato = consumo.reserva.prato
+        elif sessao_consumo and sessao_consumo.refeicao == "lanche":
+            prato = sessao_consumo.item_servido or "Lanche"
+
+        turma = consumo.estudante.grupos[0].nome if consumo.estudante.grupos else "N/A"
+
+        dados_linha = [
+            consumo.estudante.prontuario,
+            sessao_consumo.data if sessao_consumo else "N/A",
+            consumo.estudante.nome,
+            turma,
+            prato,
+            consumo.hora_consumo,
+        ]
+        if incluir_sessao_id:
+            dados_linha.append(consumo.sessao_id)
+
+        worksheet.write_row(i + 1, 0, dados_linha)
+
+
+def exportar_todos_os_consumos_para_xlsx(
+    repo_consumo: RepositorioConsumo,
+    nome_arquivo_arg: Optional[Path] = None,
+) -> str:
+    """Exporta todos os dados de consumo do banco de dados para um arquivo XLSX."""
+    opcoes = [
+        selectinload(Consumo.reserva),
+        selectinload(Consumo.sessao),
+        selectinload(Consumo.estudante).selectinload(Estudante.grupos),
+    ]
+    # Usando a sessão do repositório para fazer uma query ordenada
+    db_session = repo_consumo.obter_sessao()
+    consumos = (
+        db_session.query(Consumo).options(*opcoes).order_by(Consumo.id.desc()).all()
+    )
+
+    if not consumos:
+        raise ValueError("Nenhum consumo registrado para exportar.")
+
+    if nome_arquivo_arg:
+        caminho_arquivo = nome_arquivo_arg
+    else:
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        nome_arquivo = f"exportacao_total_consumos_{timestamp}.xlsx"
+        caminho_arquivo = obter_caminho_documentos() / nome_arquivo
+
+    with xlsxwriter.Workbook(str(caminho_arquivo)) as workbook:
+        _escrever_consumos_em_planilha(
+            workbook=workbook,
+            worksheet_name="Todos os Consumos",
+            consumos=consumos,
+            incluir_sessao_id=True,
+        )
+    return str(caminho_arquivo)
+
+
 def exportar_sessao_para_xlsx(
     repo_sessao: RepositorioSessao,
     repo_consumo: RepositorioConsumo,
@@ -378,6 +460,7 @@ def exportar_sessao_para_xlsx(
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
     opcoes = [
         selectinload(Consumo.reserva),
+        selectinload(Consumo.sessao),
         selectinload(Consumo.estudante).selectinload(Estudante.grupos),
     ]
     consumos = repo_consumo.ler_filtrado(
@@ -398,29 +481,12 @@ def exportar_sessao_para_xlsx(
         caminho_arquivo = obter_caminho_documentos() / nome_arquivo
 
     with xlsxwriter.Workbook(str(caminho_arquivo)) as workbook:
-        worksheet = workbook.add_worksheet(nome_arquivo)
-        cabecalho = ["Matrícula", "Data", "Nome", "Turma", "Refeição", "Hora"]
-        worksheet.write_row(0, 0, cabecalho)
-        for i, consumo in enumerate(consumos):
-            prato = "Sem Reserva (Exceção)"
-            if consumo.reserva:
-                prato = consumo.reserva.prato
-            elif sessao.refeicao == "lanche":
-                prato = sessao.item_servido or "Lanche"
-
-            turma = (
-                consumo.estudante.grupos[0].nome if consumo.estudante.grupos else "N/A"
-            )
-
-            dados_linha = [
-                consumo.estudante.prontuario,
-                sessao.data,
-                consumo.estudante.nome,
-                turma,
-                prato,
-                consumo.hora_consumo,
-            ]
-            worksheet.write_row(i + 1, 0, dados_linha)
+        _escrever_consumos_em_planilha(
+            workbook=workbook,
+            worksheet_name=nome_arquivo,
+            consumos=consumos,
+            incluir_sessao_id=False,
+        )
     return str(caminho_arquivo)
 
 

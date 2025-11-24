@@ -77,6 +77,10 @@ class CRUD(Generic[MODELO]):
         """Lê todos os registros de uma tabela."""
         return self._sessao_db.scalars(select(self._modelo)).all()
 
+    def ler_unicos(self: Self) -> Sequence[MODELO]:
+        """Lê todos os registros de uma tabela."""
+        return self._sessao_db.scalars(select(self._modelo).distinct()).all()
+
     def atualizar(self: Self, id_item: int, linha: Dict[str, Any]) -> Optional[MODELO]:
         """
         Atualiza um registro existente.

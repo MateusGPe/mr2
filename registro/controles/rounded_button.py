@@ -293,7 +293,7 @@ class RoundedButton(tk.Canvas):
     def configure(self, cnf: Any = None, **kwargs) -> Any:
         if "state" in kwargs:
             state = kwargs.get("state") or ""
-            self.enabled = state.lower() != "disabled"
+            self.enabled = state.lower() in ["normal", "active", "enable"]
             if (
                 self.disabled_image and self.normal_image
             ):  # Garante que as imagens existem

@@ -8,8 +8,26 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Sequence
 
 EXCECOES_CAPITALIZACAO = {
-    "a", "o", "as", "os", "de", "dos", "das", "do", "da",
-    "e", "é", "com", "sem", "ou", "para", "por", "no", "na", "nos", "nas",
+    "a",
+    "o",
+    "as",
+    "os",
+    "de",
+    "dos",
+    "das",
+    "do",
+    "da",
+    "e",
+    "é",
+    "com",
+    "sem",
+    "ou",
+    "para",
+    "por",
+    "no",
+    "na",
+    "nos",
+    "nas",
 }
 
 MAPEAMENTO_CHAVES = {
@@ -30,6 +48,7 @@ MAPEAMENTO_CHAVES = {
 
 def capitalizar_com_excecoes(texto: str) -> str:
     """Capitaliza texto respeitando preposições."""
+
     def fmt(palavra):
         palavra = palavra.strip()
         if not palavra:
@@ -59,7 +78,7 @@ def checar_nome(texto: Any) -> Optional[str]:
     texto_limpo = texto.strip()
     if " " not in texto_limpo or any(char.isdigit() for char in texto_limpo):
         return None
-    
+
     palavras_invalidas = ["prato", "vegetariano", "proteina", "refeição"]
     if any(p in texto_limpo.lower() for p in palavras_invalidas):
         return None
@@ -67,20 +86,26 @@ def checar_nome(texto: Any) -> Optional[str]:
     return capitalizar_com_excecoes(texto_limpo)
 
 
-def checar_data(texto_data: Any) -> Optional[str]:
+def obter_data(texto_data: Any) -> Optional[datetime]:
     """Tenta converter string para data DD/MM/AAAA."""
     if not texto_data or not isinstance(texto_data, str):
         return None
     texto_limpo = texto_data.strip()[:10]  # Pega apenas a data se tiver hora
-    formatos = ["%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%Y/%m/%d"]
-    
+    formatos = ["%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%Y/%m/%d", "%m/%d/%y", "%m-%d-%y"]
+
     for fmt in formatos:
         try:
             data_obj = datetime.strptime(texto_limpo, fmt)
-            return data_obj.strftime("%d/%m/%Y")
+            return data_obj
         except ValueError:
             continue
     return None
+
+
+def checar_data(texto_data: Any) -> Optional[str]:
+    """Tenta converter string para data DD/MM/AAAA."""
+    data_obj = obter_data(texto_data)
+    return data_obj.strftime("%d/%m/%Y") if data_obj else None
 
 
 def checar_turma(texto: Any) -> Optional[str]:
@@ -138,7 +163,7 @@ def ajustar_chaves_e_valores(dicionario_entrada: Dict) -> Dict:
                 data_fmt = checar_data(novo_valor)
                 if data_fmt:
                     novo_valor = data_fmt
-        
+
         dicionario_ajustado[nova_chave] = novo_valor
 
     return dicionario_ajustado
