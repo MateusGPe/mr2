@@ -105,7 +105,7 @@ class PainelAcaoBusca(ttk.Frame):
         self._entrada_busca = ttk.Entry(
             barra_busca,
             textvariable=self._var_entrada_busca,
-            font=(None, 12),
+            font=("Segoe UI", 12),
             bootstyle="ligth",
         )
         self._entrada_busca.grid(row=0, column=0, sticky="ew")

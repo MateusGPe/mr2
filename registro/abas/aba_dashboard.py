@@ -1,5 +1,3 @@
-# gestao_refeitorio/abas/aba_dashboard.py
-
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import HORIZONTAL, NSEW, X
 
@@ -18,13 +16,13 @@ class AbaDashboard(ttk.Frame):
         ttk.Label(
             header_frame,
             text="Bem-vindo ao Sistema de Gestão de Refeitório!",
-            font=("Helvetica", 24, "bold"),
+            font=("Segoe UI", 24, "bold"),
             bootstyle="primary",
         ).pack(pady=(0, 5), anchor="w")
         ttk.Label(
             header_frame,
             text="Gerencie alunos, reservas e consumo com facilidade.",
-            font=("Helvetica", 12),
+            font=("Segoe UI", 12),
             bootstyle="secondary",
         ).pack(pady=0, anchor="w")
 
@@ -52,13 +50,13 @@ class AbaDashboard(ttk.Frame):
         value_label = ttk.Label(
             card,
             text=value,
-            font=("Helvetica", 36, "bold"),
+            font=("Segoe UI", 36, "bold"),
             bootstyle=f"inverse-{style}",
         )
         value_label.grid(row=0, column=0, sticky="nsew")
 
         label_text = ttk.Label(
-            card, text=label, font=("Helvetica", 12), bootstyle=f"inverse-{style}"
+            card, text=label, font=("Segoe UI", 12), bootstyle=f"inverse-{style}"
         )
         label_text.grid(row=1, column=0, sticky="nsew")
 

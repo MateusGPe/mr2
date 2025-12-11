@@ -57,7 +57,7 @@ class TreeviewSimples:
         # Parâmetros de estilo
         self.rowheight = rowheight
         self.row_font = font or ("Segoe UI", 9)
-        self.heading_font = heading_font or ("Segoe UI", 10, "bold")
+        self.heading_font = heading_font or ("Segoe UI Emoji", 10)
 
         self.ids_colunas: List[str] = []
         self.mapa_texto_coluna: Dict[str, str] = {}
@@ -201,7 +201,6 @@ class TreeviewSimples:
             foreground=self.style_config["hover_fg"],
         )
 
-    # ... (O resto da classe permanece exatamente o mesmo da versão anterior) ...
     def _setup_column_ids(self) -> List[str]:
         for i, cd in enumerate(self.dados_colunas):
             iid = cd.get("iid")

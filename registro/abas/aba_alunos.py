@@ -24,12 +24,10 @@ class AbaAlunos(ttk.Frame):
         self.columnconfigure(0, weight=1)
         self.rowconfigure(1, weight=1)
 
-        # Painel superior unificado para filtros e ações (padrão AbaReservas)
         top_panel = ttk.Frame(self)
         top_panel.grid(row=0, column=0, sticky=EW, pady=(0, 10))
-        top_panel.columnconfigure(1, weight=1)  # Coluna do filtro/busca expande
+        top_panel.columnconfigure(1, weight=1)
 
-        # Ações à esquerda
         actions_frame = ttk.Frame(top_panel)
         actions_frame.grid(row=0, column=0, sticky=W, padx=(0, 10))
 
@@ -49,16 +47,7 @@ class AbaAlunos(ttk.Frame):
         )
         self.btn_edit_aluno.pack(side=LEFT, padx=5)
 
-        # self.btn_delete_aluno = RoundedButton(
-        #     actions_frame,
-        #     text="Excluir",
-        #     command=self._deletar_aluno,
-        #     bootstyle="danger-outline",
-        #     state="disabled",
-        # )
-        # self.btn_delete_aluno.pack(side=LEFT, padx=5)
 
-        # Filtros/Busca à direita
         filter_frame = ttk.Frame(top_panel)
         filter_frame.grid(row=0, column=1, sticky=EW)
 
@@ -68,7 +57,6 @@ class AbaAlunos(ttk.Frame):
         self.search_entry = ttk.Entry(filter_frame, textvariable=self.search_aluno_var)
         self.search_entry.pack(side=LEFT, fill=X, expand=True)
 
-        # Tabela de Alunos
         container = ttk.Frame(self)
         container.grid(row=1, column=0, sticky=NSEW)
 
@@ -82,7 +70,7 @@ class AbaAlunos(ttk.Frame):
         self.alunos_table = TreeviewSimples(
             master=container,
             dados_colunas=self.alunos_coldata,
-            height=15,  # Ajuste a altura conforme necessário
+            height=15,
             header_bootstyle="primary",
             select_bootstyle="primary",
             enable_hover=True,
@@ -97,7 +85,6 @@ class AbaAlunos(ttk.Frame):
     def _on_aluno_select(self, _=None):
         is_selected = bool(self._get_dados_linha_selecionada())
         self.btn_edit_aluno.config(state="normal" if is_selected else "disabled")
-        #self.btn_delete_aluno.config(state="normal" if is_selected else "disabled")
         self.search_entry.focus_set()
 
     def _carregar_alunos(self):
@@ -140,23 +127,3 @@ class AbaAlunos(ttk.Frame):
         dialog = StudentDialog(self, self.fachada_nucleo, student_id=aluno_id)
         if dialog.result:
             self._carregar_alunos()
-
-    #def _deletar_aluno(self):
-        # aluno_id = self._get_aluno_selecionado_id()
-        # if not aluno_id:
-        #     return
-
-        # confirmado = Messagebox.okcancel(
-        #     f"Deseja excluir o aluno com ID {aluno_id}?",
-        #     "Confirmar Exclusão",
-        # ) == MessageCatalog.translate("OK")
-        # if confirmado:
-        #     try:
-        #         self.fachada_nucleo.deletar_estudante(aluno_id)
-        #         self._carregar_alunos()
-        #     except Exception as e:  # pylint: disable=broad-exception-caught
-        #         Messagebox.show_error(
-        #             f"Erro ao excluir. Verifique registros associados: {e}",
-        #             "Erro",
-        #         )
-        #         traceback.print_exc()

@@ -76,7 +76,7 @@ class PainelStatusRegistrados(ttk.Frame):
             frame,
             text="Registrados: -",
             bootstyle="secondary",
-            font=("Helvetica", 10, "bold"),
+            font=("Segoe UI", 10, "bold"),
             anchor=CENTER,
         )
         self._label_contagem_registrados.grid(row=0, column=0, sticky="ew", padx=(0, 5))
@@ -85,7 +85,7 @@ class PainelStatusRegistrados(ttk.Frame):
             frame,
             text="Elegíveis: - / Restantes: -",
             bootstyle="secondary",
-            font=("Helvetica", 10, "bold"),
+            font=("Segoe UI", 10, "bold"),
             anchor=CENTER,
         )
         self._label_contagem_restantes.grid(row=0, column=1, sticky="ew", padx=(5, 0))

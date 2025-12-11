@@ -84,7 +84,7 @@ class AppRegistro(tk.Tk):
         """Configura o estilo da aplicação usando ttkbootstrap."""
         try:
             self.style = ttk.Style(theme="sandstone")
-            fonte_padrao = ("Segoe UI", 12)
+            fonte_padrao = ("Segoe UI Emoji", 12)
             fonte_cabecalho = (fonte_padrao[0], 10, "bold")
             fonte_label = (fonte_padrao[0], 11, "bold")
             fonte_pequena = (fonte_padrao[0], 9)
