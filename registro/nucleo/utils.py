@@ -1,4 +1,9 @@
-# --- Arquivo: registro/nucleo/utils.py ---
+# ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/utils.py (Utilitários do Núcleo)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 
 """
 Funções utilitárias para a aplicação, incluindo manipulação de arquivos,
@@ -15,7 +20,6 @@ from typing import Callable, Dict, List, Literal, Optional, Tuple, TypedDict
 
 from fuzzywuzzy import fuzz
 
-# --- Tipos de Dados ---
 
 DADOS_SESSAO = TypedDict(
     "DADOS_SESSAO",
@@ -29,7 +33,6 @@ DADOS_SESSAO = TypedDict(
     },
 )
 
-# --- Constantes para Processamento de Texto ---
 
 DICIONARIO_TRADUCAO_PRONTUARIO = str.maketrans("0123456789Xx", "abcdefghijkk")
 REGEX_REMOVER_IQ = re.compile(r"[Ii][Qq]\d0+")
@@ -76,7 +79,8 @@ def obter_caminho_documentos() -> Path:
         try:
             CSIDL_PERSONAL = 5
             SHGFP_TYPE_CURRENT = 0
-            buf = ctypes.create_unicode_buffer(getattr(ctypes, "wintypes").MAX_PATH)
+            buf = ctypes.create_unicode_buffer(
+                getattr(ctypes, "wintypes").MAX_PATH)
             getattr(ctypes, "windll").shell32.SHGetFolderPathW(
                 None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf
             )
@@ -99,7 +103,8 @@ def salvar_csv(dados: list, caminho_arquivo: Path) -> bool:
             escritor.writerows(dados)
         return True
     except (IOError, csv.Error) as e:
-        print(f"Erro ao salvar CSV em '{caminho_arquivo}': {e}", file=sys.stderr)
+        print(
+            f"Erro ao salvar CSV em '{caminho_arquivo}': {e}", file=sys.stderr)
         return False
 
 

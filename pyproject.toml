@@ -6,7 +6,7 @@ authors = ["Mateus G. Pereira <mateus.pereira@ifsp.edu.br>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.14"
 peewee = "^3.17.6"
 gspread = "^6.1.2"
 ttkbootstrap = "^1.10.1"
@@ -28,4 +28,9 @@ requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-registrar = "registro.view.gui:main"
+registrar = "registro.gui.app_registro:main"
+painel = "registro.app_principal:main"
+
+[tool.poetry-pyinstaller-plugin.targets]
+registrar = {source = "./registro/gui/app_registro.py", type = "onefile", console = false}
+painel = {source = "./registro/app_principal.py", type = "onefile", console = false}

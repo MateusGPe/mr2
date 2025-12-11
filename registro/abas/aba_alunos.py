@@ -1,12 +1,14 @@
-# gestao_refeitorio/abas/aba_alunos.py
-
+# ----------------------------------------------------------------------------
+# Arquivo: registro/abas/aba_alunos.py (Aba de Alunos)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 import tkinter as tk
 import traceback
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.localization.msgcat import MessageCatalog
 
 from registro.controles.rounded_button import RoundedButton
 from registro.dialogos import StudentDialog
@@ -47,14 +49,16 @@ class AbaAlunos(ttk.Frame):
         )
         self.btn_edit_aluno.pack(side=LEFT, padx=5)
 
-
         filter_frame = ttk.Frame(top_panel)
         filter_frame.grid(row=0, column=1, sticky=EW)
 
-        ttk.Label(filter_frame, text="Buscar Aluno:").pack(side=LEFT, padx=(0, 5))
+        ttk.Label(filter_frame, text="Buscar Aluno:").pack(
+            side=LEFT, padx=(0, 5))
         self.search_aluno_var = tk.StringVar()
-        self.search_aluno_var.trace_add("write", lambda *_: self._carregar_alunos())
-        self.search_entry = ttk.Entry(filter_frame, textvariable=self.search_aluno_var)
+        self.search_aluno_var.trace_add(
+            "write", lambda *_: self._carregar_alunos())
+        self.search_entry = ttk.Entry(
+            filter_frame, textvariable=self.search_aluno_var)
         self.search_entry.pack(side=LEFT, fill=X, expand=True)
 
         container = ttk.Frame(self)
@@ -76,7 +80,8 @@ class AbaAlunos(ttk.Frame):
             enable_hover=True,
         )
         self.alunos_table.pack(expand=True, fill=BOTH)
-        self.alunos_table.view.bind("<<TreeviewSelect>>", self._on_aluno_select)
+        self.alunos_table.view.bind(
+            "<<TreeviewSelect>>", self._on_aluno_select)
 
     def _get_dados_linha_selecionada(self):
         """Retorna os dados da linha selecionada na tabela."""
@@ -84,7 +89,8 @@ class AbaAlunos(ttk.Frame):
 
     def _on_aluno_select(self, _=None):
         is_selected = bool(self._get_dados_linha_selecionada())
-        self.btn_edit_aluno.config(state="normal" if is_selected else "disabled")
+        self.btn_edit_aluno.config(
+            state="normal" if is_selected else "disabled")
         self.search_entry.focus_set()
 
     def _carregar_alunos(self):

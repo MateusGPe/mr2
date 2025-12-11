@@ -1,5 +1,3 @@
-# gestao_refeitorio/app_principal.py
-
 import traceback
 from typing import Dict
 from ttkbootstrap.dialogs import Messagebox
@@ -121,7 +119,9 @@ class App(ttk.Window):
         frame_ativo.grid(row=0, column=0, sticky=NSEW)
         self.after(10, frame_ativo.focus)
 
-
-if __name__ == "__main__":
+def main():
     app = App()
     app.mainloop()
+
+if __name__ == "__main__":
+    main()

@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+# Arquivo: registro/importar/facade.py (Fachada de Importação)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 """
 Fachada do subsistema de importação.
 Ponto único de acesso para a interface gráfica.

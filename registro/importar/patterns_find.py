@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+# Arquivo: registro/importar/patterns_find.py (Deteção de padrões em strings)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 """
 Funções utilitárias para detecção de padrões e tipos de dados em strings.
 Utilizado para inferir colunas em arquivos sem cabeçalho.
@@ -65,7 +71,7 @@ def checar_prontuario(texto: Any) -> Optional[str]:
     if not texto or not isinstance(texto, str):
         return None
     texto = texto.strip().upper()
-    # Regex ajustada para maior tolerância (2 letras + digitos)
+
     if re.match(r"^[A-Z]{2,3}[\dX]{5,9}$", texto):
         return texto
     return None
@@ -91,7 +97,8 @@ def obter_data(texto_data: Any) -> Optional[datetime]:
     if not texto_data or not isinstance(texto_data, str):
         return None
     texto_limpo = texto_data.strip()[:10]  # Pega apenas a data se tiver hora
-    formatos = ["%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%Y/%m/%d", "%m/%d/%y", "%m-%d-%y"]
+    formatos = ["%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d",
+                "%Y/%m/%d", "%m/%d/%y", "%m-%d-%y"]
 
     for fmt in formatos:
         try:
@@ -113,7 +120,7 @@ def checar_turma(texto: Any) -> Optional[str]:
     if not texto or not isinstance(texto, str):
         return None
     texto = texto.strip()
-    # Regex genérica para turmas
+
     if re.search(r"\d+[ºª].*[A-Z]", texto, re.IGNORECASE):
         return texto
     return None

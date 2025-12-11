@@ -1,6 +1,9 @@
 # ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/models.py (Módulo de Modelos)
+# ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 """
 Define os modelos de dados SQLAlchemy que representam as tabelas do banco de
 dados da aplicação de registro de refeições. Inclui tabelas para Estudantes,
@@ -31,7 +34,6 @@ class Base(DeclarativeBase):
     """Base declarativa para os modelos do SQLAlchemy."""
 
 
-# --- Tabela de Associação Estudante <-> Grupo (Muitos-para-Muitos) ---
 associacao_estudante_grupo = Table(
     "associacao_estudante_grupo",
     Base.metadata,
@@ -49,7 +51,6 @@ associacao_estudante_grupo = Table(
     ),
 )
 
-# --- Tabela de Associação Sessao <-> Grupo (Muitos-para-Muitos) ---
 associacao_sessao_grupo = Table(
     "associacao_sessao_grupo",
     Base.metadata,

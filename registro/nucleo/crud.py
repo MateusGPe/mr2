@@ -1,4 +1,8 @@
-# --- Arquivo: registro/nucleo/crud.py ---
+# ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/crud.py (Módulo CRUD)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Fornece uma classe CRUD (Create, Read, Update, Delete) genérica para

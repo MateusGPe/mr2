@@ -3,6 +3,7 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 """
 Módulo com funções utilitárias para a aplicação, incluindo manipulação de
 strings, normalização de dados, operações de arquivo (JSON, CSV) e funções

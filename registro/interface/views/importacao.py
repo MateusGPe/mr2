@@ -17,7 +17,7 @@ class ImportacaoWizard(ft.Container):
         self.padding = 20
         self.file_picker = ft.FilePicker(on_result=self._on_file_pick)
         
-        # Estado
+        
         self.current_path: Optional[str] = None
         self.itens_revisao: List[Dict] = []
         self.resumo_analise: Optional[Dict] = None
@@ -41,7 +41,7 @@ class ImportacaoWizard(ft.Container):
     def will_unmount(self):
         if self.file_picker in self.page.overlay: self.page.overlay.remove(self.file_picker)
 
-    # --- PASSO 1 ---
+    
     def _go_step_1(self):
         self.progress.value, self.lbl_titulo.value = 0.25, "Passo 1: Selecionar Arquivo"
         self.txt_file = ft.TextField(read_only=True, label="Caminho", expand=True, value=self.current_path or "")
@@ -76,7 +76,7 @@ class ImportacaoWizard(ft.Container):
             self._go_step_2()
         except Exception as ex: show_error(self.page, f"Erro: {ex}")
 
-    # --- PASSO 2 ---
+    
     def _go_step_2(self):
         self.progress.value, self.lbl_titulo.value = 0.50, "Passo 2: Revisão"
         res = self.resumo_analise
@@ -119,7 +119,7 @@ class ImportacaoWizard(ft.Container):
             dd_cand, dd_acao
         ]), padding=10, bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST, border_radius=8)
 
-    # --- PASSO 3 ---
+    
     def _ir_preview(self, e):
         defaults = {"data": self.txt_data_def.value, "prato": self.dd_prato_def.value} if self.txt_data_def.value else {}
         try:
@@ -155,7 +155,7 @@ class ImportacaoWizard(ft.Container):
             self._go_step_4()
         except Exception as e: show_error(self.page, f"Erro fatal: {e}")
 
-    # --- PASSO 4 ---
+    
     def _go_step_4(self):
         self.progress.value, self.lbl_titulo.value = 1.0, "Concluído!"
         self.step_content.content = ft.Container(content=ft.Column([

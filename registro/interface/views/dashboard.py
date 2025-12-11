@@ -12,7 +12,7 @@ class DashboardView(ft.Container):
         self.expand = True
         self.padding = 20
 
-        # Controles de exibição (Labels)
+        
         self.lbl_alunos = ft.Text("0", size=40, weight="bold", color="white")
         self.lbl_reservas = ft.Text("0", size=40, weight="bold", color="white")
         self.lbl_grupos = ft.Text("0", size=40, weight="bold", color="white")
@@ -48,7 +48,7 @@ class DashboardView(ft.Container):
             alunos = self.fachada.listar_todos_os_estudantes()
             grupos = self.fachada.listar_todos_os_grupos()
             
-            # Filtra reservas apenas para a data de hoje
+            
             hoje_str = datetime.now().strftime("%d/%m/%Y")
             reservas = self.fachada.listar_reservas(filtros={"data": hoje_str})
 

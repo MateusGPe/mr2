@@ -55,7 +55,6 @@ def criar_secao_filtro_turmas_dialogo(
         ttk.Label(frame_secao, text="Nenhuma turma disponível.").grid(row=0, column=0)
         return [], frame_secao
 
-    # Cabeçalho Fixo
     vars_com_reserva = []
     vars_sem_reserva = []
     ttk.Label(frame_secao, text="Turma", font="-weight bold", anchor=W).grid(
@@ -77,7 +76,6 @@ def criar_secao_filtro_turmas_dialogo(
         row=1, column=0, columnspan=3, sticky=EW, pady=5
     )
 
-    # Área Rolável com Checkboxes
     frame_rolavel = ScrolledFrame(frame_secao, padding=5, autohide=True)
     frame_rolavel.grid(row=2, column=0, columnspan=3, sticky=NSEW)
     frame_rolavel.columnconfigure(0, weight=2)
@@ -143,10 +141,6 @@ class DialogoFiltroTurmas(tk.Toplevel):
         self.resizable(True, True)
         self.deiconify()
 
-    # --------------------------------------------------------------------------
-    # Criação e Configuração da UI
-    # --------------------------------------------------------------------------
-
     def _criar_widgets(self):
         """Cria e organiza os widgets no diálogo."""
         frame_principal = ttk.Frame(self, padding=15)
@@ -201,10 +195,6 @@ class DialogoFiltroTurmas(tk.Toplevel):
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Erro ao inicializar estados do filtro: %s", e)
 
-    # --------------------------------------------------------------------------
-    # Manipuladores de Eventos e Ações
-    # --------------------------------------------------------------------------
-
     def _limpar_todos(self):
         """Desmarca todos os checkboxes."""
         logger.debug("Limpando todas as seleções do filtro de turmas.")
@@ -215,7 +205,6 @@ class DialogoFiltroTurmas(tk.Toplevel):
         """Marca todos os checkboxes (coluna 'COM Reserva')."""
         logger.debug("Selecionando todas as opções do filtro de turmas.")
         for identificador, var, _ in self._dados_checkbox:
-            # Seleciona apenas os da coluna "COM Reserva" para evitar ambiguidade
             if not identificador.startswith("#"):
                 var.set(True)
 
@@ -243,10 +232,6 @@ class DialogoFiltroTurmas(tk.Toplevel):
             Messagebox.show_error(
                 "Erro", f"Falha ao aplicar filtros:\n{e}", parent=self
             )
-
-    # --------------------------------------------------------------------------
-    # Métodos Auxiliares
-    # --------------------------------------------------------------------------
 
     def _centralizar_janela(self):
         """Centraliza o diálogo em relação à janela principal."""

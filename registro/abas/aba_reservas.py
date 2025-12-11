@@ -1,14 +1,16 @@
-# gestao_refeitorio/abas/aba_reservas.py
+# ----------------------------------------------------------------------------
+# Arquivo: registro/abas/aba_reservas.py (Aba de Reservas)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import traceback
-from datetime import datetime
 
 import tkinter as tk
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, END, EW, LEFT, NSEW, W, X
+from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
-from ttkbootstrap.widgets import DateEntry
 
 from registro.controles.rounded_button import RoundedButton
 from registro.dialogos import ReservaDialog
@@ -33,7 +35,6 @@ class AbaReservas(ttk.Frame):
         top_panel.grid(row=0, column=0, sticky=EW, pady=(0, 10))
         top_panel.columnconfigure(1, weight=1)
 
-        # Ações à esquerda
         actions_frame = ttk.Frame(top_panel)
         actions_frame.grid(row=0, column=0, sticky=W, padx=(0, 10))
         self.fitro = {}
@@ -61,17 +62,12 @@ class AbaReservas(ttk.Frame):
         )
         self.btn_delete_reserva.pack(side=LEFT, padx=5)
 
-        # Filtros à direita
         filter_frame = ttk.Frame(top_panel)
         filter_frame.grid(row=0, column=1, sticky=EW)
 
-        ttk.Label(filter_frame, text="Filtrar por Data:").pack(side=LEFT, padx=(0, 5))
+        ttk.Label(filter_frame, text="Filtrar por Data:").pack(
+            side=LEFT, padx=(0, 5))
 
-        # self.filter_date_entry = DateEntry(
-        #     filter_frame,
-        #     dateformat=r"%d/%m/%Y",
-        #     width=12,
-        # )
         def _data(texto: str) -> int:
             obj = obter_data(texto)
             return int(obj.timestamp()) if obj else 0
@@ -81,7 +77,8 @@ class AbaReservas(ttk.Frame):
         )
 
         self.var_data = tk.StringVar(value=itens[0] if itens else None)
-        self.var_data.trace("w", lambda *_: self._filtrar_reservas(cmp_filtros=True))
+        self.var_data.trace(
+            "w", lambda *_: self._filtrar_reservas(cmp_filtros=True))
         cbo_data = ttk.Combobox(
             filter_frame,
             textvariable=self.var_data,
@@ -91,17 +88,9 @@ class AbaReservas(ttk.Frame):
             bootstyle="info",
         )
         cbo_data.pack(side=LEFT, padx=5)
-        # self.filter_date_entry.pack(side=LEFT, padx=5)
-        # self.filter_date_entry.bind("<<DateEntrySelected>>", self._filtrar_reservas)
-        # Adiciona um botão para limpar o filtro de data
-        # RoundedButton(
-        #     filter_frame,
-        #     text="Limpar",
-        #     bootstyle="light",
-        #     command=self._limpar_filtro_data,
-        # ).pack(side=LEFT, padx=(0, 10))
 
-        ttk.Label(filter_frame, text="Filtrar por Turma:").pack(side=LEFT, padx=(15, 5))
+        ttk.Label(filter_frame, text="Filtrar por Turma:").pack(
+            side=LEFT, padx=(15, 5))
         self.filter_turma_combobox = ttk.Combobox(
             filter_frame,
             values=["Todas"] + self._get_grupos_disponiveis(),
@@ -110,9 +99,9 @@ class AbaReservas(ttk.Frame):
         )
         self.filter_turma_combobox.set("Todas")
         self.filter_turma_combobox.pack(side=LEFT, padx=5, fill=X, expand=True)
-        self.filter_turma_combobox.bind("<<ComboboxSelected>>", self._filtrar_reservas)
+        self.filter_turma_combobox.bind(
+            "<<ComboboxSelected>>", self._filtrar_reservas)
 
-        # Tabela de Reservas
         container = ttk.Frame(self)
         container.grid(row=1, column=0, sticky=NSEW)
 
@@ -133,10 +122,11 @@ class AbaReservas(ttk.Frame):
             enable_hover=True,
         )
         self.reservas_table.pack(expand=True, fill=BOTH)
-        self.reservas_table.view.bind("<<TreeviewSelect>>", self._on_reserva_select)
+        self.reservas_table.view.bind(
+            "<<TreeviewSelect>>", self._on_reserva_select)
 
     def _limpar_filtro_data(self):
-        # self.filter_date_entry.entry.delete(0, END)
+
         self._filtrar_reservas(cmp_filtros=True)
 
     def _get_dados_linha_selecionada(self):
@@ -145,8 +135,10 @@ class AbaReservas(ttk.Frame):
 
     def _on_reserva_select(self, _=None):
         is_selected = bool(self._get_dados_linha_selecionada())
-        self.btn_edit_reserva.configure(state="normal" if is_selected else "disabled")
-        self.btn_delete_reserva.configure(state="normal" if is_selected else "disabled")
+        self.btn_edit_reserva.configure(
+            state="normal" if is_selected else "disabled")
+        self.btn_delete_reserva.configure(
+            state="normal" if is_selected else "disabled")
 
     def _get_grupos_disponiveis(self):
         try:
@@ -160,14 +152,12 @@ class AbaReservas(ttk.Frame):
         filtro_ant = self.filtro
         self.filtro = {}
         data_filtro = self.var_data.get()
-        # self.filter_date_entry.entry.get()
 
         if data_filtro:
             self.filtro["data"] = data_filtro
 
         turma_filtro = self.filter_turma_combobox.get()
 
-        # Converte "Todas" para None para a chamada da fachada
         if turma_filtro == "Todas":
             turma_filtro = None
 
@@ -202,7 +192,6 @@ class AbaReservas(ttk.Frame):
         self._on_reserva_select()
 
     def _carregar_reservas(self):
-        # Define a data atual como padrão para o filtro de data ao carregar
         # date_str = datetime.now().strftime(r"%d/%m/%Y")
         # self.filter_date_entry.entry.delete(0, END)
         # self.filter_date_entry.entry.insert(0, date_str)
@@ -222,7 +211,8 @@ class AbaReservas(ttk.Frame):
         reserva_id = self._get_reserva_selecionada_id()
         if not reserva_id:
             return
-        dialog = ReservaDialog(self, self.fachada_nucleo, reserva_id=reserva_id)
+        dialog = ReservaDialog(self, self.fachada_nucleo,
+                               reserva_id=reserva_id)
         if dialog.result:
             self._filtrar_reservas()
 

@@ -1,3 +1,8 @@
+# ----------------------------------------------------------------------------
+# Arquivo: registro/abas/aba_dashboard.py (Aba de Dashboard)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import HORIZONTAL, NSEW, X
 
@@ -63,17 +68,8 @@ class AbaDashboard(ttk.Frame):
         return card
 
     def _carregar_estatisticas(self):
-        # TODO: Implementar a lógica real para buscar e exibir estatísticas
         try:
-            # Exemplo de como poderia ser:
-            # num_alunos_ativos = self.fachada_nucleo.contar_alunos_ativos()
-            # num_reservas_hoje = self.fachada_nucleo.contar_reservas_hoje()
-            # num_consumo_ontem = self.fachada_nucleo.contar_consumo_ontem()
-
-            # Atualizar os cards
-            # value_label = self.card_alunos_ativos.winfo_children()[0]
-            # value_label.config(text=str(num_alunos_ativos))
+            # TODO: Implementar a lógica real para buscar e exibir estatísticas
             pass
         except Exception:
-            # Em caso de erro, os placeholders (0) permanecerão visíveis
             pass

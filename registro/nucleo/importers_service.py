@@ -1,4 +1,8 @@
-# --- Arquivo: registro/nucleo/importers_service.py ---
+# ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/importers_service.py (Importadores de Dados)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Funções para importar dados de estudantes e reservas, encapsulando a
@@ -52,7 +56,7 @@ def importar_estudantes_csv(
 
         mapa_estudantes_existentes = {
             s.prontuario: s
-            for s in repo_estudante.ler_todos_com_grupos()  # Otimização aqui
+            for s in repo_estudante.ler_todos_com_grupos()  
         }
 
         with open(caminho_arquivo_csv, "r", encoding="utf-8") as arquivo_csv:
@@ -93,7 +97,6 @@ def importar_estudantes_csv(
                 rel["prontuario"] for rel in relacoes_estudante_grupo
             }
 
-            # Otimização: Carrega estudantes e seus grupos de uma vez
             estudantes_envolvidos = repo_estudante.por_prontuarios_com_grupos(
                 prontuarios_envolvidos
             )

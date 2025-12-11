@@ -4,7 +4,7 @@ from registro.interface.views.alunos import AlunosView
 from registro.interface.views.reservas import ReservasView
 from registro.interface.views.importacao import ImportacaoWizard
 
-# Importações do Backend
+
 try:
     from registro.nucleo.facade import FachadaRegistro
     from registro.importar.facade import FachadaImportacao
@@ -13,13 +13,13 @@ except ImportError as e:
     raise e
 
 def main(page: ft.Page):
-    # 1. Configuração da Página
+    
     page.title = "Sistema de Gestão de Refeitório"
     page.padding = 0
     page.theme_mode = ft.ThemeMode.DARK
     page.theme = ft.Theme(color_scheme_seed="blue")
 
-    # 2. Inicialização do Backend
+    
     try:
         fachada_nucleo = FachadaRegistro()
         fachada_imp = FachadaImportacao(fachada_nucleo)
@@ -27,7 +27,7 @@ def main(page: ft.Page):
         page.add(ft.Text(f"Erro fatal ao conectar ao banco de dados: {e}", color="red", size=20))
         return
 
-    # 3. Definição das Views (Instanciação Lazy ou Eager)
+    
     views = {
         0: DashboardView(fachada_nucleo),
         1: AlunosView(fachada_nucleo),
@@ -37,10 +37,10 @@ def main(page: ft.Page):
 
     body_container = ft.Container(content=views[0], expand=True)
 
-    # 4. Lógica de Navegação
+    
     def change_nav(e):
         idx = e.control.selected_index
-        # Atualiza dados do dashboard ao voltar para ele
+        
         if idx == 0:
             views[0].carregar_estatisticas()
         
@@ -52,7 +52,7 @@ def main(page: ft.Page):
         e.control.icon = ft.Icons.DARK_MODE if page.theme_mode == ft.ThemeMode.LIGHT else ft.Icons.LIGHT_MODE
         page.update()
 
-    # 5. Componentes de Layout
+    
     rail = ft.NavigationRail(
         selected_index=0,
         label_type=ft.NavigationRailLabelType.ALL,
@@ -73,7 +73,7 @@ def main(page: ft.Page):
         on_click=toggle_theme
     )
 
-    # 6. Montagem da Interface
+    
     page.add(
         ft.Row([
             ft.Container(
@@ -90,14 +90,14 @@ def main(page: ft.Page):
         ], expand=True, spacing=0)
     )
 
-    # 7. Cleanup (Best Effort)
+    
     def on_disconnect(e):
         print("Encerrando conexão...")
         try: fachada_nucleo.fechar_conexao()
         except: pass
     
-    # O Flet Web/Desktop não tem um hook 'on_close' garantido simples, 
-    # mas o Garbage Collector do Python cuida da conexão do banco na maioria dos casos.
+    
+    
 
 if __name__ == "__main__":
     ft.app(target=main)

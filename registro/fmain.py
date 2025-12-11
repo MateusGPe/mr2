@@ -3,8 +3,7 @@ import traceback
 from datetime import datetime
 from typing import Optional, Dict, Any, List
 
-# --- IMPORTAÇÕES DO BACKEND REAL ---
-# Certifique-se de que a pasta 'registro' está no mesmo diretório deste script
+
 try:
     from registro.nucleo.facade import FachadaRegistro
     from registro.importar.facade import FachadaImportacao
@@ -13,10 +12,6 @@ except ImportError as e:
     print("ERRO CRÍTICO: Não foi possível importar o backend.")
     print("Verifique se a pasta 'registro' existe e está estruturada corretamente.")
     raise e
-
-# ==============================================================================
-# 1. COMPONENTES REUTILIZÁVEIS E UTILITÁRIOS
-# ==============================================================================
 
 
 def show_error(page: ft.Page, message: str):
@@ -34,10 +29,6 @@ def show_success(page: ft.Page, message: str):
         show_close_icon=True
     ))
 
-# ==============================================================================
-# 2. VIEW: DASHBOARD
-# ==============================================================================
-
 
 class DashboardView(ft.Container):
     def __init__(self, fachada_nucleo: FachadaRegistro):
@@ -46,7 +37,6 @@ class DashboardView(ft.Container):
         self.expand = True
         self.padding = 20
 
-        # Elementos de UI
         self.lbl_alunos = ft.Text("0", size=40, weight="bold", color="white")
         self.lbl_reservas = ft.Text("0", size=40, weight="bold", color="white")
         self.lbl_grupos = ft.Text("0", size=40, weight="bold", color="white")
@@ -83,14 +73,12 @@ class DashboardView(ft.Container):
 
     def _carregar_estatisticas(self):
         try:
-            # Busca dados reais do banco
+
             alunos = self.fachada.listar_todos_os_estudantes()
             grupos = self.fachada.listar_todos_os_grupos()
 
-            # Reservas de hoje
-            # Formato do seu banco pode variar, ajuste se necessário
             hoje_str = datetime.now().strftime("%d/%m/%Y")
-            # A fachada original filtra por data exata string
+
             reservas = self.fachada.listar_reservas(filtros={"data": hoje_str})
 
             self.lbl_alunos.value = str(len(alunos))
@@ -99,11 +87,6 @@ class DashboardView(ft.Container):
             self.update()
         except Exception as e:
             traceback.print_exc()
-            # Não mostramos erro na UI para não travar o dashboard, mas logamos
-
-# ==============================================================================
-# 3. VIEW: ALUNOS
-# ==============================================================================
 
 
 class AlunosView(ft.Container):
@@ -209,7 +192,6 @@ class AlunosView(ft.Container):
         pront_field = ft.TextField(
             label="Prontuário", value=aluno['prontuario'] if is_edit else "", read_only=is_edit)
 
-        # Carregar Grupos para o Dropdown
         try:
             grupos_db = self.fachada.listar_todos_os_grupos()
             opcoes_grupos = [ft.dropdown.Option(g['nome']) for g in grupos_db]
@@ -239,8 +221,7 @@ class AlunosView(ft.Container):
 
             try:
                 if is_edit:
-                    # Nota: O StudentDialog original só atualizava nome e ativo, não grupos no edit.
-                    # Vamos manter a lógica da fachada
+
                     self.fachada.atualizar_estudante(
                         aluno['id'], {"nome": nome_field.value})
                 else:
@@ -268,10 +249,6 @@ class AlunosView(ft.Container):
         )
         self.page.open(dlg)
 
-# ==============================================================================
-# 4. VIEW: RESERVAS
-# ==============================================================================
-
 
 class ReservasView(ft.Container):
     def __init__(self, fachada_nucleo: FachadaRegistro):
@@ -280,7 +257,6 @@ class ReservasView(ft.Container):
         self.expand = True
         self.padding = 20
 
-        # Controles de Filtro
         self.date_picker = ft.DatePicker(on_change=self._on_date_change)
         self.btn_date = ft.ElevatedButton(
             "Todas as datas",
@@ -324,7 +300,7 @@ class ReservasView(ft.Container):
         ], expand=True)
 
     def did_mount(self):
-        # Carregar grupos no filtro
+
         try:
             grupos = self.fachada.listar_todos_os_grupos()
             self.dd_turma.options = [ft.dropdown.Option(
@@ -332,16 +308,14 @@ class ReservasView(ft.Container):
         except:
             pass
 
-        # Carregar dados (data atual ou todas)
         self._carregar_dados()
 
     def _on_date_change(self, e):
         if e.control.value:
-            # O backend espera string DD/MM/YYYY ou YYYY-MM-DD dependendo da implementação.
-            # Baseado no código tkinter, parece usar string formatada.
+
             data_str = e.control.value.strftime('%d/%m/%Y')
             self.btn_date.text = f"Data: {data_str}"
-            self.btn_date.data = data_str  # Armazena valor puro
+            self.btn_date.data = data_str
         else:
             self.btn_date.text = "Todas as datas"
             self.btn_date.data = None
@@ -353,18 +327,15 @@ class ReservasView(ft.Container):
         self.tabela.rows.clear()
 
         filtros = {}
-        # Filtro Data
+
         if hasattr(self.btn_date, 'data') and self.btn_date.data:
             filtros["data"] = self.btn_date.data
 
-        # Filtro Turma
         if self.dd_turma.value and self.dd_turma.value != "Todas":
             filtros["grupos"] = [self.dd_turma.value]
 
         try:
             reservas = self.fachada.listar_reservas(filtros)
-            # Ordenar por data (opcional)
-            # reservas.sort(key=lambda x: x['data'], reverse=True)
 
             for r in reservas:
                 cancelada = r.get('cancelada', False)
@@ -425,7 +396,6 @@ class ReservasView(ft.Container):
     def _abrir_modal(self, reserva=None):
         is_edit = reserva is not None
 
-        # Cache de alunos (simples) - em prod pode ser necessário um AsyncSearch
         if not is_edit:
             try:
                 todos_alunos = self.fachada.listar_todos_os_estudantes()
@@ -438,7 +408,6 @@ class ReservasView(ft.Container):
             except:
                 opcoes_alunos = []
 
-        # Campos
         dd_aluno = ft.Dropdown(
             label="Selecione o Aluno",
             options=opcoes_alunos if not is_edit else [],
@@ -514,10 +483,6 @@ class ReservasView(ft.Container):
         )
         self.page.open(dlg)
 
-# ==============================================================================
-# 5. VIEW: IMPORTAÇÃO (WIZARD 4 PASSOS)
-# ==============================================================================
-
 
 class ImportacaoWizard(ft.Container):
     def __init__(self, fachada_nucleo: FachadaRegistro, fachada_importacao: FachadaImportacao):
@@ -527,15 +492,12 @@ class ImportacaoWizard(ft.Container):
         self.expand = True
         self.padding = 20
 
-        # File Picker precisa ser adicionado ao overlay da página
         self.file_picker = ft.FilePicker(on_result=self._on_file_pick)
 
-        # Estado
         self.current_path: Optional[str] = None
         self.itens_revisao: List[Dict] = []
         self.resumo_analise: Optional[Dict] = None
 
-        # UI Container
         self.step_content = ft.Container(expand=True)
         self.progress = ft.ProgressBar(value=0.0, height=5)
         self.lbl_titulo = ft.Text(
@@ -553,14 +515,12 @@ class ImportacaoWizard(ft.Container):
             self.page.overlay.append(self.file_picker)
             self.page.update()
 
-        # Inicia no passo 1
         self._go_step_1()
 
     def will_unmount(self):
         if self.file_picker in self.page.overlay:
             self.page.overlay.remove(self.file_picker)
 
-    # --- PASSO 1: SELEÇÃO ---
     def _go_step_1(self):
         self.progress.value = 0.25
         self.lbl_titulo.value = "Passo 1: Selecionar Arquivo"
@@ -588,7 +548,7 @@ class ImportacaoWizard(ft.Container):
                 ft.ElevatedButton("Buscar...", icon=ft.Icons.FOLDER_OPEN,
                                   on_click=lambda _: self.file_picker.pick_files(allowed_extensions=["csv", "txt"]))
             ]),
-            ft.Container(expand=True),  # Spacer
+            ft.Container(expand=True),
             ft.Row([
                 ft.FilledButton("Analisar Dados >",
                                 on_click=self._iniciar_analise)
@@ -621,17 +581,14 @@ class ImportacaoWizard(ft.Container):
             traceback.print_exc()
             show_error(self.page, f"Erro na análise: {ex}")
 
-    # --- PASSO 2: REVISÃO ---
     def _go_step_2(self):
         self.progress.value = 0.50
         self.lbl_titulo.value = "Passo 2: Revisão de Conflitos"
 
-        # Resumo
         res = self.resumo_analise
         txt_resumo = f"✅ {res['automaticos']} Automáticos | ⚠️ {res['para_revisao']} Para Revisão | ❌ {res['invalidos']} Inválidos"
 
-        # Inputs de Default
-        self.date_default = ft.DatePicker()  # Auxiliar
+        self.date_default = ft.DatePicker()
         self.txt_data_def = ft.TextField(
             label="Data Padrão", width=150, value=datetime.now().strftime("%d/%m/%Y"))
         self.dd_prato_def = ft.Dropdown(
@@ -641,7 +598,6 @@ class ImportacaoWizard(ft.Container):
             value="Almoço"
         )
 
-        # Lista de Itens para Revisão
         lv_itens = ft.ListView(expand=True, spacing=10)
 
         if not self.itens_revisao:
@@ -675,11 +631,10 @@ class ImportacaoWizard(ft.Container):
         self.update()
 
     def _criar_linha_revisao(self, item: Dict):
-        # Componente UI para uma linha de revisão
+
         dados = item["dados_csv"]
         texto_principal = f"{dados.get('nome', 'Sem Nome')} ({dados.get('prontuario', '')})"
 
-        # Dropdown de Ação
         dd_acao = ft.Dropdown(
             width=140,
             options=[
@@ -692,7 +647,6 @@ class ImportacaoWizard(ft.Container):
             text_size=12
         )
 
-        # Dropdown de Candidatos (se houver match fuzzy)
         candidatos = item.get("candidatos", [])
         opts_cand = []
         mapa_ids = {}
@@ -711,7 +665,6 @@ class ImportacaoWizard(ft.Container):
             value=str(candidatos[0]['id']) if candidatos else None
         )
 
-        # Lógica de atualização local do item
         def on_change_acao(e):
             item["resolucao_escolhida"] = dd_acao.value
             dd_cand.disabled = (dd_acao.value != "VINCULAR")
@@ -724,7 +677,6 @@ class ImportacaoWizard(ft.Container):
         dd_acao.on_change = on_change_acao
         dd_cand.on_change = on_change_cand
 
-        # Inicializa o ID de vinculo se houver candidato padrão
         if candidatos and item["resolucao_escolhida"] == "VINCULAR":
             item["id_estudante_vinculo"] = candidatos[0]['id']
 
@@ -743,7 +695,6 @@ class ImportacaoWizard(ft.Container):
             border_radius=8
         )
 
-    # --- PASSO 3: PREVIEW ---
     def _ir_para_preview(self, e):
         defaults = {}
         if self.txt_data_def.value:
@@ -809,7 +760,7 @@ class ImportacaoWizard(ft.Container):
         self.update()
 
     def _executar_salvamento(self, e):
-        # Diálogo de confirmação nativo do Flet
+
         def confirmar_final(ev):
             self.page.close(dlg)
             self._processar_salvamento_real()
@@ -842,7 +793,6 @@ class ImportacaoWizard(ft.Container):
             traceback.print_exc()
             show_error(self.page, f"Erro fatal ao salvar: {e}")
 
-    # --- PASSO 4: SUCESSO ---
     def _go_step_4(self):
         self.progress.value = 1.0
         self.lbl_titulo.value = "Sucesso!"
@@ -869,19 +819,14 @@ class ImportacaoWizard(ft.Container):
         )
         self.update()
 
-# ==============================================================================
-# 6. APLICAÇÃO PRINCIPAL (MAIN)
-# ==============================================================================
-
 
 def main(page: ft.Page):
-    # Configurações da Página
+
     page.title = "Sistema de Gestão de Refeitório"
     page.padding = 0
     page.theme_mode = ft.ThemeMode.DARK
     page.theme = ft.Theme(color_scheme_seed="blue")
 
-    # Inicialização do Backend
     try:
         fachada_nucleo = FachadaRegistro()
         fachada_imp = FachadaImportacao(fachada_nucleo)
@@ -889,8 +834,6 @@ def main(page: ft.Page):
         page.add(ft.Text(f"Erro fatal ao iniciar backend: {e}", color="red"))
         return
 
-    # Views
-    # Instanciamos as views mas só adicionamos ao container quando necessário
     views = {
         0: DashboardView(fachada_nucleo),
         1: AlunosView(fachada_nucleo),
@@ -902,14 +845,13 @@ def main(page: ft.Page):
 
     def change_nav(e):
         idx = e.control.selected_index
-        # Recarrega a view se necessário (ex: Dashboard para atualizar stats)
+
         if idx == 0:
             views[0]._carregar_estatisticas()
 
         body_container.content = views[idx]
         body_container.update()
 
-    # Menu Lateral
     rail = ft.NavigationRail(
         selected_index=0,
         label_type=ft.NavigationRailLabelType.ALL,
@@ -940,7 +882,6 @@ def main(page: ft.Page):
         e.control.icon = ft.Icons.DARK_MODE if page.theme_mode == ft.ThemeMode.LIGHT else ft.Icons.LIGHT_MODE
         page.update()
 
-    # Layout Principal
     page.add(
         ft.Row([
             ft.Container(
@@ -959,16 +900,12 @@ def main(page: ft.Page):
         ], expand=True, spacing=0)
     )
 
-    # Cleanup ao fechar (best effort)
     def on_close(e):
         print("Fechando conexão com banco de dados...")
         try:
             fachada_nucleo.fechar_conexao()
         except:
             pass
-
-    # Flet não tem evento on_close global garantido para desktop da mesma forma que Tkinter,
-    # mas o backend usa Context Managers geralmente.
 
 
 if __name__ == "__main__":

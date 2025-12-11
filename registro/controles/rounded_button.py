@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+# Arquivo: registro/controles/rounded_button.py (Botão Personalizado)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 import tkinter as tk
 from typing import Any, Callable, Optional, Tuple, cast
 
@@ -54,15 +60,12 @@ class RoundedButton(tk.Canvas):
         self.command = command
         self.enabled = state.lower() != "disabled"
 
-        # Guarda o padding original para referência
         self._original_padding = padding or (padx or 10, pady or 10)
         self._original_font_tuple = font
 
-        # Variáveis para evitar redesenhos desnecessários
         self._last_width = 0
         self._last_height = 0
 
-        # 1. Configura os parâmetros e estilos
         self._setup_parameters(
             text,
             bootstyle,
@@ -78,16 +81,12 @@ class RoundedButton(tk.Canvas):
             press_color,
         )
 
-        # 2. Calcula as dimensões INICIAIS para a primeira renderização
         self._calculate_initial_dimensions()
 
-        # 3. Cria a forma (imagem) no canvas que será atualizada
         self.shape_id = self.create_image(0, 0, anchor="nw")
 
-        # 4. Vincula os eventos, incluindo o crucial <Configure>
         self._bind_events()
 
-        # 5. Define o estado inicial do widget
         self.configure(state=state)
 
     def _setup_parameters(
@@ -136,8 +135,10 @@ class RoundedButton(tk.Canvas):
             except tk.TclError:
                 pass
 
-        self.hover_color = hover_color or Colors.update_hsv(self.bg_color, vd=0.15)  # type: ignore
-        self.press_color = press_color or Colors.update_hsv(self.bg_color, vd=-0.15)  # type: ignore
+        self.hover_color = hover_color or Colors.update_hsv(
+            self.bg_color, vd=0.15)  # type: ignore
+        self.press_color = press_color or Colors.update_hsv(
+            self.bg_color, vd=-0.15)  # type: ignore
         self.config(bg=self.theme_bg_color, highlightthickness=0)
 
     def _load_font(self, size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -155,11 +156,9 @@ class RoundedButton(tk.Canvas):
         text_width = text_bbox[2] - text_bbox[0]
         text_height = text_bbox[3] - text_bbox[1]
 
-        # Define as dimensões mínimas/iniciais
         self.width = int(text_width + (2 * self.padding_x))
         self.height = int(text_height + (2 * self.padding_y))
 
-        # Configura o tamanho mínimo que o widget pode ter
         self.config(width=self.width, height=self.height)
 
     def _get_best_font_size(
@@ -172,22 +171,19 @@ class RoundedButton(tk.Canvas):
         available_width = width - (2 * self.padding_x)
         available_height = height - (2 * self.padding_y)
 
-        # Retorna uma fonte mínima se não houver espaço
         if available_width < 1 or available_height < 1:
             return self._load_font(1)
 
-        font_size = 1  # Começa com o menor tamanho possível
+        font_size = 1
         last_good_font = self._load_font(font_size)
 
         while True:
             font = self._load_font(font_size)
 
-            # Mede as dimensões do texto com a fonte atual
             text_bbox = font.getbbox(self.text)
             text_width = text_bbox[2] - text_bbox[0]
             text_height = text_bbox[3] - text_bbox[1]
 
-            # Se o texto estourou a largura OU a altura, a fonte anterior era a melhor
             if text_width > available_width or text_height > available_height:
                 return last_good_font
 
@@ -202,12 +198,12 @@ class RoundedButton(tk.Canvas):
         shrunken_width = width - self.shrink_size
         shrunken_height = height - self.shrink_size
 
-        # Raio proporcional
         radius = min(self.radius, width / 2, height / 2)
         shrunken_radius = (radius / width) * shrunken_width if width > 0 else 0
 
         font = self._get_best_font_size(width, height)
-        shrunken_font = self._get_best_font_size(shrunken_width, shrunken_height)
+        shrunken_font = self._get_best_font_size(
+            shrunken_width, shrunken_height)
 
         self.normal_image = self._create_button_image(
             width, height, self.bg_color, self.fg_color, radius, font
@@ -233,7 +229,6 @@ class RoundedButton(tk.Canvas):
         self.shrink_offset_x = (width - shrunken_width) / 2
         self.shrink_offset_y = (height - shrunken_height) / 2
 
-        # Atualiza a imagem exibida para o estado atual
         if not self.enabled:
             self.itemconfig(self.shape_id, image=self.disabled_image)
         else:
@@ -242,11 +237,12 @@ class RoundedButton(tk.Canvas):
 
     def _create_button_image(self, width, height, bg_color, fg_color, radius, font):
         """Cria uma única imagem de botão com anti-aliasing."""
-        # Garante que a imagem não tenha dimensão zero
+
         w, h = max(1, int(width)), max(1, int(height))
 
         high_res_img = Image.new(
-            "RGB", (w * self.scale_factor, h * self.scale_factor), self.theme_bg_color
+            "RGB", (w * self.scale_factor, h *
+                    self.scale_factor), self.theme_bg_color
         )
         draw = ImageDraw.Draw(high_res_img)
 
@@ -281,11 +277,10 @@ class RoundedButton(tk.Canvas):
         new_width = event.width
         new_height = event.height
 
-        # Redesenha apenas se o tamanho realmente mudou
         if new_width != self._last_width or new_height != self._last_height:
             if (
                 new_width > 1 and new_height > 1
-            ):  # Evita redesenhar para tamanhos inválidos
+            ):
                 self._last_width = new_width
                 self._last_height = new_height
                 self._redraw_images(new_width, new_height)
@@ -296,7 +291,7 @@ class RoundedButton(tk.Canvas):
             self.enabled = state.lower() in ["normal", "active", "enable"]
             if (
                 self.disabled_image and self.normal_image
-            ):  # Garante que as imagens existem
+            ):
                 if not self.enabled:
                     self.itemconfig(self.shape_id, image=self.disabled_image)
                 else:
@@ -325,7 +320,8 @@ class RoundedButton(tk.Canvas):
     def _on_press(self, _event: tk.Event) -> None:
         if self.enabled:
             self.itemconfig(self.shape_id, image=self.shrink_image)
-            self.moveto(self.shape_id, self.shrink_offset_x, self.shrink_offset_y)
+            self.moveto(self.shape_id, self.shrink_offset_x,
+                        self.shrink_offset_y)
 
     def _on_release(self, event: tk.Event) -> None:
         if self.enabled:
@@ -338,7 +334,6 @@ class RoundedButton(tk.Canvas):
                 self.itemconfig(self.shape_id, image=self.normal_image)
 
 
-# --- Exemplo de Uso ---
 if __name__ == "__main__":
     root = ttk.Window(themename="litera")
     root.title("RoundedButton - Verificação de Largura e Altura")
@@ -346,7 +341,6 @@ if __name__ == "__main__":
     root.grid_columnconfigure(0, weight=1)
     root.grid_rowconfigure(0, weight=1)
 
-    # Este botão irá demonstrar a eficácia do novo método
     LONG_TEXT = "Este é um texto bem longo para testar o ajuste da fonte"
     btn = RoundedButton(root, text=LONG_TEXT, bootstyle="warning", radius=15)
     btn.grid(row=0, column=0, padx=20, pady=20, sticky="nsew")

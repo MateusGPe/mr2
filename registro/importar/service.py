@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+# Arquivo: registro/importar/service.py (Serviço de Importação)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 """
 Serviço de orquestração da importação.
 Gerencia estado entre etapas e garante persistência segura.
@@ -56,7 +62,7 @@ class ServicoImportacao:
             itens_revisados, valores_padrao
         )
 
-        # Simula a separação dos dados
+        
         novos = []
         reservas = []
 
@@ -65,26 +71,26 @@ class ServicoImportacao:
             pront = linha.get("prontuario")
             data = linha.get("data")
 
-            # Sem data, não é possível criar reserva)
+            
             if not data:
                 continue
 
-            # Detecta novo estudante
+            
             if not id_banco and pront:
-                # Usa um set ou dict auxiliar para evitar duplicatas visuais na simulação
+                
                 exists = any(n["prontuario"] == pront for n in novos)
                 if not exists:
                     novos.append(
                         {
                             "prontuario": pront,
                             "nome": linha.get("nome", "Desconhecido"),
-                            "turma": linha.get("turma", "-"),  # Se houver
+                            "turma": linha.get("turma", "-"),  
                         }
                     )
 
-            # Detecta reserva
+            
             nome_display = linha.get("nome")
-            # Se for vinculado, tentamos pegar o nome original ou mantemos o do CSV
+            
             reservas.append(
                 {
                     "data": data,
@@ -112,7 +118,7 @@ class ServicoImportacao:
     ) -> List[Dict]:
         """Lógica interna: Junta Automáticos + Revisados + Defaults."""
         lista_final = list(self._cache_automaticos)
-        # 1. Aplica decisões da revisão
+        
         for item in itens_revisados:
             decisao = item["resolucao_escolhida"]
             dados = item["dados_csv"]
@@ -138,7 +144,7 @@ class ServicoImportacao:
                 dados.pop("_id_banco", None)
                 lista_final.append(dados)
 
-        # 2. Aplica Defaults
+        
         if valores_padrao:
             for linha in lista_final:
                 for chave, valor in valores_padrao.items():
@@ -151,16 +157,16 @@ class ServicoImportacao:
         novos_estudantes = []
         reservas_para_criar = []
 
-        # Separação
+        
         for linha in dados:
             id_banco = linha.get("_id_banco")
             pront = linha.get("prontuario")
 
-            # Sem data, não é possível criar reserva
+            
             if not (data := linha.get("data")):
                 continue
 
-            # Identifica novos alunos
+            
             if not id_banco and pront:
                 novos_estudantes.append(
                     {
@@ -182,19 +188,19 @@ class ServicoImportacao:
                 }
             )
 
-        # Criação de Novos Alunos (Unicos)
+        
         if novos_estudantes:
             unicos = {e["prontuario"]: e for e in novos_estudantes}.values()
             self._fachada.repo_estudante.criar_em_massa(list(unicos))
 
-        # Recuperação de IDs (Fix para SQLite não retornar IDs em bulk)
+        
         mapa_ids = {}
         if novos_estudantes:
             pronts = {e["prontuario"] for e in novos_estudantes}
             objs = self._fachada.repo_estudante.por_prontuarios(pronts)
             mapa_ids = {e.prontuario: e.id for e in objs}
 
-        # Criação de Reservas
+        
         reservas_finais = []
         for item in reservas_para_criar:
             chave = item["chave"]

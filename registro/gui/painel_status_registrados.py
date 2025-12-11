@@ -42,7 +42,7 @@ class PainelStatusRegistrados(ttk.Frame):
         self._app = app
         self._fachada: FachadaRegistro = fachada_nucleo
 
-        # Referências de widgets
+        
         self._label_contagem_registrados: Optional[ttk.Label] = None
         self._label_contagem_restantes: Optional[ttk.Label] = None
         self._tabela_estudantes_registrados: Optional[TreeviewSimples] = None
@@ -52,9 +52,9 @@ class PainelStatusRegistrados(ttk.Frame):
         self._criar_widgets()
         self._configurar_vinculos_eventos()
 
-    # --------------------------------------------------------------------------
-    # Configuração da Interface Gráfica
-    # --------------------------------------------------------------------------
+    
+    
+    
 
     def _configurar_layout(self):
         """Configura o grid layout do painel."""
@@ -118,9 +118,9 @@ class PainelStatusRegistrados(ttk.Frame):
             view.bind("<Delete>", self._ao_teclar_delete)
             view.bind("<BackSpace>", self._ao_teclar_delete)
 
-    # --------------------------------------------------------------------------
-    # Métodos Públicos de Atualização
-    # --------------------------------------------------------------------------
+    
+    
+    
 
     def carregar_estudantes_registrados(self):
         """Busca os dados de estudantes servidos e popula a tabela."""
@@ -193,9 +193,9 @@ class PainelStatusRegistrados(ttk.Frame):
             self._tabela_estudantes_registrados.deletar_linhas()
         self.atualizar_contadores()
 
-    # --------------------------------------------------------------------------
-    # Manipuladores de Eventos e Lógica de Deleção
-    # --------------------------------------------------------------------------
+    
+    
+    
 
     def _ao_clicar_tabela(self, event: tk.Event):
         """Callback para clique na tabela. Identifica se a coluna de ação foi clicada."""
@@ -209,7 +209,7 @@ class PainelStatusRegistrados(ttk.Frame):
             logger.debug("Coluna de ação clicada para iid: %s", iid)
             self._confirmar_e_deletar_consumo(iid)
         elif iid and self._tabela_estudantes_registrados.view.exists(iid):
-            # Foca e seleciona a linha clicada se não for a coluna de ação
+            
             try:
                 view = self._tabela_estudantes_registrados.view
                 view.focus(iid)
@@ -253,9 +253,9 @@ class PainelStatusRegistrados(ttk.Frame):
         else:
             logger.debug("Exclusão de %s cancelada.", pront)
 
-    # --------------------------------------------------------------------------
-    # Métodos Auxiliares
-    # --------------------------------------------------------------------------
+    
+    
+    
 
     def _obter_definicao_colunas(self) -> List[Dict[str, Any]]:
         """Retorna a definição das colunas para a tabela de registrados."""

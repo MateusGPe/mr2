@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+# Arquivo: registro/importar/__init__.py (Pacote de Importação)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 """
 Pacote responsável pela importação assistida de dados.
 

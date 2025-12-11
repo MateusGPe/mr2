@@ -76,10 +76,6 @@ class AppRegistro(tk.Tk):
             raise RuntimeError("FachadaRegistro não foi inicializada.")
         return self._fachada
 
-    # --------------------------------------------------------------------------
-    # Métodos de Configuração da UI
-    # --------------------------------------------------------------------------
-
     def _configurar_estilo(self):
         """Configura o estilo da aplicação usando ttkbootstrap."""
         try:
@@ -92,8 +88,10 @@ class AppRegistro(tk.Tk):
             self.style.configure("TLabelframe.Label", font=fonte_label)
             self.style.configure("Status.TLabel", font=fonte_pequena)
             self.style.configure("Feedback.TLabel", font=fonte_pequena)
-            self.style.configure("Preview.TLabel", font=fonte_pequena, justify=LEFT)
-            self.style.configure("Count.TLabel", font=fonte_cabecalho, anchor=CENTER)
+            self.style.configure(
+                "Preview.TLabel", font=fonte_pequena, justify=LEFT)
+            self.style.configure(
+                "Count.TLabel", font=fonte_cabecalho, anchor=CENTER)
             self.colors = self.style.colors
         except (TclError, AttributeError) as e:
             logger.warning("Erro ao configurar estilo ttkbootstrap: %s.", e)
@@ -115,7 +113,8 @@ class AppRegistro(tk.Tk):
 
     def _criar_barra_superior(self):
         """Cria a barra superior com informações da sessão e botões de ação."""
-        self._barra_superior = ttk.Frame(self, padding=(10, 5), bootstyle="dark")
+        self._barra_superior = ttk.Frame(
+            self, padding=(10, 5), bootstyle="dark")
         self._barra_superior.grid(row=0, column=0, sticky="ew")
 
         self._label_info_sessao = ttk.Label(
@@ -194,10 +193,6 @@ class AppRegistro(tk.Tk):
             length=200,
         )
 
-    # --------------------------------------------------------------------------
-    # Gerenciamento de Sessão
-    # --------------------------------------------------------------------------
-
     def _carregar_sessao_inicial(self):
         """Tenta carregar uma sessão a partir de um arquivo ou abre o diálogo de sessão."""
         logger.info("Tentando carregar estado inicial da sessão...")
@@ -219,7 +214,8 @@ class AppRegistro(tk.Tk):
                 dados_sessao = json.load(f)
             logger.info("Estado da sessão carregado: %s", CAMINHO_SESSAO)
             if self._fachada:
-                self._fachada.definir_sessao_ativa(dados_sessao.get("id_sessao"))
+                self._fachada.definir_sessao_ativa(
+                    dados_sessao.get("id_sessao"))
             return dados_sessao
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(
@@ -309,10 +305,6 @@ class AppRegistro(tk.Tk):
         CAMINHO_SESSAO.unlink(missing_ok=True)
         self.ao_fechar_app(acionado_por_fim_sessao=True)
 
-    # --------------------------------------------------------------------------
-    # Atualização da UI e Notificações
-    # --------------------------------------------------------------------------
-
     def _configurar_ui_para_sessao_carregada(self):
         """Atualiza a UI com os detalhes da sessão ativa."""
         if not self._fachada:
@@ -328,7 +320,8 @@ class AppRegistro(tk.Tk):
             titulo = f"Reg: {refeicao} - {data} {hora} [ID:{id_sessao}]"
             self.title(titulo)
             if self._label_info_sessao:
-                self._label_info_sessao.config(text=titulo, bootstyle="inverse-dark")
+                self._label_info_sessao.config(
+                    text=titulo, bootstyle="inverse-dark")
 
             if self._painel_acao:
                 self._painel_acao.habilitar_controles()
@@ -343,7 +336,8 @@ class AppRegistro(tk.Tk):
             logger.error("Não é possível configurar UI: Nenhuma sessão ativa.")
             self.title("Refeições Reg [Sem Sessão]")
             if self._label_info_sessao:
-                self._label_info_sessao.config(text="Erro: Nenhuma Sessão Ativa")
+                self._label_info_sessao.config(
+                    text="Erro: Nenhuma Sessão Ativa")
             if self._painel_acao:
                 self._painel_acao.desabilitar_controles()
             if self._painel_status:
@@ -365,7 +359,8 @@ class AppRegistro(tk.Tk):
 
     def notificar_sucesso_registro(self, dados_estudante: Tuple):
         """Callback chamado pelo PainelAcaoBusca após um registro bem-sucedido."""
-        logger.debug("Notificação de registro recebida para: %s", dados_estudante[0])
+        logger.debug("Notificação de registro recebida para: %s",
+                     dados_estudante[0])
         if self._painel_status:
             self._painel_status.carregar_estudantes_registrados()
 
@@ -373,17 +368,14 @@ class AppRegistro(tk.Tk):
         """Callback chamado pelo PainelStatusRegistrados para desfazer um consumo."""
         pront = dados_para_logica[0] if dados_para_logica else None
         nome = dados_para_logica[1] if len(dados_para_logica) > 1 else "N/A"
-        logger.info("Solicitação para desfazer consumo: %s (%s)", pront or "?", nome)
+        logger.info("Solicitação para desfazer consumo: %s (%s)",
+                    pront or "?", nome)
 
         if pront and self._fachada:
             self._fachada.desfazer_consumo_por_prontuario(pront)
             if self._painel_status:
                 self._painel_status.carregar_estudantes_registrados()
             self._atualizar_ui_apos_mudanca_dados()
-
-    # --------------------------------------------------------------------------
-    # Diálogos
-    # --------------------------------------------------------------------------
 
     def _abrir_dialogo_sessao(self: "AppRegistro"):
         """Abre o diálogo para criar ou selecionar uma sessão."""
@@ -415,10 +407,13 @@ class AppRegistro(tk.Tk):
         if not self._fachada:
             return
         try:
-            grupos_selecionados = [i for i in identificadores if not i.startswith("#")]
-            grupos_excluidos = [i[1:] for i in identificadores if i.startswith("#")]
+            grupos_selecionados = [
+                i for i in identificadores if not i.startswith("#")]
+            grupos_excluidos = [i[1:]
+                                for i in identificadores if i.startswith("#")]
 
-            self._fachada.atualizar_grupos_sessao(grupos_selecionados, grupos_excluidos)
+            self._fachada.atualizar_grupos_sessao(
+                grupos_selecionados, grupos_excluidos)
             logger.info("Filtros de turma aplicados com sucesso.")
             self._atualizar_ui_apos_mudanca_dados()
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -429,10 +424,6 @@ class AppRegistro(tk.Tk):
                 parent=self,
             )
 
-    # --------------------------------------------------------------------------
-    # Operações Assíncronas (Sincronização e Exportação)
-    # --------------------------------------------------------------------------
-
     def mostrar_barra_progresso(self, iniciar: bool, texto: Optional[str] = None):
         """Controla a visibilidade e o estado da barra de progresso."""
         if not self._barra_progresso or not self._label_barra_status:
@@ -441,7 +432,8 @@ class AppRegistro(tk.Tk):
             if iniciar:
                 self._label_barra_status.config(text=texto or "Processando...")
                 if not self._barra_progresso.winfo_ismapped():
-                    self._barra_progresso.pack(side=RIGHT, padx=5, fill=X, expand=False)
+                    self._barra_progresso.pack(
+                        side=RIGHT, padx=5, fill=X, expand=False)
                 self._barra_progresso.start(10)
             else:
                 if self._barra_progresso.winfo_ismapped():
@@ -475,7 +467,8 @@ class AppRegistro(tk.Tk):
                 parent=self,
             )
             return
-        self.mostrar_barra_progresso(True, "Sincronizando servidos para planilha...")
+        self.mostrar_barra_progresso(
+            True, "Sincronizando servidos para planilha...")
         self._iniciar_thread_sinc(
             self._fachada.sincronizar_para_google_sheets, "Sincronização de Servidos"
         )
@@ -503,7 +496,8 @@ class AppRegistro(tk.Tk):
     def _monitorar_thread_sinc(self, thread: Thread, nome_tarefa: str):
         """Verifica o status da thread de sincronização e exibe o resultado ao final."""
         if thread.is_alive():
-            self.after(150, lambda: self._monitorar_thread_sinc(thread, nome_tarefa))
+            self.after(150, lambda: self._monitorar_thread_sinc(
+                thread, nome_tarefa))
             return
 
         self.mostrar_barra_progresso(False)
@@ -524,7 +518,8 @@ class AppRegistro(tk.Tk):
             )
             self._atualizar_ui_apos_mudanca_dados()
         else:
-            logger.warning("%s finalizada com estado indeterminado.", nome_tarefa)
+            logger.warning(
+                "%s finalizada com estado indeterminado.", nome_tarefa)
             Messagebox.show_warning(
                 "Status Desconhecido",
                 f"{nome_tarefa} finalizada, mas o status é incerto.",
@@ -558,10 +553,6 @@ class AppRegistro(tk.Tk):
                 "Erro na Exportação", f"Ocorreu um erro ao exportar:\n{e}", parent=self
             )
         return False
-
-    # --------------------------------------------------------------------------
-    # Ciclo de Vida da Aplicação e Helpers
-    # --------------------------------------------------------------------------
 
     def _tratar_erro_inicializacao(self, componente: str, erro: Exception):
         """Exibe uma mensagem de erro crítico e encerra a aplicação."""
@@ -604,7 +595,8 @@ class AppRegistro(tk.Tk):
 
         if self._painel_acao and self._painel_acao.id_after_busca is not None:
             try:
-                self._painel_acao.after_cancel(self._painel_acao.id_after_busca)
+                self._painel_acao.after_cancel(
+                    self._painel_acao.id_after_busca)
             except Exception:  # pylint: disable=broad-exception-caught
                 pass
 
@@ -627,6 +619,10 @@ class AppRegistro(tk.Tk):
         logger.info("Aplicação finalizada.")
 
 
-if __name__ == "__main__":
+def main():
     app = AppRegistro()
     app.mainloop()
+
+
+if __name__ == "__main__":
+    main()

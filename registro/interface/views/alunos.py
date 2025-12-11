@@ -90,7 +90,7 @@ class AlunosView(ft.Container):
         nome_field = ft.TextField(label="Nome Completo", value=aluno['nome'] if is_edit else "", autofocus=True)
         pront_field = ft.TextField(label="Prontuário", value=aluno['prontuario'] if is_edit else "", read_only=is_edit)
         
-        # Carregar Grupos
+        
         try:
             grupos_db = self.fachada.listar_todos_os_grupos()
             opcoes = [ft.dropdown.Option(g['nome']) for g in grupos_db]

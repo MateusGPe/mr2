@@ -1,10 +1,5 @@
 import flet as ft
 from datetime import datetime
-import random
-
-# ==============================================================================
-# 1. MOCK BACKEND
-# ==============================================================================
 
 
 class MockFachada:
@@ -64,10 +59,6 @@ class MockFachada:
     def simular_importacao(self, itens, defaults):
         return {"novos_estudantes": [{"prontuario": "SP999", "nome": "Novo Aluno 1"}], "reservas": [{"data": "28/11/2025", "prontuario": "SP999", "aluno": "Novo Aluno 1", "prato": "Almoço"}]}
 
-# ==============================================================================
-# 2. VIEWS (TELAS)
-# ==============================================================================
-
 
 class DashboardView(ft.Container):
     def __init__(self):
@@ -115,11 +106,10 @@ class AlunosView(ft.Container):
             width=300, on_change=self._on_search, border_radius=30, height=40, content_padding=10
         )
 
-        # --- CORREÇÃO DE LAYOUT E CONTRASTE ---
         self.tabela = ft.DataTable(
-            # width=float("inf") força a tabela a ocupar toda a largura horizontal
+
             width=float("inf"),
-            # surfaceVariant adapta cor (cinza escuro no dark mode, cinza claro no light mode)
+
             heading_row_color=ft.Colors.SURFACE_CONTAINER_HIGHEST,
             columns=[
                 ft.DataColumn(ft.Text("ID")),
@@ -142,7 +132,7 @@ class AlunosView(ft.Container):
                     icon=ft.Icons.ADD, text="Novo", on_click=lambda e: self._abrir_modal())
             ], alignment=ft.MainAxisAlignment.SPACE_BETWEEN),
             ft.Divider(),
-            # Envolvemos em Column com scroll para permitir rolagem vertical
+
             ft.Column([self.tabela], scroll=ft.ScrollMode.AUTO, expand=True)
         ], expand=True)
 
@@ -153,7 +143,7 @@ class AlunosView(ft.Container):
         self.tabela.rows.clear()
         dados = self.fachada.listar_estudantes_fuzzy(termo)
         for aluno in dados:
-            # Cores com melhor contraste
+
             status_bg = ft.Colors.GREEN_900 if aluno['ativo'] else ft.Colors.RED_900
             status_fg = ft.Colors.GREEN_100 if aluno['ativo'] else ft.Colors.RED_100
 
@@ -162,11 +152,11 @@ class AlunosView(ft.Container):
                     ft.DataCell(ft.Text(str(aluno['id']))),
                     ft.DataCell(ft.Text(aluno['nome'], weight="bold")),
 
-                    # CORREÇÃO: Badge de Prontuário
+
                     ft.DataCell(ft.Container(
                         content=ft.Text(
                             aluno['prontuario'], size=12, weight="bold", color=ft.Colors.ON_PRIMARY_CONTAINER),
-                        # Usa cor do tema que adapta (azul claro ou escuro)
+
                         bgcolor=ft.Colors.PRIMARY_CONTAINER,
                         padding=ft.padding.symmetric(horizontal=8, vertical=4),
                         border_radius=6
@@ -174,7 +164,7 @@ class AlunosView(ft.Container):
 
                     ft.DataCell(ft.Text(", ".join(aluno['grupos']))),
 
-                    # CORREÇÃO: Badge de Status
+
                     ft.DataCell(ft.Container(
                         content=ft.Text(
                             "Ativo" if aluno['ativo'] else "Inativo", color=status_fg, size=11, weight="bold"),
@@ -251,7 +241,7 @@ class ReservasView(ft.Container):
             "Filtrar Data", icon=ft.Icons.CALENDAR_MONTH, on_click=lambda _: self.page.open(self.date_picker))
 
         self.tabela = ft.DataTable(
-            width=float("inf"),  # Expandir largura
+            width=float("inf"),
             heading_row_color=ft.Colors.SURFACE_CONTAINER_HIGHEST,
             columns=[
                 ft.DataColumn(ft.Text("Data")),
@@ -345,7 +335,7 @@ class ImportacaoWizard(ft.Container):
         self.fachada = fachada
         self.expand = True
         self.padding = 20
-        # O FilePicker é criado, mas só será funcional após o did_mount
+
         self.file_picker = ft.FilePicker(on_result=self._on_file_pick)
 
         self.step_content = ft.Container(expand=True)
@@ -363,17 +353,16 @@ class ImportacaoWizard(ft.Container):
         ], expand=True)
 
     def did_mount(self):
-        # Verificação de segurança para evitar erro de "Control already added"
+
         if self.file_picker not in self.page.overlay:
             self.page.overlay.append(self.file_picker)
             self.page.update()
 
-        # Carrega o primeiro passo se ainda não tiver conteúdo
         if not self.step_content.content:
             self._go_step_1()
 
     def will_unmount(self):
-        # Boa prática: Remover do overlay quando sair da tela para não duplicar
+
         if self.file_picker in self.page.overlay:
             self.page.overlay.remove(self.file_picker)
             self.page.update()
@@ -407,7 +396,6 @@ class ImportacaoWizard(ft.Container):
             self.page.open(ft.SnackBar(ft.Text("Selecione um arquivo!")))
             return
 
-        # Simulação ou chamada real
         res = self.fachada.analisar_arquivo(self.path, "auto")
         self.itens_revisao = res['itens_revisao']
 
@@ -420,7 +408,7 @@ class ImportacaoWizard(ft.Container):
                 content=ft.Row([
                     ft.Text(item['dados_csv']['nome'],
                             weight="bold", expand=True),
-                    # Ajuste de cor condicional seguro
+
                     ft.Chip(label=ft.Text(
                         item['resolucao_escolhida']), bgcolor=ft.Colors.AMBER_900)
                 ]),
@@ -466,7 +454,6 @@ class ImportacaoWizard(ft.Container):
         self.progress.value = 1.0
         self.lbl_titulo.value = "Sucesso!"
 
-        # Cria o conteúdo verticalmente
         conteudo_sucesso = ft.Column(
             [
                 ft.Icon(ft.Icons.CHECK_CIRCLE, size=100,
@@ -485,7 +472,6 @@ class ImportacaoWizard(ft.Container):
             spacing=20
         )
 
-        # Envolve em um Container centralizado que expande para ocupar a tela
         self.step_content.content = ft.Container(
             content=conteudo_sucesso,
             alignment=ft.alignment.center,
@@ -493,15 +479,11 @@ class ImportacaoWizard(ft.Container):
         )
         self.update()
 
-# ==============================================================================
-# 3. APP PRINCIPAL
-# ==============================================================================
-
 
 def main(page: ft.Page):
     page.title = "Sistema Refeitório"
     page.padding = 0
-    # Tema padrão escuro (já que o usuário está usando dark mode)
+
     page.theme_mode = ft.ThemeMode.DARK
     page.theme = ft.Theme(color_scheme_seed="blue")
 
@@ -532,12 +514,12 @@ def main(page: ft.Page):
                 icon=ft.Icons.UPLOAD, label="Importar"),
         ],
         on_change=change_nav,
-        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,  # Cor adaptativa para fundo do menu
+        bgcolor=ft.Colors.SURFACE_CONTAINER_HIGHEST,
         expand=True
     )
 
     toggle_dark = ft.IconButton(
-        icon=ft.Icons.LIGHT_MODE,  # Ícone oposto ao estado inicial
+        icon=ft.Icons.LIGHT_MODE,
         tooltip="Alternar Tema",
         on_click=lambda e: _toggle_theme(e)
     )

@@ -13,7 +13,7 @@ class ReservasView(ft.Container):
         self.expand = True
         self.padding = 20
 
-        # Filtros
+        
         self.date_picker = ft.DatePicker(on_change=self._on_date_change)
         self.btn_date = ft.ElevatedButton("Todas as datas", icon=ft.Icons.CALENDAR_MONTH, on_click=lambda _: self.page.open(self.date_picker))
         self.dd_turma = ft.Dropdown(
@@ -103,7 +103,7 @@ class ReservasView(ft.Container):
     def _abrir_modal(self, reserva=None):
         is_edit = reserva is not None
         
-        # Carrega lista de alunos apenas se for criar nova reserva
+        
         opcoes_alunos = []
         if not is_edit:
             try:

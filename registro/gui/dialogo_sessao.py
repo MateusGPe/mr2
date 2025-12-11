@@ -58,7 +58,6 @@ class DialogoSessao(tk.Toplevel):
         ] = []
         self._conjunto_opcoes_lanche: Set[str] = set()
 
-        # Referências de widgets
         self._notebook: Optional[ttk.Notebook] = None
         self._entrada_hora: Optional[ttk.Entry] = None
         self._entrada_data: Optional[ttk.DateEntry] = None
@@ -73,10 +72,6 @@ class DialogoSessao(tk.Toplevel):
         self.resizable(True, True)
         self.deiconify()
 
-    # --------------------------------------------------------------------------
-    # Criação da Interface Gráfica
-    # --------------------------------------------------------------------------
-
     def _criar_widgets(self):
         """Cria e organiza todos os widgets no diálogo."""
         main_frame = ttk.Frame(self, padding=15)
@@ -89,7 +84,8 @@ class DialogoSessao(tk.Toplevel):
         self._notebook = ttk.Notebook(main_frame, bootstyle="primary")
         self._notebook.grid(row=0, column=0, sticky=NSEW)
 
-        self._criar_aba("➕ Criar Nova Sessão", self._criar_conteudo_aba_nova_sessao)
+        self._criar_aba("➕ Criar Nova Sessão",
+                        self._criar_conteudo_aba_nova_sessao)
         self._criar_aba(
             "📝 Carregar Sessão Existente", self._criar_conteudo_aba_carregar_sessao
         )
@@ -160,7 +156,6 @@ class DialogoSessao(tk.Toplevel):
             row=1, column=0, columnspan=4, sticky=EW, pady=(0, 15)
         )
 
-        # Campos de entrada
         self._entrada_hora = self._criar_campo_detalhe(
             frame, "Horário:", 2, 0, ttk.Entry, width=10
         )
@@ -190,7 +185,6 @@ class DialogoSessao(tk.Toplevel):
             frame, "Item Servido:", 4, 0, ttk.Combobox, bootstyle="info", columnspan=3
         )
 
-        # Configuração inicial
         hora_agora = dt.datetime.now().time()
         eh_hora_almoco = dt.time(11, 0) <= hora_agora <= dt.time(13, 30)
         self._combobox_refeicao.current(1 if eh_hora_almoco else 0)
@@ -263,7 +257,8 @@ class DialogoSessao(tk.Toplevel):
                 variable=var,
                 bootstyle="primary-round-toggle",
             )
-            cb.grid(row=i // num_cols, column=i % num_cols, sticky=W, padx=10, pady=4)
+            cb.grid(row=i // num_cols, column=i %
+                    num_cols, sticky=W, padx=10, pady=4)
             dados.append((nome_turma, var, cb))
 
         return dados, container
@@ -304,10 +299,6 @@ class DialogoSessao(tk.Toplevel):
 
         return frame
 
-    # --------------------------------------------------------------------------
-    # Manipuladores de Eventos (Callbacks)
-    # --------------------------------------------------------------------------
-
     def _ao_ok(self):
         """Callback do botão 'Iniciar'. Processa a criação ou carregamento de uma sessão."""
         if self._notebook.index(self._notebook.select()) == 1:
@@ -326,7 +317,8 @@ class DialogoSessao(tk.Toplevel):
         if not self._combobox_refeicao or not self._combobox_lanche:
             return
         eh_almoco = self._combobox_refeicao.get() == "Almoço"
-        self._combobox_lanche.config(state="disabled" if eh_almoco else "normal")
+        self._combobox_lanche.config(
+            state="disabled" if eh_almoco else "normal")
         if eh_almoco:
             self._combobox_lanche.set("")
         elif NOME_LANCHE_PADRAO in self._conjunto_opcoes_lanche:
@@ -343,10 +335,6 @@ class DialogoSessao(tk.Toplevel):
 
     def _ao_inverter_turmas(self):
         self._definir_checkboxes_turmas(lambda n, v: not v.get())
-
-    # --------------------------------------------------------------------------
-    # Lógica de Processamento
-    # --------------------------------------------------------------------------
 
     def _processar_carregar_sessao(self):
         """Valida e envia o ID da sessão selecionada para a aplicação principal."""
@@ -372,7 +360,8 @@ class DialogoSessao(tk.Toplevel):
         if not self._validar_entrada_nova_sessao():
             return
 
-        turmas = [txt for txt, var, _ in self._dados_checkbox_turmas if var.get()]
+        turmas = [txt for txt, var,
+                  _ in self._dados_checkbox_turmas if var.get()]
         refeicao = self._combobox_refeicao.get().lower()
         item = self._combobox_lanche.get().strip() if refeicao == "lanche" else None
 
@@ -387,7 +376,8 @@ class DialogoSessao(tk.Toplevel):
             )
         except (ValueError, AttributeError) as e:
             logger.error("Erro ao converter data: %s", e)
-            Messagebox.show_error("Erro Interno", "Data inválida.", parent=self)
+            Messagebox.show_error(
+                "Erro Interno", "Data inválida.", parent=self)
             return
 
         dados_nova_sessao: DadosNovaSessao = {
@@ -409,7 +399,8 @@ class DialogoSessao(tk.Toplevel):
         try:
             dt.datetime.strptime(self._entrada_hora.get(), "%H:%M")
         except ValueError:
-            Messagebox.show_warning("Hora inválida. Use o formato HH:MM.", parent=self)
+            Messagebox.show_warning(
+                "Hora inválida. Use o formato HH:MM.", parent=self)
             return False
 
         if not self._entrada_data.entry.get():
@@ -417,7 +408,8 @@ class DialogoSessao(tk.Toplevel):
             return False
 
         if not any(v.get() for n, v, c in self._dados_checkbox_turmas):
-            Messagebox.show_warning("Selecione pelo menos uma turma.", parent=self)
+            Messagebox.show_warning(
+                "Selecione pelo menos uma turma.", parent=self)
             return False
 
         if (
@@ -431,10 +423,6 @@ class DialogoSessao(tk.Toplevel):
 
         return True
 
-    # --------------------------------------------------------------------------
-    # Carregamento de Dados e Sincronização
-    # --------------------------------------------------------------------------
-
     def _buscar_turmas_disponiveis(self) -> List[str]:
         """Busca a lista de turmas/grupos da camada de negócio."""
         try:
@@ -442,7 +430,8 @@ class DialogoSessao(tk.Toplevel):
             return sorted(g.get("nome", "") for g in grupos if g.get("nome"))
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao buscar turmas: %s", e)
-            Messagebox.show_error("Não foi possível buscar as turmas.", parent=self)
+            Messagebox.show_error(
+                "Não foi possível buscar as turmas.", parent=self)
             return []
 
     def _carregar_opcoes_lanche(self) -> Tuple[Set[str], List[str]]:
@@ -463,7 +452,8 @@ class DialogoSessao(tk.Toplevel):
             salvar_json(str(caminho), padrao)
             return set(padrao), padrao
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.exception("Erro ao carregar lanches de '%s': %s", caminho, e)
+            logger.exception(
+                "Erro ao carregar lanches de '%s': %s", caminho, e)
             return set(), [f"Erro ao carregar {caminho.name}"]
 
     def _carregar_sessoes_existentes(self) -> List[Tuple]:
@@ -495,7 +485,8 @@ class DialogoSessao(tk.Toplevel):
         self._conjunto_opcoes_lanche.add(normalizado)
         try:
             if salvar_json(
-                str(CAMINHO_JSON_LANCHES), sorted(list(self._conjunto_opcoes_lanche))
+                str(CAMINHO_JSON_LANCHES), sorted(
+                    list(self._conjunto_opcoes_lanche))
             ):
                 self._combobox_lanche["values"] = sorted(
                     list(self._conjunto_opcoes_lanche)
@@ -508,7 +499,8 @@ class DialogoSessao(tk.Toplevel):
 
     def _ao_sincronizar_reservas(self):
         """Inicia o processo de sincronização de reservas em uma thread."""
-        self._parente_app.mostrar_barra_progresso(True, "Sincronizando reservas...")
+        self._parente_app.mostrar_barra_progresso(
+            True, "Sincronizando reservas...")
         self.update_idletasks()
 
         thread = Thread(target=self._acao_sincronizacao, daemon=True)
@@ -537,12 +529,9 @@ class DialogoSessao(tk.Toplevel):
                 f"Falha ao sincronizar reservas:\n{erro}", parent=self
             )
         else:
-            Messagebox.show_info("Reservas sincronizadas com sucesso.", parent=self)
+            Messagebox.show_info(
+                "Reservas sincronizadas com sucesso.", parent=self)
             self._atualizar_treeview_sessoes_existentes()
-
-    # --------------------------------------------------------------------------
-    # Métodos Auxiliares
-    # --------------------------------------------------------------------------
 
     def _centralizar_janela(self):
         """Centraliza o diálogo em relação à janela principal."""
@@ -550,7 +539,8 @@ class DialogoSessao(tk.Toplevel):
         px, py = self._parente_app.winfo_x(), self._parente_app.winfo_y()
         pw, ph = self._parente_app.winfo_width(), self._parente_app.winfo_height()
         sw, sh = self.winfo_width(), self.winfo_height()
-        self.geometry(f"+{px + (pw // 2) - (sw // 2)}+{py + (ph // 2) - (sh // 2)}")
+        self.geometry(
+            f"+{px + (pw // 2) - (sw // 2)}+{py + (ph // 2) - (sh // 2)}")
 
     def _definir_checkboxes_turmas(
         self, condicao: Callable[[str, tk.BooleanVar], bool]
@@ -563,7 +553,8 @@ class DialogoSessao(tk.Toplevel):
         """Chave de ordenação para as sessões, tratando datas mal formatadas."""
         try:
             return dt.datetime.strptime(
-                sessao.get("data", "01/01/1900") + " " + sessao.get("hora", "00:00"),
+                sessao.get("data", "01/01/1900") + " " +
+                sessao.get("hora", "00:00"),
                 "%d/%m/%Y %H:%M",
             )
         except ValueError:

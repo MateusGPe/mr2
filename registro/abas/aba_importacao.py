@@ -1,5 +1,8 @@
-# gestao_refeitorio/abas/aba_importacao.py
-
+# ----------------------------------------------------------------------------
+# Arquivo: registro/abas/aba_importacao.py (Aba de Importação)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 """
 Módulo de interface gráfica para importação de dados.
 Implementa um Wizard de 4 passos: Seleção, Revisão, Preview e Confirmação.
@@ -38,7 +41,6 @@ class RowItemRevisao(ttk.Frame):
         self.item = item
         self.pack(fill=X, pady=2, padx=5)
 
-        # 1. Dados Originais (Esquerda)
         info_frame = ttk.Frame(self, bootstyle="light")
         info_frame.pack(side=LEFT, fill=X, expand=True)
 
@@ -66,15 +68,13 @@ class RowItemRevisao(ttk.Frame):
         )
         lbl_detalhe.pack(anchor=W)
 
-        # 2. Controles de Ação (Direita)
         ctrl_frame = ttk.Frame(self, bootstyle="light")
         ctrl_frame.pack(side=RIGHT, padx=(0, 5))
 
-        # Combobox de Candidatos (Só aparece se houver candidatos)
         self.cbo_candidatos = ttk.Combobox(
             ctrl_frame, state="readonly", width=30, bootstyle="info"
         )
-        self.mapa_candidatos = {}  # Mapa "Texto Combobox -> ID Banco"
+        self.mapa_candidatos = {}
 
         if item["candidatos"]:
             opcoes = []
@@ -84,7 +84,7 @@ class RowItemRevisao(ttk.Frame):
                 self.mapa_candidatos[texto] = cand["id"]
 
             self.cbo_candidatos["values"] = opcoes
-            # Seleciona o primeiro (melhor match) por padrão
+
             if opcoes:
                 self.cbo_candidatos.current(0)
 
@@ -93,7 +93,6 @@ class RowItemRevisao(ttk.Frame):
                 "<<ComboboxSelected>>", self._ao_selecionar_candidato
             )
 
-        # Combobox de Ação
         self.var_acao = tk.StringVar(value=item["resolucao_escolhida"])
         cbo_acao = ttk.Combobox(
             ctrl_frame,
@@ -106,7 +105,6 @@ class RowItemRevisao(ttk.Frame):
         cbo_acao.pack(side=LEFT, padx=5)
         cbo_acao.bind("<<ComboboxSelected>>", self._ao_mudar_acao)
 
-        # Estado inicial visual
         self._atualizar_estado_visual()
 
     def _ao_mudar_acao(self, _event):
@@ -127,7 +125,7 @@ class RowItemRevisao(ttk.Frame):
         self.lbl_dados.configure(foreground=self._clr_acao.get(acao, "black"))
         if acao == "VINCULAR" and self.mapa_candidatos:
             self.cbo_candidatos.configure(state="readonly")
-            # Garante que o ID está setado com o valor atual do combo
+
             self._ao_selecionar_candidato(None)
         else:
             self.cbo_candidatos.configure(state="disabled")
@@ -151,18 +149,15 @@ class AbaImportacao(ttk.Frame):
         self.fachada_nucleo = fachada_nucleo
         self.fachada_importacao = fachada_importacao
 
-        # Estado da Sessão
         self.itens_revisao: List[ItemRevisao] = []
         self.resumo_analise: Optional[ResumoImportacao] = None
         self.preview_dados: Dict[str, List[Dict]] = {}
 
-        # Widgets Variáveis
         self.file_path_var: tk.StringVar
         self.import_type_var: tk.StringVar
         self.default_prato_var: tk.StringVar = tk.StringVar(value="Almoço")
         self.entry_data_default: DateEntry
 
-        # Componentes UI
         self.wizard_container: ttk.Frame
         self.step1_frame: ttk.Frame
         self.step2_frame: ttk.Frame
@@ -181,16 +176,14 @@ class AbaImportacao(ttk.Frame):
     def _criar_layout_principal(self):
         """Configura o Grid principal da aba."""
         self.columnconfigure(0, weight=1)
-        self.rowconfigure(0, weight=1)  # Wizard Area
-        self.rowconfigure(2, weight=0)  # Export Area
+        self.rowconfigure(0, weight=1)
+        self.rowconfigure(2, weight=0)
 
-        # Área do Wizard (Passos 1, 2, 3, 4)
         self.wizard_container = ttk.Frame(self, padding=(10, 10, 10, 0))
         self.wizard_container.grid(row=0, column=0, sticky=NSEW)
         self.wizard_container.columnconfigure(0, weight=1)
         self.wizard_container.rowconfigure(1, weight=1)
 
-        # Título dinâmico do passo
         self.lbl_titulo = ttk.Label(
             self.wizard_container,
             text="📥 Importação - Passo 1",
@@ -199,19 +192,15 @@ class AbaImportacao(ttk.Frame):
         )
         self.lbl_titulo.grid(row=0, column=0, sticky=W, pady=(0, 15))
 
-        # Inicializa os Frames dos Passos (mas não mostra ainda)
         self.step1_frame = self._criar_passo_1(self.wizard_container)
         self.step2_frame = self._criar_passo_2(self.wizard_container)
         self.step3_frame = self._criar_passo_3_preview(self.wizard_container)
         self.step4_frame = self._criar_passo_4_sucesso(self.wizard_container)
 
-        # Inicia no Passo 1
         self.step1_frame.grid(row=1, column=0, sticky=NSEW)
 
-        # Separator
         ttk.Separator(self).grid(row=1, column=0, sticky=EW, pady=10)
 
-        # Área de Exportação (Rodapé)
         export_frame = self._criar_painel_exportacao(self)
         export_frame.grid(row=2, column=0, sticky=NSEW, padx=10, pady=(0, 10))
 
@@ -221,11 +210,9 @@ class AbaImportacao(ttk.Frame):
         para_frame.grid(row=1, column=0, sticky=NSEW)
         self.lbl_titulo.config(text=titulo)
 
-    # --- PASSO 1: SELEÇÃO ---
     def _criar_passo_1(self, parent):
         frame = ttk.Frame(parent)
 
-        # Opções de Estratégia
         lbl = ttk.Label(frame, text="1. Configuração da Fonte",
                         font="-weight bold")
         lbl.pack(anchor=W, pady=(0, 10))
@@ -235,7 +222,6 @@ class AbaImportacao(ttk.Frame):
 
         self.import_type_var = tk.StringVar(value="auto")
 
-        # Seleção de Arquivo
         file_frame = ttk.Labelframe(frame, text="Arquivo/ID", padding=10)
         file_frame.pack(fill=X, pady=10)
 
@@ -254,7 +240,6 @@ class AbaImportacao(ttk.Frame):
             entry_path.configure(state="readonly" if ativo else "normal")
             search_btn.configure(state="normal" if ativo else "disabled")
 
-        # Botão Avançar
         RoundedButton(
             frame,
             text="Analisar Dados >",
@@ -327,13 +312,11 @@ class AbaImportacao(ttk.Frame):
             traceback.print_exc()
             Messagebox.show_error(f"Erro na análise: {e}")
 
-    # --- PASSO 2: REVISÃO ---
     def _criar_passo_2(self, parent):
         frame = ttk.Frame(parent)
         frame.columnconfigure(0, weight=1)
-        frame.rowconfigure(2, weight=1)  # Lista cresce
+        frame.rowconfigure(2, weight=1)
 
-        # Cabeçalho Resumo
         self.lbl_resumo_topo = ttk.Label(frame, text="", bootstyle="info")
         self.lbl_resumo_topo.grid(row=0, column=0, sticky=EW, pady=(0, 10))
 
@@ -357,7 +340,6 @@ class AbaImportacao(ttk.Frame):
             width=15,
         ).pack(side=LEFT, padx=5)
 
-        # Lista de Revisão
         list_container = ttk.Labelframe(
             frame, text="Revisão de Conflitos", padding=0)
         list_container.grid(row=2, column=0, sticky=NSEW)
@@ -365,7 +347,6 @@ class AbaImportacao(ttk.Frame):
         self.lista_revisao_frame = ScrolledFrame(list_container, autohide=True)
         self.lista_revisao_frame.pack(fill=BOTH, expand=True)
 
-        # Botões Ação
         btn_frame = ttk.Frame(frame, padding=(0, 10))
         btn_frame.grid(row=3, column=0, sticky=EW)
 
@@ -450,7 +431,6 @@ class AbaImportacao(ttk.Frame):
             self.tree_novos.construir_dados_tabela(dados_novos)
             self.tree_reservas.construir_dados_tabela(dados_res)
 
-            # Atualiza botão
             total_ops = len(novos) + len(reservas)
             self.btn_confirmar_final.configure(
                 text=f"CONFIRMAR E SALVAR ({total_ops} operações)"
@@ -466,7 +446,6 @@ class AbaImportacao(ttk.Frame):
             traceback.print_exc()
             Messagebox.show_error(f"Erro ao gerar preview: {e}")
 
-    # --- PASSO 3: PREVIEW ---
     def _criar_passo_3_preview(self, parent):
         frame = ttk.Frame(parent)
         frame.columnconfigure((0, 1), weight=1)
@@ -478,7 +457,6 @@ class AbaImportacao(ttk.Frame):
             font="-size 11",
         ).grid(row=0, column=0, columnspan=2, sticky=W, pady=(0, 10))
 
-        # Tabela 1: Novos Alunos
         fr_novos = ttk.Labelframe(
             frame, text="🆕 Novos Estudantes a Cadastrar", padding=5
         )
@@ -494,7 +472,6 @@ class AbaImportacao(ttk.Frame):
         )
         self.tree_novos.pack(fill=BOTH, expand=True)
 
-        # Tabela 2: Reservas
         fr_res = ttk.Labelframe(frame, text="📅 Reservas a Gerar", padding=5)
         fr_res.grid(row=1, column=1, sticky=NSEW, padx=(5, 0))
 
@@ -510,7 +487,6 @@ class AbaImportacao(ttk.Frame):
         )
         self.tree_reservas.pack(fill=BOTH, expand=True)
 
-        # Botões
         btn_frame = ttk.Frame(frame, padding=(0, 10))
         btn_frame.grid(row=2, column=0, columnspan=2, sticky=EW)
 
@@ -559,20 +535,15 @@ class AbaImportacao(ttk.Frame):
             traceback.print_exc()
             Messagebox.show_error(f"Erro fatal ao salvar: {e}")
 
-    # --- PASSO 4: SUCESSO ---
     def _criar_passo_4_sucesso(self, parent):
         frame = ttk.Frame(parent)
-        # REMOVIDO: frame.place(...) - Isso causava a sobreposição imediata
-
-        # Criamos um container interno para centralizar o conteúdo dentro do frame
-        # O 'frame' será gerenciado pelo grid do wizard, e este 'container' ficará no meio dele
 
         self.lbl_msg_sucesso = ttk.Label(
             frame, text="", font="-size 12", justify=LEFT)
         self.lbl_msg_sucesso.pack(pady=20)
 
         RoundedButton(
-            frame,  # Note que o pai agora é o container, não o frame
+            frame,
             text="Realizar Nova Importação",
             bootstyle="primary",
             command=self._resetar_tudo,
@@ -590,12 +561,10 @@ class AbaImportacao(ttk.Frame):
 
     def _resetar_tudo(self):
         self.file_path_var.set("")
-        # Reseta e volta para o início, garantindo que o layout de grid seja restaurado
-        # self.step4_frame.place_forget()
+
         self._navegar(self.step4_frame, self.step1_frame,
                       "📥 Importação - Passo 1")
 
-    # --- EXPORTAÇÃO ---
     def _criar_painel_exportacao(self, parent):
         container = ttk.Frame(parent, padding=10, bootstyle="light")
         container.columnconfigure((0, 1, 2), weight=1)
@@ -651,13 +620,13 @@ class AbaImportacao(ttk.Frame):
                 if tipo == "alunos":
                     dados = self.fachada_nucleo.listar_todos_os_estudantes()
                 else:
-                    # Reservas
+
                     dados = self.fachada_nucleo.listar_reservas()
                 keys = dados[0].keys() if dados else []
                 with open(filepath, "w", newline="", encoding="utf-8") as f:
                     writer = csv.DictWriter(f, fieldnames=keys)
                     writer.writeheader()
-                    # Normaliza listas (grupos) para string no CSV
+
                     for d in dados:
                         if "grupos" in d and isinstance(d["grupos"], list):
                             d["grupos"] = ", ".join(d["grupos"])

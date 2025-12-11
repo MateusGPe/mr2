@@ -1,4 +1,8 @@
-# --- Arquivo: registro/nucleo/service_logic.py ---
+# ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/service_logic.py (Módulo de Serviços)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Módulo de serviço funcional que encapsula toda a lógica de negócio
@@ -126,30 +130,30 @@ def obter_estudantes_para_sessao(
     db_session = repo_estudante.obter_sessao()
     EstudanteGrupo = models.associacao_estudante_grupo
 
-    # --- PASSO 1: Buscar IDs de todos os estudantes potencialmente elegíveis. ---
-    # Isso reduz drasticamente o número de estudantes a serem processados em Python.
+    
+    
     ids_grupos_sessao = {g.id for g in sessao.grupos}
     ids_excecao_grupos = {g.id for g in repo_grupo.por_nomes(excessao_grupos or set())}
 
-    # Estudantes em grupos da sessão
+    
     q1 = select(EstudanteGrupo.c.estudante_id).where(
         EstudanteGrupo.c.grupo_id.in_(ids_grupos_sessao)
     )
-    # Estudantes em grupos de exceção
+    
     q2 = select(EstudanteGrupo.c.estudante_id).where(
         EstudanteGrupo.c.grupo_id.in_(ids_excecao_grupos)
     )
-    # Estudantes com reserva no dia
+    
     q3 = select(Reserva.estudante_id).where(
         Reserva.data == sessao.data, Reserva.cancelada.is_(False)
     )
 
-    # Une todos os IDs, sem duplicatas
+    
     query_ids_elegiveis = union(q1, q2, q3).subquery()
 
-    # Se um filtro de consumo for aplicado, ajusta a busca
+    
     if consumido is True:
-        # Busca apenas IDs de estudantes que consumiram na sessão
+        
         consumos_na_sessao = (
             select(Consumo.estudante_id)
             .where(Consumo.sessao_id == id_sessao)
@@ -159,7 +163,7 @@ def obter_estudantes_para_sessao(
             consumos_na_sessao, Estudante.id == consumos_na_sessao.c.estudante_id
         )
     else:
-        # Busca por estudantes ativos e potencialmente elegíveis
+        
         stmt = (
             select(Estudante.id)
             .join(
@@ -173,14 +177,14 @@ def obter_estudantes_para_sessao(
     if not ids_para_buscar:
         return []
 
-    # --- PASSO 2: Carregar os objetos completos apenas para os estudantes elegíveis. ---
-    # O 'selectinload' carrega os grupos de forma eficiente (1 consulta extra, não N).
+    
+    
     opcoes_carregamento = [selectinload(Estudante.grupos)]
     estudantes = repo_estudante.ler_filtrado(
         opcoes_carregamento=opcoes_carregamento, id=Estudante.id.in_(ids_para_buscar)
     )
 
-    # Carrega os outros dados necessários de uma só vez
+    
     mapa_consumos_por_estudante = {
         c.estudante_id: c for c in repo_consumo.ler_filtrado(sessao_id=id_sessao)
     }
@@ -189,7 +193,7 @@ def obter_estudantes_para_sessao(
         for r in repo_reserva.ler_filtrado(data=sessao.data, cancelada=False)
     }
 
-    # --- PASSO 3: Rodar a lógica original em Python sobre o conjunto de dados reduzido. ---
+    
     detalhes_estudantes = []
     for est in estudantes:
         autorizado = False
@@ -424,7 +428,7 @@ def exportar_todos_os_consumos_para_xlsx(
         selectinload(Consumo.sessao),
         selectinload(Consumo.estudante).selectinload(Estudante.grupos),
     ]
-    # Usando a sessão do repositório para fazer uma query ordenada
+    
     db_session = repo_consumo.obter_sessao()
     consumos = (
         db_session.query(Consumo).options(*opcoes).order_by(Consumo.id.desc()).all()

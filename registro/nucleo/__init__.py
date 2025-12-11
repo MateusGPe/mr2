@@ -1,4 +1,9 @@
-# --- Arquivo: registro/nucleo/__init__.py ---
+# ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/__init__.py (Módulo Principal)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 
 """
 Pacote principal da lógica de negócio para o sistema de registro de refeições.

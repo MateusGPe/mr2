@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+# Arquivo: registro/importar/strategies.py (Estratégias de Carregamento)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 """
 Estratégias para carregar dados de diferentes fontes (CSV, TXT, Google Sheets).
 """
@@ -73,7 +79,6 @@ class CarregarCSVPosicional(EstrategiaCarregamento):
             if not linhas_csv:
                 return []
 
-            # Transposição para análise vertical (zip(*matriz))
             colunas = list(zip(*linhas_csv))
             mapa_colunas: Dict[int, str] = {}
 
@@ -141,7 +146,6 @@ class CarregarGoogleSheets(EstrategiaCarregamento):
             cabecalho = [str(h).strip().lower() for h in valores[0]]
             dados = []
 
-            # Garante alinhamento entre cabeçalho e colunas
             for linha in valores[1:]:
                 linha_ajustada = linha + [""] * (len(cabecalho) - len(linha))
                 linha_dict = dict(zip(cabecalho, linha_ajustada))

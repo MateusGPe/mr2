@@ -14,7 +14,6 @@ import re
 from pathlib import Path
 from typing import Dict, List, Literal, Optional, Set, TypedDict
 
-# --- Caminhos de Diretórios e Arquivos ---
 DIRETORIO_APP: Path = Path(".")
 DIRETORIO_CONFIG: Path = DIRETORIO_APP / "config"
 DIRETORIO_LOG: Path = DIRETORIO_APP / "logs"
@@ -29,7 +28,6 @@ CAMINHO_CSV_RESERVAS: Path = DIRETORIO_CONFIG / "reserves.csv"
 
 URL_BANCO_DADOS: str = f"sqlite:///{DIRETORIO_CONFIG.resolve()}/registro.db"
 
-# --- Configurações da API Google ---
 ESCOPOS: List[str] = [
     "https://www.googleapis.com/auth/spreadsheets",
     "https://www.googleapis.com/auth/drive",
@@ -37,7 +35,6 @@ ESCOPOS: List[str] = [
 NOME_ABA_RESERVAS: str = "DB"
 NOME_ABA_ESTUDANTES: str = "Discentes"
 
-# --- Mapeamentos e Transformações de Dados ---
 EXCECOES_CAPITALIZACAO: Set[str] = {
     "a",
     "o",
@@ -80,7 +77,6 @@ MAPA_OFUSCAMENTO_PRONTUARIO: Dict[int, int] = str.maketrans(
 
 REGEX_LIMPEZA_PRONTUARIO: re.Pattern[str] = re.compile(r"^[Ii][Qq]30+")
 
-# --- Valores Padrão e Listas de Negócio ---
 TURMAS_INTEGRADO: List[str] = [
     "1º A - MAC",
     "1º A - MEC",
@@ -102,7 +98,6 @@ CABECALHO_EXPORTACAO: List[str] = [
     "Hora",
 ]
 
-# --- Tipagem de Dados ---
 DadosNovaSessao = TypedDict(
     "DadosNovaSessao",
     {
@@ -116,6 +111,5 @@ DadosNovaSessao = TypedDict(
 )
 SESSAO = DadosNovaSessao
 
-# --- Constantes para API do Windows (obter pasta Documentos) ---
 CSIDL_PERSONAL: int = 5
 SHGFP_TYPE_CURRENT: int = 0
