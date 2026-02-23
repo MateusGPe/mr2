@@ -21,7 +21,13 @@ pytest-mock = "^3.15.1"
 customtkinter = "^5.2.2"
 regex = "^2025.11.3"
 flet = "^0.28.3"
+opencv-python = "^4.13.0.92"
+pyzbar = "^0.1.9"
+pyinstaller = "^6.19.0"
 
+
+[tool.poetry.group.dev.dependencies]
+qrcode = "^8.2"
 
 [build-system]
 requires = ["poetry-core"]

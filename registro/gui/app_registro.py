@@ -21,6 +21,7 @@ from ttkbootstrap.localization.msgcat import MessageCatalog
 from registro.gui.constants import CAMINHO_SESSAO, DadosNovaSessao
 from registro.gui.dialogo_filtro_turmas import DialogoFiltroTurmas
 from registro.gui.dialogo_sessao import DialogoSessao
+from registro.gui.janela_self_service import JanelaSelfService
 from registro.gui.painel_acao_busca import PainelAcaoBusca
 from registro.gui.painel_status_registrados import PainelStatusRegistrados
 from registro.gui.utils import capitalizar
@@ -129,6 +130,7 @@ class AppRegistro(tk.Tk):
         frame_botoes.pack(side=RIGHT, anchor="e")
 
         botoes = [
+            ("📷", self._abrir_janela_self_service),
             ("⚙️", self._abrir_dialogo_sessao),
             ("📊", self._abrir_dialogo_filtro_turmas),
         ]
@@ -423,6 +425,50 @@ class AppRegistro(tk.Tk):
                 f"Não foi possível aplicar os filtros.\nErro: {e}",
                 parent=self,
             )
+
+    def _abrir_janela_self_service(self):
+        """Abre a janela de autoatendimento com webcam."""
+        if not self._fachada or self._fachada.id_sessao_ativa is None:
+            Messagebox.show_warning(
+                "Nenhuma Sessão Ativa", "É necessário iniciar uma sessão.", parent=self
+            )
+            return
+
+        logger.info("Abrindo janela de autoatendimento.")
+        JanelaSelfService(self, self._processar_registro_qrcode)
+
+    def _processar_registro_qrcode(
+        self, codigo: str
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        """Callback para processar o registro vindo da janela de autoatendimento."""
+        if not self._fachada:
+            return False, "Erro interno: Fachada não disponível", {}
+
+        try:
+            # Limpeza básica do código
+            codigo_limpo = codigo.strip()
+
+            resultado = self._fachada.registrar_consumo(
+                codigo_limpo, pular_grupos=True
+            )
+
+            # Notificar UI principal
+            tupla_estudante = (
+                str(resultado.get("prontuario", codigo_limpo)),
+                str(resultado.get("nome", "Desconhecido")),
+                str(resultado.get("turma", "")),
+                str(resultado.get("hora_consumo", "")),
+                str(resultado.get("prato", "")),
+            )
+            self.notificar_sucesso_registro(tupla_estudante)
+
+            return True, "Sucesso", resultado
+
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            msg_erro = str(e)
+            if "já consumiu" in msg_erro.lower():
+                return False, "Aluno já registrou consumo nesta sessão.", {}
+            return False, msg_erro, {}
 
     def mostrar_barra_progresso(self, iniciar: bool, texto: Optional[str] = None):
         """Controla a visibilidade e o estado da barra de progresso."""
