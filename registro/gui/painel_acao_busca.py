@@ -383,31 +383,39 @@ class PainelAcaoBusca(ttk.Frame):
             resultado = self._fachada.registrar_consumo(pront, pular_grupos=True)
             logger.info("Resultado do registro para %s: %s", pront, resultado)
 
-            tupla_estudante = (
-                str(resultado.get("prontuario", pront)),
-                str(resultado.get("nome", nome)),
-                str(resultado.get("turma", "")),
-                str(resultado.get("hora_consumo", datetime.now().strftime("%H:%M:%S"))),
-                str(resultado.get("prato", "")),
-            )
-            self._app.notificar_sucesso_registro(tupla_estudante)
-            self.limpar_busca()
+            if resultado.get("autorizado"):
+                tupla_estudante = (
+                    str(resultado.get("prontuario", pront)),
+                    str(resultado.get("nome", nome)),
+                    str(resultado.get("turma", "")),
+                    str(resultado.get("hora_consumo", datetime.now().strftime("%H:%M:%S"))),
+                    str(resultado.get("prato", "")),
+                )
+                self._app.notificar_sucesso_registro(tupla_estudante)
+                self.limpar_busca()
+            else:
+                motivo = resultado.get("motivo", "Erro desconhecido")
+                if "já consumiu" in motivo.lower():
+                    Messagebox.show_warning(
+                        "Já Registrado",
+                        f"{nome} ({pront})\n{motivo}",
+                        parent=self._app,
+                    )
+                    self.limpar_busca()
+                else:
+                    Messagebox.show_error(
+                        "Erro no Registro",
+                        f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nMotivo: {motivo}",
+                        parent=self._app,
+                    )
 
         except Exception as e: # pylint: disable=broad-exception-caught
             logger.warning("Falha ao registrar %s: %s", pront, e)
-            if "já consumiu" in str(e).lower():
-                Messagebox.show_warning(
-                    "Já Registrado",
-                    f"{nome} ({pront})\nJá consta como registrado nesta sessão.",
-                    parent=self._app,
-                )
-                self.limpar_busca()
-            else:
-                Messagebox.show_error(
-                    "Erro no Registro",
-                    f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nErro: {e}",
-                    parent=self._app,
-                )
+            Messagebox.show_error(
+                "Erro no Registro",
+                f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nErro: {e}",
+                parent=self._app,
+            )
         finally:
             self._dados_elegivel_selecionado = None
             self._atualizar_label_preview()

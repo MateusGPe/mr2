@@ -282,16 +282,25 @@ def registrar_consumo(
     if not estudantes:
         return {"autorizado": False, "motivo": "Estudante não encontrado."}
     estudante = estudantes[0]
+    turma = ", ".join(sorted(g.nome for g in estudante.grupos)) if estudante.grupos else "N/A"
 
     consumo_existente = repo_consumo.ler_filtrado(
         estudante_id=estudante.id, sessao_id=id_sessao
     )
     if consumo_existente:
-        return {"autorizado": False, "motivo": "Consumo já registrado."}
+        return {
+            "autorizado": False,
+            "motivo": "Consumo já registrado.",
+            "nome": estudante.nome,
+            "aluno": estudante.nome,
+            "prontuario": estudante.prontuario,
+            "turma": turma,
+        }
 
     id_reserva = None
     autorizado = False
     motivo = "Acesso Negado"
+    prato = "Sem Reserva"
 
     if sessao.refeicao == "almoço":
         reservas = repo_reserva.ler_filtrado(
@@ -301,9 +310,11 @@ def registrar_consumo(
             autorizado = True
             id_reserva = reservas[0].id
             motivo = "Autorizado com reserva."
+            prato = reservas[0].prato or "Padrão"
         elif pular_grupos:
             autorizado = True
             motivo = "Autorizado por ignorar grupos."
+            prato = "Sem Reserva (Forçado)"
         else:
             ids_excecao_grupos = {
                 g.id for g in sessao.grupos if g.nome in (excecao_grupos or set())
@@ -312,24 +323,37 @@ def registrar_consumo(
             if ids_excecao_grupos.intersection(ids_grupos_estudante):
                 autorizado = True
                 motivo = "Autorizado por exceção (grupo)."
+                prato = "Sem Reserva (Grupo)"
     else:
+        prato = sessao.item_servido or "Lanche"
         ids_grupos_sessao = {g.id for g in sessao.grupos}
         ids_grupos_estudante = {g.id for g in estudante.grupos}
         if ids_grupos_sessao.intersection(ids_grupos_estudante):
             autorizado = True
             motivo = "Autorizado para lanche (grupo)."
 
+    hora_consumo = ""
     if autorizado:
+        hora_consumo = datetime.now().strftime("%H:%M:%S")
         payload = {
             "estudante_id": estudante.id,
             "sessao_id": sessao.id,
-            "hora_consumo": datetime.now().strftime("%H:%M:%S"),
+            "hora_consumo": hora_consumo,
             "reserva_id": id_reserva,
         }
         repo_consumo.criar(payload)
         repo_consumo.obter_sessao().commit()
 
-    return {"autorizado": autorizado, "motivo": motivo, "aluno": estudante.nome}
+    return {
+        "autorizado": autorizado,
+        "motivo": motivo,
+        "aluno": estudante.nome,
+        "nome": estudante.nome,
+        "prontuario": estudante.prontuario,
+        "turma": turma,
+        "prato": prato,
+        "hora_consumo": hora_consumo,
+    }
 
 
 def desfazer_consumo(repo_consumo: RepositorioConsumo, id_consumo: int):

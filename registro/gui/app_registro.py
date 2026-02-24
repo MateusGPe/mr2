@@ -447,28 +447,38 @@ class AppRegistro(tk.Tk):
         try:
             # Limpeza básica do código
             codigo_limpo = codigo.strip()
-
             resultado = self._fachada.registrar_consumo(
                 codigo_limpo, pular_grupos=True
             )
 
-            # Notificar UI principal
-            tupla_estudante = (
-                str(resultado.get("prontuario", codigo_limpo)),
-                str(resultado.get("nome", "Desconhecido")),
-                str(resultado.get("turma", "")),
-                str(resultado.get("hora_consumo", "")),
-                str(resultado.get("prato", "")),
-            )
-            self.notificar_sucesso_registro(tupla_estudante)
+            if resultado.get("autorizado"):
+                # Notificar UI principal
+                tupla_estudante = (
+                    str(resultado.get("prontuario", codigo_limpo)),
+                    str(resultado.get("nome", "Desconhecido")),
+                    str(resultado.get("turma", "")),
+                    str(resultado.get("hora_consumo", "")),
+                    str(resultado.get("prato", "")),
+                )
+                self.notificar_sucesso_registro(tupla_estudante)
+                self._atualizar_ui_apos_mudanca_dados()
+                return True, "Sucesso", resultado
 
-            return True, "Sucesso", resultado
+            # Falha Lógica (Negado, Já consumiu, Não encontrado)
+            motivo = resultado.get("motivo", "Não autorizado")
+            dados_erro = resultado.copy()
+            if "nome" not in dados_erro:
+                dados_erro["nome"] = codigo_limpo
+            if "turma" not in dados_erro:
+                dados_erro["turma"] = "Não Encontrado" if "não encontrado" in motivo.lower() else "Acesso Negado"
+
+            return False, motivo, dados_erro
 
         except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.exception("Erro ao processar QR Code: %s", e)
             msg_erro = str(e)
-            if "já consumiu" in msg_erro.lower():
-                return False, "Aluno já registrou consumo nesta sessão.", {}
-            return False, msg_erro, {}
+            dados_erro = {"nome": codigo.strip(), "turma": "Erro de Sistema"}
+            return False, msg_erro, dados_erro
 
     def mostrar_barra_progresso(self, iniciar: bool, texto: Optional[str] = None):
         """Controla a visibilidade e o estado da barra de progresso."""

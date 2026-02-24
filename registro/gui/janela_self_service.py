@@ -10,7 +10,7 @@ from typing import Any, Callable, Dict, Optional, Tuple
 
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
-from ttkbootstrap.constants import CENTER, NSEW, W, X
+from ttkbootstrap.constants import CENTER, LEFT, NSEW, RIGHT, X
 
 logger = logging.getLogger(__name__)
 
@@ -26,15 +26,15 @@ try:
         import pyzbar
         # Adiciona o diretório do pacote (onde estão as DLLs) à busca
         # Atribuímos a uma variável para evitar que o Garbage Collector remova o caminho
-        _pyzbar_dll_path = os.add_dll_directory(os.path.dirname(pyzbar.__file__))
+        _pyzbar_dll_path = os.add_dll_directory(
+            os.path.dirname(pyzbar.__file__))
 
-    from pyzbar.pyzbar import decode
+    from pyzbar.pyzbar import decode, ZBarSymbol
 
     OPENCV_DISPONIVEL = True
 except (ImportError, OSError) as e:
     logger.warning("Bibliotecas de câmera não disponíveis: %s", e)
     OPENCV_DISPONIVEL = False
-
 
 
 class JanelaSelfService(tk.Toplevel):
@@ -57,11 +57,20 @@ class JanelaSelfService(tk.Toplevel):
         self._running = False
         self._cooldown_frames = 0
 
+        # Cores e Estilos (Design Moderno e Feedback Visual)
+        self.COR_FUNDO_PADRAO = "#111827"  # Gray 900
+        self.COR_FUNDO_SUCESSO = "#065F46" # Emerald 800
+        self.COR_FUNDO_ERRO = "#991B1B"    # Red 800
+        self.COR_TEXTO = "#FFFFFF"         # White
+
         self._lbl_video: Optional[ttk.Label] = None
-        self._lbl_status: Optional[ttk.Label] = None
-        self._lbl_nome: Optional[ttk.Label] = None
-        self._lbl_turma: Optional[ttk.Label] = None
-        self._lbl_mensagem: Optional[ttk.Label] = None
+        self._lbl_status: Optional[tk.Label] = None
+        self._lbl_nome: Optional[tk.Label] = None
+        self._lbl_turma: Optional[tk.Label] = None
+        self._lbl_mensagem: Optional[tk.Label] = None
+        self._entrada_manual: Optional[ttk.Entry] = None
+        self._var_entrada_manual = tk.StringVar()
+        self._frame_info: Optional[tk.Frame] = None
 
         self._criar_interface()
 
@@ -74,12 +83,12 @@ class JanelaSelfService(tk.Toplevel):
 
     def _criar_interface(self):
         """Cria os widgets da interface."""
-        self.columnconfigure(0, weight=3)
-        self.columnconfigure(1, weight=2)
+        self.columnconfigure(0, weight=2)
+        self.columnconfigure(1, weight=1)
         self.rowconfigure(0, weight=1)
 
         # Frame da Câmera (Esquerda)
-        frame_cam = ttk.Frame(self, padding=10)
+        frame_cam = ttk.Frame(self, padding=10, bootstyle="dark")
         frame_cam.grid(row=0, column=0, sticky=NSEW)
         frame_cam.rowconfigure(0, weight=1)
         frame_cam.columnconfigure(0, weight=1)
@@ -88,69 +97,100 @@ class JanelaSelfService(tk.Toplevel):
             frame_cam,
             text="Inicializando Câmera...",
             anchor=CENTER,
-            bootstyle="dark",
+            bootstyle="inverse-dark",
         )
-        self._lbl_video.grid(row=0, column=0, sticky=NSEW)
+        self._lbl_video.grid(row=0, column=0, sticky=NSEW, padx=2, pady=2)
 
         # Frame de Informações (Direita)
-        frame_info = ttk.Frame(self, padding=20, bootstyle="light")
-        frame_info.grid(row=0, column=1, sticky=NSEW)
-        frame_info.columnconfigure(0, weight=1)
+        self._frame_info = tk.Frame(self, bg=self.COR_FUNDO_PADRAO)
+        self._frame_info.grid(row=0, column=1, sticky=NSEW)
+        self._frame_info.pack_propagate(False)
 
-        ttk.Label(
-            frame_info,
+        # Header
+        tk.Label(
+            self._frame_info,
             text="Autoatendimento",
             font=("Segoe UI", 24, "bold"),
-            bootstyle="inverse-light",
-            anchor=CENTER,
-        ).pack(fill=X, pady=(0, 20))
+            bg=self.COR_FUNDO_PADRAO,
+            fg=self.COR_TEXTO,
+            anchor="center",
+        ).pack(fill=X, pady=(0, 10))
 
-        ttk.Separator(frame_info, bootstyle="secondary").pack(fill=X, pady=10)
+        # Separador visual
+        tk.Frame(self._frame_info, height=2, bg="#374151").pack(fill=X, pady=(0, 20))
 
-        self._lbl_status = ttk.Label(
-            frame_info,
-            text="Aguardando Leitura...",
-            font=("Segoe UI", 16),
-            bootstyle="info-inverse",
-            anchor=CENTER,
-            padding=10,
+        # Status
+        self._lbl_status = tk.Label(
+            self._frame_info,
+            text="Aguardando...",
+            font=("Segoe UI", 22, "bold"),
+            bg=self.COR_FUNDO_PADRAO,
+            fg=self.COR_TEXTO,
+            anchor="center",
         )
-        self._lbl_status.pack(fill=X, pady=20)
+        self._lbl_status.pack(fill=X, pady=(10, 20))
 
-        ttk.Label(
-            frame_info,
-            text="Último Registro:",
-            font=("Segoe UI", 12),
-            bootstyle="inverse-light",
-        ).pack(anchor=W, pady=(20, 5))
-
-        self._lbl_nome = ttk.Label(
-            frame_info,
+        # Nome do Aluno
+        self._lbl_nome = tk.Label(
+            self._frame_info,
             text="--",
-            font=("Segoe UI", 18, "bold"),
-            bootstyle="inverse-light",
-            wraplength=300,
-            justify=CENTER,
+            font=("Segoe UI", 26, "bold"),
+            bg=self.COR_FUNDO_PADRAO,
+            fg=self.COR_TEXTO,
+            wraplength=280,
+            justify="center",
+            anchor="center",
         )
         self._lbl_nome.pack(fill=X, pady=5)
 
-        self._lbl_turma = ttk.Label(
-            frame_info,
+        # Turma
+        self._lbl_turma = tk.Label(
+            self._frame_info,
             text="--",
-            font=("Segoe UI", 14),
-            bootstyle="secondary-inverse",
+            font=("Segoe UI", 18),
+            bg=self.COR_FUNDO_PADRAO,
+            fg=self.COR_TEXTO,
+            anchor="center",
         )
         self._lbl_turma.pack(pady=5)
 
-        self._lbl_mensagem = ttk.Label(
-            frame_info,
+        # Mensagem de Erro/Detalhe
+        self._lbl_mensagem = tk.Label(
+            self._frame_info,
             text="",
-            font=("Segoe UI", 12),
-            bootstyle="danger",
-            wraplength=300,
-            justify=CENTER,
+            font=("Segoe UI", 14, "bold"),
+            bg=self.COR_FUNDO_PADRAO,
+            fg=self.COR_TEXTO,
+            wraplength=280,
+            justify="center",
+            anchor="center",
         )
-        self._lbl_mensagem.pack(fill=X, pady=20)
+        self._lbl_mensagem.pack(fill=X, pady=(20, 0))
+
+        # Área de Entrada Manual
+        frame_manual = tk.LabelFrame(
+            self._frame_info,
+            text="Digitar Código / Scanner USB",
+            bg=self.COR_FUNDO_PADRAO,
+            fg=self.COR_TEXTO,
+            font=("Segoe UI", 10),
+            padx=10, pady=10,
+            relief="flat",
+            bd=1
+        )
+        frame_manual.pack(fill=X, side="bottom", pady=20, padx=20)
+
+        self._entrada_manual = ttk.Entry(
+            frame_manual,
+            textvariable=self._var_entrada_manual,
+            font=("Segoe UI", 12),
+        )
+        self._entrada_manual.pack(side=LEFT, fill=X, expand=True, padx=(0, 5))
+        self._entrada_manual.bind("<Return>", self._ao_submeter_manual)
+
+        ttk.Button(
+            frame_manual, text="OK", command=self._ao_submeter_manual, bootstyle="secondary"
+        ).pack(side=RIGHT)
 
     def _exibir_erro_dependencia(self):
         msg = "Bibliotecas 'opencv-python' e/ou 'pyzbar' não encontradas.\nInstale-as para usar o recurso de câmera."
@@ -184,19 +224,22 @@ class JanelaSelfService(tk.Toplevel):
                 self._cooldown_frames -= 1
                 # Indicador visual de sucesso/processamento (borda verde)
                 cv2.rectangle(
-                    frame, (0, 0), (frame.shape[1], frame.shape[0]), (0, 255, 0), 10
+                    frame, (0, 0), (frame.shape[1],
+                                    frame.shape[0]), (0, 255, 0), 10
                 )
+                if self._cooldown_frames == 0:
+                    self._definir_feedback_visual("padrao")
             else:
                 self._detectar_qr_code(frame)
 
             self._exibir_frame_no_label(frame)
 
-        self.after(20, self._atualizar_frame)
+        self.after(100, self._atualizar_frame)
 
     def _detectar_qr_code(self, frame):
         """Detecta e processa QR Codes no frame."""
         try:
-            decoded_objects = decode(frame)
+            decoded_objects = decode(frame, symbols=[ZBarSymbol.QRCODE])
             for obj in decoded_objects:
                 codigo = obj.data.decode("utf-8").strip()
                 if codigo:
@@ -229,26 +272,69 @@ class JanelaSelfService(tk.Toplevel):
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Erro ao exibir frame: %s", e)
 
-    def _processar_codigo(self, codigo: str):
+    def _ao_submeter_manual(self, _=None):
+        """Trata a submissão manual do código."""
+        codigo = self._var_entrada_manual.get().strip()
+        if codigo:
+            self._processar_codigo(codigo, manual=True)
+            self._var_entrada_manual.set("")
+            if self._entrada_manual:
+                self._entrada_manual.focus_set()
+
+    def _processar_codigo(self, codigo: str, manual: bool = False):
         """Chama o callback de registro e atualiza a UI."""
-        if self._cooldown_frames > 0:
+        if not manual and self._cooldown_frames > 0:
             return
 
-        logger.info("Código lido: %s", codigo)
-        self._cooldown_frames = 60  # ~1-2 segundos de pausa
+        logger.info("Processando código (%s): %s",
+                    "Manual" if manual else "Cam", codigo)
+        # Cooldown inicial preventivo
+        self._cooldown_frames = 30
 
         sucesso, msg, dados = self._callback_registro(codigo)
 
         if sucesso:
-            self._lbl_status.config(text="REGISTRADO!", bootstyle="success-inverse")
             self._lbl_nome.config(text=dados.get("nome", "Desconhecido"))
             self._lbl_turma.config(text=dados.get("turma", ""))
             self._lbl_mensagem.config(text="")
+            self._definir_feedback_visual("sucesso")
             self._tocar_som(sucesso=True)
+            self._cooldown_frames = 20
         else:
-            self._lbl_status.config(text="ERRO", bootstyle="danger-inverse")
             self._lbl_mensagem.config(text=msg)
+            # Exibe os dados retornados mesmo em caso de erro (ex: nome do aluno sem reserva)
+            self._lbl_nome.config(text=dados.get("nome", "--"))
+            self._lbl_turma.config(text=dados.get("turma", "--"))
+            self._definir_feedback_visual("erro")
             self._tocar_som(sucesso=False)
+            self._cooldown_frames = 45
+
+        if not self._running:
+            self.after(self._cooldown_frames * 100, lambda: self._definir_feedback_visual("padrao"))
+            self._cooldown_frames = 0
+
+    def _definir_feedback_visual(self, estado: str):
+        """Altera as cores do painel de informações para dar feedback visual."""
+        if estado == "sucesso":
+            cor_bg = self.COR_FUNDO_SUCESSO
+            texto_status = "REGISTRADO!"
+        elif estado == "erro":
+            cor_bg = self.COR_FUNDO_ERRO
+            texto_status = "ERRO"
+        else:
+            cor_bg = self.COR_FUNDO_PADRAO
+            texto_status = "Aguardando..."
+
+        # Atualiza background do frame principal e widgets filhos compatíveis
+        self._frame_info.config(bg=cor_bg)
+        for widget in self._frame_info.winfo_children():
+            if isinstance(widget, (tk.Label, tk.LabelFrame)):
+                widget.config(bg=cor_bg, fg=self.COR_TEXTO)
+            elif isinstance(widget, tk.Frame):
+                # Oculta o separador (mesma cor do fundo) nos estados de alerta para reduzir ruído
+                widget.config(bg=cor_bg if estado != "padrao" else "#374151")
+        
+        self._lbl_status.config(text=texto_status)
 
     def _tocar_som(self, sucesso: bool):
         """Tenta tocar um som de feedback."""

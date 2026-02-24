@@ -6,22 +6,17 @@ import os
 
 # --- 1. SETUP ---
 csv_filename = 'students.csv'
-if not os.path.exists(csv_filename):
-    with open(csv_filename, mode='w', newline='', encoding='utf-8') as file:
-        writer = csv.writer(file)
-        writer.writerow(['register', 'name', 'class'])
-        for i in range(1, 13): 
-            writer.writerow([f'ID-{i:04d}', f'USER NAME {i}', f'ALPHA-{i}'])
 
-# --- 2. QR GENERATION (Optimized for Modern High-Contrast) ---
 def generate_qr_base64(data):
-    qr = qrcode.QRCode(version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=20, border=0)
+    qr = qrcode.QRCode(
+        version=1, error_correction=qrcode.constants.ERROR_CORRECT_M, box_size=20, border=0)
     qr.add_data(data)
     qr.make(fit=True)
     img = qr.make_image(fill_color="black", back_color="white")
     buffered = io.BytesIO()
     img.save(buffered, format="PNG")
     return f"data:image/png;base64,{base64.b64encode(buffered.getvalue()).decode('utf-8')}"
+
 
 # --- 3. MODERN FULL-PAGE TEMPLATE ---
 html_start = """
@@ -47,7 +42,7 @@ html_start = """
         height: 297mm;
         display: grid;
         grid-template-columns: repeat(3, 1fr); /* 3 Columns */
-        grid-template-rows: repeat(4, 1fr);    /* 4 Rows */
+        grid-template-rows: repeat(7, 1fr);    /* 7 Rows (~42.4mm) */
         page-break-after: always;
         border: 0.5pt solid black; /* Outer page border */
     }
@@ -55,39 +50,49 @@ html_start = """
     /* 3. SHARED BORDERS (Single Cut-Line) */
     .cell {
         border: 0.5pt solid black;
-        margin: -0.25pt; 
+        /* margin: -0.25pt; */
         display: flex;
-        flex-direction: column;
+        flex-direction: row;
         align-items: center;
-        justify-content: space-between;
+        justify-content: flex-start;
         box-sizing: border-box;
         position: relative;
-        padding: 10%; /* Modern Breathing Room */
+        padding: 1.5mm;
+        overflow: hidden;
     }
 
     /* 4. MODERN RATIO (Optimized Space) */
     .qr-wrapper {
-        width: 100%;
-        flex-grow: 1;
+        height: 96%;
+        width: auto;
+        aspect-ratio: 1;
+        flex-shrink: 0;
         display: flex;
         align-items: center;
         justify-content: center;
+        overflow: hidden;
+        margin-right: 2mm;
     }
 
     .qr-img {
-        width: 80%; /* Large focus on QR */
-        height: auto;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
     }
 
     /* Typography & Metadata */
     .content-footer {
-        width: 100%;
+        flex-grow: 1;
+        height: 100%;
         text-align: left;
-        border-top: 2pt solid black;
-        padding-top: 8px;
+        border-top: none;
+        padding-top: 0;
         display: flex;
-        justify-content: space-between;
-        align-items: flex-end;
+        flex-direction: column;
+        justify-content: center;
+        align-items: flex-start;
+        overflow: hidden;
+        min-width: 0;
     }
 
     .text-block {
@@ -96,7 +101,7 @@ html_start = """
     }
 
     .reg { 
-        font-size: 14pt; 
+        font-size: 12pt; 
         font-weight: 900; 
         letter-spacing: -0.5px;
         line-height: 1;
@@ -132,16 +137,17 @@ html_start = """
 
 html_end = "</body></html>"
 
+
 def main():
     cards_html = ""
     try:
         with open(csv_filename, mode='r', encoding='utf-8') as f:
             reader = list(csv.DictReader(f))
-            chunk_size = 12 
+            chunk_size = 21
             page_num = 1
             for i in range(0, len(reader), chunk_size):
                 cards_html += '<div class="page">'
-                batch = reader[i : i + chunk_size]
+                batch = reader[i: i + chunk_size]
                 for row in batch:
                     qr = generate_qr_base64(row['register'])
                     cards_html += f'''
@@ -168,6 +174,7 @@ def main():
         print("Success! Modern edge-to-edge layout generated.")
     except Exception as e:
         print(f"Error: {e}")
+
 
 if __name__ == "__main__":
     main()
