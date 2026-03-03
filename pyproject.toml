@@ -18,9 +18,7 @@ rich = "^14.2.0"
 questionary = "^2.1.1"
 pytest = "^8.4.2"
 pytest-mock = "^3.15.1"
-customtkinter = "^5.2.2"
 regex = "^2025.11.3"
-flet = "^0.28.3"
 opencv-python = "^4.13.0.92"
 pyzbar = "^0.1.9"
 pyinstaller = "^6.19.0"
@@ -36,7 +34,3 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 registrar = "registro.gui.app_registro:main"
 painel = "registro.app_principal:main"
-
-[tool.poetry-pyinstaller-plugin.targets]
-registrar = {source = "./registro/gui/app_registro.py", type = "onefile", console = false}
-painel = {source = "./registro/app_principal.py", type = "onefile", console = false}

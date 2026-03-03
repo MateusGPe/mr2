@@ -6,6 +6,7 @@
 
 import json
 import logging
+import re
 import sys
 import threading
 import tkinter as tk
@@ -14,6 +15,7 @@ from tkinter import CENTER, TclError
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
 import ttkbootstrap as ttk
+from fuzzywuzzy import fuzz
 from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
@@ -435,50 +437,151 @@ class AppRegistro(tk.Tk):
             return
 
         logger.info("Abrindo janela de autoatendimento.")
-        JanelaSelfService(self, self._processar_registro_qrcode)
+        JanelaSelfService(
+            self,
+            self._processar_entrada_self_service,
+            self._buscar_melhor_match_por_nome,
+        )
 
-    def _processar_registro_qrcode(
-        self, codigo: str
+    def _buscar_melhor_match_por_nome(
+        self, nome_busca: str
+    ) -> Optional[Dict[str, Any]]:
+        """Busca por nome e retorna o melhor match como sugestão, sem registrar."""
+        if not self._fachada or len(nome_busca) < 3:
+            return None
+
+        try:
+            elegiveis = self._fachada.obter_estudantes_para_sessao(
+                consumido=False, pular_grupos=True
+            )
+
+            correspondencias = []
+            nome_lower = nome_busca.lower()
+
+            for estudante in elegiveis:
+                nome_estudante = estudante.get("nome", "").lower()
+                if not nome_estudante:
+                    continue
+
+                score = fuzz.ratio(nome_lower, nome_estudante)
+                if score >= 75:  # Limiar mais baixo para sugestões
+                    estudante["score"] = score
+                    correspondencias.append(estudante)
+
+            if not correspondencias:
+                return None
+
+            correspondencias.sort(key=lambda x: -x["score"])
+            return correspondencias[0]
+        except Exception as e:
+            logger.error("Erro ao buscar sugestão por nome: %s", e)
+            return None
+
+    def _processar_entrada_self_service(
+        self, texto_entrada: str
     ) -> Tuple[bool, str, Dict[str, Any]]:
-        """Callback para processar o registro vindo da janela de autoatendimento."""
+        """Callback para processar a entrada (código ou nome) da janela de autoatendimento."""
         if not self._fachada:
             return False, "Erro interno: Fachada não disponível", {}
 
         try:
-            # Limpeza básica do código
-            codigo_limpo = codigo.strip()
+            texto_limpo = texto_entrada.strip()
+
+            # 1. Tenta registrar como se fosse um código/prontuário
             resultado = self._fachada.registrar_consumo(
-                codigo_limpo, pular_grupos=True
+                texto_limpo, pular_grupos=True
             )
-
             if resultado.get("autorizado"):
-                # Notificar UI principal
-                tupla_estudante = (
-                    str(resultado.get("prontuario", codigo_limpo)),
-                    str(resultado.get("nome", "Desconhecido")),
-                    str(resultado.get("turma", "")),
-                    str(resultado.get("hora_consumo", "")),
-                    str(resultado.get("prato", "")),
-                )
-                self.notificar_sucesso_registro(tupla_estudante)
-                self._atualizar_ui_apos_mudanca_dados()
-                return True, "Sucesso", resultado
+                return self._tratar_sucesso_registro_self_service(resultado)
 
-            # Falha Lógica (Negado, Já consumiu, Não encontrado)
             motivo = resultado.get("motivo", "Não autorizado")
-            dados_erro = resultado.copy()
-            if "nome" not in dados_erro:
-                dados_erro["nome"] = codigo_limpo
-            if "turma" not in dados_erro:
-                dados_erro["turma"] = "Não Encontrado" if "não encontrado" in motivo.lower() else "Acesso Negado"
+            if "não encontrado" not in motivo.lower():
+                return self._tratar_falha_logica_self_service(resultado, texto_limpo)
 
-            return False, motivo, dados_erro
+            # 2. Se foi "não encontrado", tenta busca por nome (fuzzy)
+            logger.info(
+                "Código '%s' não encontrado, tentando busca por nome.", texto_limpo
+            )
+            return self._buscar_por_nome_e_registrar(texto_limpo)
 
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.exception("Erro ao processar QR Code: %s", e)
+            logger.exception("Erro ao processar entrada self-service: %s", e)
             msg_erro = str(e)
-            dados_erro = {"nome": codigo.strip(), "turma": "Erro de Sistema"}
+            dados_erro = {"nome": texto_entrada.strip(), "turma": "Erro de Sistema"}
             return False, msg_erro, dados_erro
+
+    def _buscar_por_nome_e_registrar(
+        self, nome_busca: str
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        """Busca por nome, e se encontrar um match claro, tenta registrar."""
+        if not self._fachada:
+            return False, "Erro interno", {}
+
+        elegiveis = self._fachada.obter_estudantes_para_sessao(
+            consumido=False, pular_grupos=True
+        )
+        correspondencias = []
+        nome_lower = nome_busca.lower()
+        for estudante in elegiveis:
+            nome_estudante = estudante.get("nome", "").lower()
+            if not nome_estudante:
+                continue
+            score = fuzz.ratio(nome_lower, nome_estudante)
+            if score >= 85:
+                estudante["score"] = score
+                correspondencias.append(estudante)
+
+        if not correspondencias:
+            return False, "Aluno não encontrado", {"nome": nome_busca, "turma": "Não Encontrado"}
+
+        correspondencias.sort(key=lambda x: -x["score"])
+        melhor_match = correspondencias[0]
+
+        if len(correspondencias) > 1 and (
+            melhor_match["score"] < 95
+            or (melhor_match["score"] - correspondencias[1]["score"]) < 10
+        ):
+            msg = "Múltiplos resultados. Seja mais específico."
+            return False, msg, {"nome": nome_busca, "turma": "Busca Ambigua"}
+
+        prontuario_encontrado = melhor_match.get("pront")
+        resultado_registro = self._fachada.registrar_consumo(
+            prontuario_encontrado, pular_grupos=True
+        )
+        if resultado_registro.get("autorizado"):
+            return self._tratar_sucesso_registro_self_service(resultado_registro)
+        return self._tratar_falha_logica_self_service(resultado_registro, nome_busca)
+
+    def _tratar_sucesso_registro_self_service(
+        self, resultado: Dict[str, Any]
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        """Lógica de UI para um registro bem-sucedido no self-service."""
+        tupla_estudante = (
+            str(resultado.get("prontuario", "")),
+            str(resultado.get("nome", "Desconhecido")),
+            str(resultado.get("turma", "")),
+            str(resultado.get("hora_consumo", "")),
+            str(resultado.get("prato", "")),
+        )
+        self.notificar_sucesso_registro(tupla_estudante)
+        self._atualizar_ui_apos_mudanca_dados()
+        return True, "Sucesso", resultado
+
+    def _tratar_falha_logica_self_service(
+        self, resultado: Dict[str, Any], texto_entrada: str
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        """Lógica de UI para uma falha lógica (negado, já consumiu) no self-service."""
+        motivo = resultado.get("motivo", "Não autorizado")
+        dados_erro = resultado.copy()
+        if "nome" not in dados_erro:
+            dados_erro["nome"] = texto_entrada
+        if "turma" not in dados_erro:
+            dados_erro["turma"] = (
+                "Não Encontrado"
+                if "não encontrado" in motivo.lower()
+                else "Acesso Negado"
+            )
+        return False, motivo, dados_erro
 
     def mostrar_barra_progresso(self, iniciar: bool, texto: Optional[str] = None):
         """Controla a visibilidade e o estado da barra de progresso."""

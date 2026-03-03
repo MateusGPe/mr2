@@ -84,6 +84,7 @@ TURMAS_INTEGRADO: List[str] = [
     "2º A - MAC",
     "2º A - MEC",
     "2º B - MEC",
+    "3º A - MAC",
     "3º A - MEC",
     "3º B - MEC",
 ]

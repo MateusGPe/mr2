@@ -46,6 +46,7 @@ class JanelaSelfService(tk.Toplevel):
         self,
         parent: tk.Widget,
         callback_registro: Callable[[str], Tuple[bool, str, Dict[str, Any]]],
+        callback_busca: Callable[[str], Optional[Dict[str, Any]]],
     ):
         super().__init__(parent)
         self.title("📷 Autoatendimento")
@@ -53,13 +54,14 @@ class JanelaSelfService(tk.Toplevel):
         self.minsize(800, 500)
 
         self._callback_registro = callback_registro
+        self._callback_busca = callback_busca
         self._cap = None
         self._running = False
         self._cooldown_frames = 0
 
         # Cores e Estilos (Design Moderno e Feedback Visual)
         self.COR_FUNDO_PADRAO = "#111827"  # Gray 900
-        self.COR_FUNDO_SUCESSO = "#065F46" # Emerald 800
+        self.COR_FUNDO_SUCESSO = "#065F46"  # Emerald 800
         self.COR_FUNDO_ERRO = "#991B1B"    # Red 800
         self.COR_TEXTO = "#FFFFFF"         # White
 
@@ -68,8 +70,10 @@ class JanelaSelfService(tk.Toplevel):
         self._lbl_nome: Optional[tk.Label] = None
         self._lbl_turma: Optional[tk.Label] = None
         self._lbl_mensagem: Optional[tk.Label] = None
+        self._lbl_sugestao_manual: Optional[tk.Label] = None
         self._entrada_manual: Optional[ttk.Entry] = None
         self._var_entrada_manual = tk.StringVar()
+        self._id_after_busca_manual: Optional[str] = None
         self._frame_info: Optional[tk.Frame] = None
 
         self._criar_interface()
@@ -83,8 +87,8 @@ class JanelaSelfService(tk.Toplevel):
 
     def _criar_interface(self):
         """Cria os widgets da interface."""
-        self.columnconfigure(0, weight=2)
-        self.columnconfigure(1, weight=1)
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=2)
         self.rowconfigure(0, weight=1)
 
         # Frame da Câmera (Esquerda)
@@ -117,7 +121,8 @@ class JanelaSelfService(tk.Toplevel):
         ).pack(fill=X, pady=(0, 10))
 
         # Separador visual
-        tk.Frame(self._frame_info, height=2, bg="#374151").pack(fill=X, pady=(0, 20))
+        tk.Frame(self._frame_info, height=2, bg="#374151").pack(
+            fill=X, pady=(0, 20))
 
         # Status
         self._lbl_status = tk.Label(
@@ -179,18 +184,37 @@ class JanelaSelfService(tk.Toplevel):
             bd=1
         )
         frame_manual.pack(fill=X, side="bottom", pady=20, padx=20)
+        frame_manual.columnconfigure(0, weight=1)
 
         self._entrada_manual = ttk.Entry(
             frame_manual,
             textvariable=self._var_entrada_manual,
             font=("Segoe UI", 12),
         )
-        self._entrada_manual.pack(side=LEFT, fill=X, expand=True, padx=(0, 5))
+        self._entrada_manual.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         self._entrada_manual.bind("<Return>", self._ao_submeter_manual)
+        self._var_entrada_manual.trace_add(
+            "write", self._na_mudanca_entrada_manual)
 
         ttk.Button(
-            frame_manual, text="OK", command=self._ao_submeter_manual, bootstyle="secondary"
-        ).pack(side=RIGHT)
+            frame_manual,
+            text="OK",
+            command=self._ao_submeter_manual,
+            bootstyle="secondary",
+        ).grid(row=0, column=1)
+
+        self._lbl_sugestao_manual = tk.Label(
+            frame_manual,
+            text="",
+            font=("Segoe UI", 9),
+            bg=self.COR_FUNDO_PADRAO,
+            fg="#A9A9A9",  # DarkGray
+            anchor="w",
+            justify="left",
+        )
+        self._lbl_sugestao_manual.grid(
+            row=1, column=0, columnspan=2, sticky="ew", pady=(5, 0)
+        )
 
     def _exibir_erro_dependencia(self):
         msg = "Bibliotecas 'opencv-python' e/ou 'pyzbar' não encontradas.\nInstale-as para usar o recurso de câmera."
@@ -276,10 +300,43 @@ class JanelaSelfService(tk.Toplevel):
         """Trata a submissão manual do código."""
         codigo = self._var_entrada_manual.get().strip()
         if codigo:
+            if self._lbl_sugestao_manual:
+                self._lbl_sugestao_manual.config(text="")
             self._processar_codigo(codigo, manual=True)
             self._var_entrada_manual.set("")
             if self._entrada_manual:
                 self._entrada_manual.focus_set()
+
+    def _na_mudanca_entrada_manual(self, *_):
+        """Callback para quando o texto da entrada manual muda. Inicia busca com debounce."""
+        if self._id_after_busca_manual:
+            self.after_cancel(self._id_after_busca_manual)
+
+        termo = self._var_entrada_manual.get()
+        if len(termo) < 3:
+            if self._lbl_sugestao_manual:
+                self._lbl_sugestao_manual.config(text="")
+            return
+
+        self._id_after_busca_manual = self.after(
+            300, self._atualizar_sugestao_manual)
+
+    def _atualizar_sugestao_manual(self):
+        """Executa a busca por sugestão e atualiza o label."""
+        self._id_after_busca_manual = None
+        termo_busca = self._var_entrada_manual.get()
+        if not termo_busca or not self._callback_busca or not self._lbl_sugestao_manual:
+            return
+
+        melhor_match = self._callback_busca(termo_busca)
+
+        if melhor_match:
+            nome = melhor_match.get("nome", "Desconhecido")
+            turma = melhor_match.get("turma", "")
+            self._lbl_sugestao_manual.config(
+                text=f"Sugestão: {nome} ({turma})")
+        else:
+            self._lbl_sugestao_manual.config(text="")
 
     def _processar_codigo(self, codigo: str, manual: bool = False):
         """Chama o callback de registro e atualiza a UI."""
@@ -310,7 +367,8 @@ class JanelaSelfService(tk.Toplevel):
             self._cooldown_frames = 45
 
         if not self._running:
-            self.after(self._cooldown_frames * 100, lambda: self._definir_feedback_visual("padrao"))
+            self.after(self._cooldown_frames * 100,
+                       lambda: self._definir_feedback_visual("padrao"))
             self._cooldown_frames = 0
 
     def _definir_feedback_visual(self, estado: str):
@@ -333,7 +391,7 @@ class JanelaSelfService(tk.Toplevel):
             elif isinstance(widget, tk.Frame):
                 # Oculta o separador (mesma cor do fundo) nos estados de alerta para reduzir ruído
                 widget.config(bg=cor_bg if estado != "padrao" else "#374151")
-        
+
         self._lbl_status.config(text=texto_status)
 
     def _tocar_som(self, sucesso: bool):
@@ -342,7 +400,7 @@ class JanelaSelfService(tk.Toplevel):
             import winsound
 
             freq = 1000 if sucesso else 400
-            dur = 200 if sucesso else 500
+            dur = 200 if sucesso else 1000
             winsound.Beep(freq, dur)
         except ImportError:
             pass
@@ -355,3 +413,4 @@ class JanelaSelfService(tk.Toplevel):
         if self._cap:
             self._cap.release()
         self.destroy()
+
