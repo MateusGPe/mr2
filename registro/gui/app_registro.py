@@ -357,6 +357,7 @@ class AppRegistro(tk.Tk):
 
         if self._painel_status:
             self._painel_status.atualizar_contadores()
+            self._painel_status.carregar_estudantes_registrados()
         if self._painel_acao:
             self._painel_acao.atualizar_resultados()
         logger.debug("Refresh da UI concluído.")
@@ -477,6 +478,25 @@ class AppRegistro(tk.Tk):
             logger.error("Erro ao buscar sugestão por nome: %s", e)
             return None
 
+    @staticmethod
+    def formatar_matricula(valor):
+        """
+        Padroniza a matrícula para o formato IQ30XXXXX, 
+        aceitando 'X' como dígito válido.
+        """
+        # 1. Converte para string e coloca em maiúsculo (trata 'x' e 'X' igual)
+        texto = str(valor).upper()
+
+        # 2. Remove tudo o que NÃO for número ou a letra 'X'
+        # O sinal ^ dentro do colchete significa "negação"
+        limpo = re.sub(r'[^0-9X]', '', texto)
+
+        # 3. Pega os últimos 5 caracteres
+        # O zfill(5) garante o preenchimento com zeros se a string for curta
+        sufixo = limpo[-5:].zfill(5)
+
+        return f"IQ30{sufixo}"
+
     def _processar_entrada_self_service(
         self, texto_entrada: str
     ) -> Tuple[bool, str, Dict[str, Any]]:
@@ -485,7 +505,7 @@ class AppRegistro(tk.Tk):
             return False, "Erro interno: Fachada não disponível", {}
 
         try:
-            texto_limpo = texto_entrada.strip()
+            texto_limpo = AppRegistro.formatar_matricula(texto_entrada.strip().upper())
 
             # 1. Tenta registrar como se fosse um código/prontuário
             resultado = self._fachada.registrar_consumo(
@@ -507,7 +527,8 @@ class AppRegistro(tk.Tk):
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao processar entrada self-service: %s", e)
             msg_erro = str(e)
-            dados_erro = {"nome": texto_entrada.strip(), "turma": "Erro de Sistema"}
+            dados_erro = {"nome": texto_entrada.strip(),
+                          "turma": "Erro de Sistema"}
             return False, msg_erro, dados_erro
 
     def _buscar_por_nome_e_registrar(

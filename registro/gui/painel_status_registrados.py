@@ -42,7 +42,6 @@ class PainelStatusRegistrados(ttk.Frame):
         self._app = app
         self._fachada: FachadaRegistro = fachada_nucleo
 
-        
         self._label_contagem_registrados: Optional[ttk.Label] = None
         self._label_contagem_restantes: Optional[ttk.Label] = None
         self._tabela_estudantes_registrados: Optional[TreeviewSimples] = None
@@ -51,10 +50,6 @@ class PainelStatusRegistrados(ttk.Frame):
         self._configurar_layout()
         self._criar_widgets()
         self._configurar_vinculos_eventos()
-
-    
-    
-    
 
     def _configurar_layout(self):
         """Configura o grid layout do painel."""
@@ -79,7 +74,8 @@ class PainelStatusRegistrados(ttk.Frame):
             font=("Segoe UI", 10, "bold"),
             anchor=CENTER,
         )
-        self._label_contagem_registrados.grid(row=0, column=0, sticky="ew", padx=(0, 5))
+        self._label_contagem_registrados.grid(
+            row=0, column=0, sticky="ew", padx=(0, 5))
 
         self._label_contagem_restantes = ttk.Label(
             frame,
@@ -88,7 +84,8 @@ class PainelStatusRegistrados(ttk.Frame):
             font=("Segoe UI", 10, "bold"),
             anchor=CENTER,
         )
-        self._label_contagem_restantes.grid(row=0, column=1, sticky="ew", padx=(5, 0))
+        self._label_contagem_restantes.grid(
+            row=0, column=1, sticky="ew", padx=(5, 0))
 
     def _criar_tabela_registrados(self):
         """Cria a tabela (Treeview) para listar os estudantes registrados."""
@@ -108,7 +105,8 @@ class PainelStatusRegistrados(ttk.Frame):
             for cd in self._definicao_cols_registrados
             if cd.get("iid") != self.ID_COLUNA_ACAO
         ]
-        self._tabela_estudantes_registrados.configurar_ordenacao(cols_ordenaveis)
+        self._tabela_estudantes_registrados.configurar_ordenacao(
+            cols_ordenaveis)
 
     def _configurar_vinculos_eventos(self):
         """Configura os bindings de eventos para a tabela de registrados."""
@@ -117,10 +115,6 @@ class PainelStatusRegistrados(ttk.Frame):
             view.bind("<Button-1>", self._ao_clicar_tabela)
             view.bind("<Delete>", self._ao_teclar_delete)
             view.bind("<BackSpace>", self._ao_teclar_delete)
-
-    
-    
-    
 
     def carregar_estudantes_registrados(self):
         """Busca os dados de estudantes servidos e popula a tabela."""
@@ -133,8 +127,10 @@ class PainelStatusRegistrados(ttk.Frame):
                 consumido=True, pular_grupos=True
             )
             if dados_servidos:
-                linhas = [self._formatar_linha_para_tabela(e) for e in dados_servidos]
-                linhas_ordenadas = sorted(linhas, key=lambda l: l[3], reverse=True)
+                linhas = [self._formatar_linha_para_tabela(
+                    e) for e in dados_servidos]
+                linhas_ordenadas = sorted(
+                    linhas, key=lambda l: l[3], reverse=True)
                 self._tabela_estudantes_registrados.construir_dados_tabela(
                     linhas_ordenadas
                 )
@@ -146,9 +142,10 @@ class PainelStatusRegistrados(ttk.Frame):
             self.atualizar_contadores()
 
         except ErroSessaoNaoAtiva:
-            logger.warning("Tentativa de carregar registrados sem sessão ativa.")
+            logger.warning(
+                "Tentativa de carregar registrados sem sessão ativa.")
             self.limpar_tabela()
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao carregar tabela de registrados: %s", e)
             Messagebox.show_error(
                 "Erro",
@@ -166,7 +163,8 @@ class PainelStatusRegistrados(ttk.Frame):
             registrados = self._fachada.obter_estudantes_para_sessao(
                 consumido=True, pular_grupos=True
             )
-            elegiveis = self._fachada.obter_estudantes_para_sessao(consumido=False)
+            elegiveis = self._fachada.obter_estudantes_para_sessao(
+                consumido=False)
 
             n_reg = len(registrados)
             n_rest = len(elegiveis)
@@ -178,12 +176,13 @@ class PainelStatusRegistrados(ttk.Frame):
         except ErroSessaoNaoAtiva:
             texto_reg, texto_rem = "Registrados: -", "Elegíveis: - / Restantes: -"
             estilo = "secondary"
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao atualizar contadores: %s", e)
             texto_reg, texto_rem = "Registrados: Erro", "Elegíveis: Erro"
             estilo = "danger"
 
-        self._label_contagem_registrados.config(text=texto_reg, bootstyle=estilo)
+        self._label_contagem_registrados.config(
+            text=texto_reg, bootstyle=estilo)
         self._label_contagem_restantes.config(text=texto_rem, bootstyle=estilo)
 
     def limpar_tabela(self):
@@ -192,10 +191,6 @@ class PainelStatusRegistrados(ttk.Frame):
         if self._tabela_estudantes_registrados:
             self._tabela_estudantes_registrados.deletar_linhas()
         self.atualizar_contadores()
-
-    
-    
-    
 
     def _ao_clicar_tabela(self, event: tk.Event):
         """Callback para clique na tabela. Identifica se a coluna de ação foi clicada."""
@@ -209,14 +204,15 @@ class PainelStatusRegistrados(ttk.Frame):
             logger.debug("Coluna de ação clicada para iid: %s", iid)
             self._confirmar_e_deletar_consumo(iid)
         elif iid and self._tabela_estudantes_registrados.view.exists(iid):
-            
+
             try:
                 view = self._tabela_estudantes_registrados.view
                 view.focus(iid)
                 if view.selection() != (iid,):
                     view.selection_set(iid)
             except tk.TclError as e:
-                logger.warning("Erro Tcl ao focar/selecionar linha %s: %s", iid, e)
+                logger.warning(
+                    "Erro Tcl ao focar/selecionar linha %s: %s", iid, e)
 
     def _ao_teclar_delete(self, _=None):
         """Callback para as teclas Delete/Backspace na tabela."""
@@ -229,7 +225,8 @@ class PainelStatusRegistrados(ttk.Frame):
     def _confirmar_e_deletar_consumo(self, iid: str):
         """Exibe um diálogo de confirmação e, se confirmado, solicita a deleção do consumo."""
         try:
-            dados_linha = self._tabela_estudantes_registrados.obter_valores_linha(iid)
+            dados_linha = self._tabela_estudantes_registrados.obter_valores_linha(
+                iid)
             if not dados_linha or len(dados_linha) < 2:
                 raise ValueError("Dados da linha incompletos ou inválidos.")
 
@@ -252,10 +249,6 @@ class PainelStatusRegistrados(ttk.Frame):
             self._app.tratar_delecao_consumo(dados_para_logica, iid)
         else:
             logger.debug("Exclusão de %s cancelada.", pront)
-
-    
-    
-    
 
     def _obter_definicao_colunas(self) -> List[Dict[str, Any]]:
         """Retorna a definição das colunas para a tabela de registrados."""

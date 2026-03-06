@@ -10,6 +10,7 @@ lógica de processamento e inserção no banco de dados.
 """
 
 import csv
+import logging
 from pathlib import Path
 from typing import Dict, Set
 
@@ -17,12 +18,15 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from registro.nucleo.exceptions import ErroImportacaoDados
+from registro.nucleo.models import Reserva
 from registro.nucleo.repository import (
     RepositorioEstudante,
     RepositorioGrupo,
     RepositorioReserva,
 )
 from registro.nucleo.utils import ajustar_chaves_e_valores
+
+logger = logging.getLogger(__name__)
 
 
 def _obter_ou_criar_grupos(
@@ -53,35 +57,59 @@ def importar_estudantes_csv(
         estudantes_para_atualizar = []
         relacoes_estudante_grupo = []
         todos_nomes_grupos = set()
+        linhas_ignoradas = 0
+        prontuarios_no_csv = set()
 
         mapa_estudantes_existentes = {
             s.prontuario: s
-            for s in repo_estudante.ler_todos_com_grupos()  
+            for s in repo_estudante.ler_todos_com_grupos()
         }
 
         with open(caminho_arquivo_csv, "r", encoding="utf-8") as arquivo_csv:
             leitor = csv.DictReader(arquivo_csv)
-            for linha in leitor:
+            for i, linha in enumerate(leitor):
+                linha_original = linha.copy()
                 linha = ajustar_chaves_e_valores(linha)
                 pront = linha.get("pront")
                 if not pront:
+                    logger.warning(
+                        "Linha %d do CSV ignorada: 'prontuário' ausente ou vazio. Dados: %s",
+                        i + 2,  # +1 para cabeçalho, +1 para índice 0
+                        linha_original,
+                    )
+                    linhas_ignoradas += 1
                     continue
 
-                dados_estudante = {"prontuario": pront, "nome": linha.get("nome", "")}
-
-                if pront in mapa_estudantes_existentes:
-                    estudante_existente = mapa_estudantes_existentes[pront]
-                    if estudante_existente.nome != dados_estudante["nome"]:
-                        payload = {**dados_estudante, "id": estudante_existente.id}
-                        estudantes_para_atualizar.append(payload)
-                else:
-                    estudantes_para_criar.append(dados_estudante)
-
+                # Processa a associação de turma em TODAS as linhas em que o estudante aparece.
                 if turma := linha.get("turma"):
                     todos_nomes_grupos.add(turma)
                     relacoes_estudante_grupo.append(
                         {"prontuario": pront, "nome_grupo": turma}
                     )
+
+                # Se o prontuário já foi processado neste CSV, pula para a próxima linha.
+                # A associação de turma acima já foi registrada.
+                if pront in prontuarios_no_csv:
+                    continue
+                prontuarios_no_csv.add(pront)
+
+                # Processa os dados do estudante (criar/atualizar) apenas na primeira ocorrência.
+                dados_estudante = {"prontuario": pront,
+                                   "nome": linha.get("nome", "")}
+
+                if pront in mapa_estudantes_existentes:
+                    estudante_existente = mapa_estudantes_existentes[pront]
+                    if estudante_existente.nome != dados_estudante["nome"]:
+                        payload = {**dados_estudante,
+                                   "id": estudante_existente.id}
+                        estudantes_para_atualizar.append(payload)
+                else:
+                    estudantes_para_criar.append(dados_estudante)
+
+        if linhas_ignoradas > 0:
+            logger.info(
+                "%d linha(s) foram ignoradas por falta de prontuário.", linhas_ignoradas
+            )
 
         if estudantes_para_criar:
             repo_estudante.criar_em_massa(estudantes_para_criar)
@@ -129,25 +157,76 @@ def importar_reservas_csv(
 ) -> int:
     """Importa reservas de almoço de um arquivo CSV para o banco de dados."""
     try:
-        mapa_estudantes = {s.prontuario: s.id for s in repo_estudante.ler_todos()}
+        # Primeira passada: coletar todas as datas do CSV para uma busca otimizada.
+        datas_no_csv = set()
+        with open(caminho_arquivo_csv, "r", encoding="utf-8") as f:
+            leitor_datas = csv.DictReader(f)
+            for linha in leitor_datas:
+                linha_ajustada = ajustar_chaves_e_valores(linha)
+                if data := linha_ajustada.get("data"):
+                    datas_no_csv.add(data)
+
+        # Buscar todas as reservas existentes no banco de dados para as datas encontradas.
+        reservas_existentes_db = {
+            (r.estudante_id, r.data)
+            for r in repo_reserva.ler_filtrado(data=Reserva.data.in_(datas_no_csv))
+        } if datas_no_csv else set()
+
+        mapa_estudantes = {
+            s.prontuario: s.id for s in repo_estudante.ler_todos()}
         reservas_para_inserir = []
+        linhas_ignoradas = 0
+        reservas_ignoradas_db = 0
+        chaves_unicas_reserva_csv = set()
 
         with open(caminho_arquivo_csv, "r", encoding="utf-8") as arquivo_csv:
             leitor = csv.DictReader(arquivo_csv)
-            for linha in leitor:
+            for i, linha in enumerate(leitor):
+                linha_original = linha.copy()
                 linha = ajustar_chaves_e_valores(linha)
                 pront = linha.get("pront")
+                data = linha.get("data")
                 id_estudante = mapa_estudantes.get(pront) if pront else None
 
-                if id_estudante:
-                    reservas_para_inserir.append(
-                        {
-                            "estudante_id": id_estudante,
-                            "prato": linha.get("prato", "Não especificado"),
-                            "data": linha.get("data"),
-                            "cancelada": False,
-                        }
+                if not id_estudante or not data:
+                    logger.warning(
+                        "Linha %d do CSV de reservas ignorada: 'prontuário' ou 'data' ausente/inválido. Dados: %s",
+                        i + 2,
+                        linha_original,
                     )
+                    linhas_ignoradas += 1
+                    continue
+
+                chave_reserva = (id_estudante, data)
+
+                if chave_reserva in reservas_existentes_db:
+                    reservas_ignoradas_db += 1
+                    continue
+
+                if chave_reserva in chaves_unicas_reserva_csv:
+                    logger.warning(
+                        "Reserva duplicada para prontuário '%s' na data '%s' (linha %d do CSV) ignorada.",
+                        pront,
+                        data,
+                        i + 2,
+                    )
+                    continue
+                chaves_unicas_reserva_csv.add(chave_reserva)
+
+                reservas_para_inserir.append(
+                    {
+                        "estudante_id": id_estudante,
+                        "prato": linha.get("prato", "Não especificado"),
+                        "data": data,
+                        "cancelada": False,
+                    }
+                )
+
+        if reservas_ignoradas_db > 0:
+            logger.info(
+                "%d reservas do CSV foram ignoradas por já existirem no banco de dados.",
+                reservas_ignoradas_db,
+            )
 
         if reservas_para_inserir:
             repo_reserva.criar_em_massa(reservas_para_inserir)

@@ -15,12 +15,14 @@ from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Un
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import E, EW, HORIZONTAL, NSEW, W
 from ttkbootstrap.dialogs import Messagebox
+from ttkbootstrap.localization.msgcat import MessageCatalog
 from ttkbootstrap.scrolled import ScrolledFrame
 
 from registro.controles.treeview_simples import TreeviewSimples
 from registro.gui.constants import (
     CAMINHO_JSON_LANCHES,
     NOME_LANCHE_PADRAO,
+    CAMINHO_JSON_PRESETS_TURMAS,
     TURMAS_INTEGRADO,
     DadosNovaSessao,
 )
@@ -57,6 +59,7 @@ class DialogoSessao(tk.Toplevel):
             Tuple[str, tk.BooleanVar, ttk.Checkbutton]
         ] = []
         self._conjunto_opcoes_lanche: Set[str] = set()
+        self._presets_turmas: Dict[str, Dict[str, List[str]]] = {}
 
         self._notebook: Optional[ttk.Notebook] = None
         self._entrada_hora: Optional[ttk.Entry] = None
@@ -68,6 +71,7 @@ class DialogoSessao(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW", self._ao_fechar)
 
         self._criar_widgets()
+        self._carregar_presets_turmas()
         self._centralizar_janela()
         self.resizable(True, True)
         self.deiconify()
@@ -235,6 +239,9 @@ class DialogoSessao(tk.Toplevel):
 
         frame_botoes = self._criar_secao_botoes_turmas(frame)
         frame_botoes.grid(row=3, column=0, sticky=EW, pady=(10, 0))
+
+        frame_presets = self._criar_secao_botoes_presets(frame)
+        frame_presets.grid(row=4, column=0, sticky=EW, pady=(10, 0))
         return frame
 
     def _criar_checkboxes_turmas(self, master, turmas):
@@ -277,6 +284,29 @@ class DialogoSessao(tk.Toplevel):
             ttk.Button(frame, text=texto, command=cmd, bootstyle=estilo).grid(
                 row=0, column=i, sticky=EW, padx=2
             )
+        return frame
+
+    def _criar_secao_botoes_presets(self, parent: tk.Widget) -> ttk.Frame:
+        """Cria os botões de preset de seleção de turmas."""
+        frame = ttk.Frame(parent)
+        frame.columnconfigure(tuple(range(1, 6)), weight=1)
+
+        dias_semana = [
+            ("Seg", "seg"), ("Ter", "ter"), ("Qua", "qua"), ("Qui", "qui"), ("Sex", "sex")
+        ]
+        periodos = [("Manhã", "manha"), ("Tarde", "tarde")]
+
+        for row_offset, (periodo_label, periodo_key) in enumerate(periodos):
+            ttk.Label(frame, text=f"{periodo_label}:").grid(row=row_offset, column=0, sticky=E, padx=(0, 5))
+            for col, (dia_label, dia_key) in enumerate(dias_semana, start=1):
+                btn = ttk.Button(
+                    frame,
+                    text=dia_label,
+                    command=lambda p=periodo_key, d=dia_key: self._ao_selecionar_preset(p, d),
+                    bootstyle="primary-outline"
+                )
+                btn.grid(row=row_offset, column=col, sticky=EW, padx=2, pady=2)
+                btn.bind("<Button-3>", lambda e, p=periodo_key, d=dia_key: self._ao_salvar_preset(e, p, d))
         return frame
 
     def _criar_secao_botoes_principais(self, parent: tk.Widget) -> ttk.Frame:
@@ -433,6 +463,54 @@ class DialogoSessao(tk.Toplevel):
             Messagebox.show_error(
                 "Não foi possível buscar as turmas.", parent=self)
             return []
+
+    def _carregar_presets_turmas(self):
+        """Carrega os presets de seleção de turmas de um arquivo JSON."""
+        presets = carregar_json(str(CAMINHO_JSON_PRESETS_TURMAS))
+        default_presets = {
+            "manha": {"seg": [], "ter": [], "qua": [], "qui": [], "sex": []},
+            "tarde": {"seg": [], "ter": [], "qua": [], "qui": [], "sex": []},
+        }
+        if not isinstance(presets, dict) or "manha" not in presets or "tarde" not in presets:
+            logger.warning("Arquivo de presets de turmas não encontrado ou inválido. Criando um padrão.")
+            self._presets_turmas = default_presets
+            salvar_json(str(CAMINHO_JSON_PRESETS_TURMAS), self._presets_turmas)
+        else:
+            self._presets_turmas = presets
+
+    def _ao_selecionar_preset(self, periodo: str, dia: str):
+        """Seleciona as turmas de um preset."""
+        turmas_preset = self._presets_turmas.get(periodo, {}).get(dia, [])
+        if not turmas_preset:
+            Messagebox.show_info(
+                "Preset Vazio",
+                f"O preset para {periodo.capitalize()} - {dia.capitalize()} está vazio.\n"
+                "Para definir, selecione as turmas e clique com o botão direito no botão do preset.",
+                parent=self
+            )
+            return
+        self._definir_checkboxes_turmas(lambda nome, var: nome in turmas_preset)
+
+    def _ao_salvar_preset(self, event: tk.Event, periodo: str, dia: str):
+        """Salva a seleção atual de turmas em um preset."""
+        turmas_selecionadas = [
+            nome for nome, var, _ in self._dados_checkbox_turmas if var.get()
+        ]
+
+        if not turmas_selecionadas:
+            msg = "Nenhuma turma selecionada. Deseja salvar este preset como vazio?"
+        else:
+            msg = (
+                f"Salvar a seleção atual ({len(turmas_selecionadas)} turmas) como o preset para "
+                f"{periodo.capitalize()} - {dia.capitalize()}?"
+            )
+
+        if Messagebox.yesno("Salvar Preset", msg, parent=self) == MessageCatalog.translate("Yes"):
+            self._presets_turmas[periodo][dia] = turmas_selecionadas
+            if salvar_json(str(CAMINHO_JSON_PRESETS_TURMAS), self._presets_turmas):
+                Messagebox.show_info("Preset Salvo", "O preset foi salvo com sucesso.", parent=self)
+            else:
+                Messagebox.show_error("Erro ao Salvar", "Não foi possível salvar o arquivo de presets.", parent=self)
 
     def _carregar_opcoes_lanche(self) -> Tuple[Set[str], List[str]]:
         """Carrega as opções de lanche a partir de um arquivo JSON."""

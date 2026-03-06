@@ -53,7 +53,8 @@ def iniciar_nova_sessao(
     )
 
     if refeicao == "almoço":
-        reservas = repo_reserva.ler_filtrado(data=data_formatada, cancelada=False)
+        reservas = repo_reserva.ler_filtrado(
+            data=data_formatada, cancelada=False)
         if not reservas:
             return None
 
@@ -130,30 +131,26 @@ def obter_estudantes_para_sessao(
     db_session = repo_estudante.obter_sessao()
     EstudanteGrupo = models.associacao_estudante_grupo
 
-    
-    
     ids_grupos_sessao = {g.id for g in sessao.grupos}
-    ids_excecao_grupos = {g.id for g in repo_grupo.por_nomes(excessao_grupos or set())}
+    ids_excecao_grupos = {
+        g.id for g in repo_grupo.por_nomes(excessao_grupos or set())}
 
-    
     q1 = select(EstudanteGrupo.c.estudante_id).where(
         EstudanteGrupo.c.grupo_id.in_(ids_grupos_sessao)
     )
-    
+
     q2 = select(EstudanteGrupo.c.estudante_id).where(
         EstudanteGrupo.c.grupo_id.in_(ids_excecao_grupos)
     )
-    
+
     q3 = select(Reserva.estudante_id).where(
         Reserva.data == sessao.data, Reserva.cancelada.is_(False)
     )
 
-    
     query_ids_elegiveis = union(q1, q2, q3).subquery()
 
-    
     if consumido is True:
-        
+
         consumos_na_sessao = (
             select(Consumo.estudante_id)
             .where(Consumo.sessao_id == id_sessao)
@@ -163,7 +160,7 @@ def obter_estudantes_para_sessao(
             consumos_na_sessao, Estudante.id == consumos_na_sessao.c.estudante_id
         )
     else:
-        
+
         stmt = (
             select(Estudante.id)
             .join(
@@ -177,14 +174,12 @@ def obter_estudantes_para_sessao(
     if not ids_para_buscar:
         return []
 
-    
-    
     opcoes_carregamento = [selectinload(Estudante.grupos)]
     estudantes = repo_estudante.ler_filtrado(
-        opcoes_carregamento=opcoes_carregamento, id=Estudante.id.in_(ids_para_buscar)
+        opcoes_carregamento=opcoes_carregamento, id=Estudante.id.in_(
+            ids_para_buscar)
     )
 
-    
     mapa_consumos_por_estudante = {
         c.estudante_id: c for c in repo_consumo.ler_filtrado(sessao_id=id_sessao)
     }
@@ -193,7 +188,6 @@ def obter_estudantes_para_sessao(
         for r in repo_reserva.ler_filtrado(data=sessao.data, cancelada=False)
     }
 
-    
     detalhes_estudantes = []
     for est in estudantes:
         autorizado = False
@@ -205,7 +199,8 @@ def obter_estudantes_para_sessao(
         if sessao.refeicao == "almoço":
             reserva = mapa_reservas_dia.get(est.id)
             if reserva and (
-                ids_grupos_sessao.intersection(ids_grupos_estudante) or pular_grupos
+                ids_grupos_sessao.intersection(
+                    ids_grupos_estudante) or pular_grupos
             ):
                 autorizado = True
                 motivo = "Reserva"
@@ -228,7 +223,8 @@ def obter_estudantes_para_sessao(
         if consumido is False and info_consumo:
             continue
 
-        grupos = ", ".join(sorted(g.nome for g in est.grupos)) if est.grupos else "N/A"
+        grupos = ", ".join(sorted(g.nome for g in est.grupos)
+                           ) if est.grupos else "N/A"
 
         detalhes_estudantes.append(
             {
@@ -250,7 +246,8 @@ def obter_estudantes_para_sessao(
 def deletar_sessao(repo_sessao: RepositorioSessao, id_sessao: int):
     """Deleta uma sessão e seus consumos associados (via cascade do DB)."""
     if not repo_sessao.deletar(id_sessao):
-        raise ErroSessao(f"Sessão com ID {id_sessao} não encontrada para exclusão.")
+        raise ErroSessao(
+            f"Sessão com ID {id_sessao} não encontrada para exclusão.")
     repo_sessao.obter_sessao().commit()
 
 
@@ -261,7 +258,8 @@ def atualizar_sessao(
     dados.pop("grupos", None)
     sessao_atualizada = repo_sessao.atualizar(id_sessao, dados)
     if not sessao_atualizada:
-        raise ErroSessao(f"Sessão com ID {id_sessao} não encontrada para atualização.")
+        raise ErroSessao(
+            f"Sessão com ID {id_sessao} não encontrada para atualização.")
     repo_sessao.obter_sessao().commit()
     return sessao_atualizada
 
@@ -282,7 +280,8 @@ def registrar_consumo(
     if not estudantes:
         return {"autorizado": False, "motivo": "Estudante não encontrado."}
     estudante = estudantes[0]
-    turma = ", ".join(sorted(g.nome for g in estudante.grupos)) if estudante.grupos else "N/A"
+    turma = ", ".join(sorted(g.nome for g in estudante.grupos)
+                      ) if estudante.grupos else "N/A"
 
     consumo_existente = repo_consumo.ler_filtrado(
         estudante_id=estudante.id, sessao_id=id_sessao
@@ -379,7 +378,8 @@ def atualizar_cancelamento_reserva(
     """Marca ou desmarca uma reserva como cancelada."""
     atualizado = repo_reserva.atualizar(id_reserva, {"cancelada": cancelar})
     if not atualizado:
-        raise ErroNucleoRegistro(f"Reserva com ID {id_reserva} não encontrada.")
+        raise ErroNucleoRegistro(
+            f"Reserva com ID {id_reserva} não encontrada.")
     repo_reserva.obter_sessao().commit()
 
 
@@ -452,10 +452,11 @@ def exportar_todos_os_consumos_para_xlsx(
         selectinload(Consumo.sessao),
         selectinload(Consumo.estudante).selectinload(Estudante.grupos),
     ]
-    
+
     db_session = repo_consumo.obter_sessao()
     consumos = (
-        db_session.query(Consumo).options(*opcoes).order_by(Consumo.id.desc()).all()
+        db_session.query(Consumo).options(
+            *opcoes).order_by(Consumo.id.desc()).all()
     )
 
     if not consumos:
@@ -529,7 +530,8 @@ def sincronizar_do_google_sheets(
         caminho_config.mkdir(exist_ok=True)
         planilha = google_api_service.obter_planilha()
 
-        discentes = google_api_service.buscar_valores_aba(planilha, "Discentes")
+        discentes = google_api_service.buscar_valores_aba(
+            planilha, "Discentes")
         if discentes:
             caminho_csv = caminho_config / "students.csv"
             if salvar_csv(discentes, caminho_csv):
@@ -550,7 +552,8 @@ def sincronizar_do_google_sheets(
         raise e
     except Exception as e:
         repo_estudante.obter_sessao().rollback()
-        raise ErroNucleoRegistro(f"Erro inesperado na sincronização: {e}") from e
+        raise ErroNucleoRegistro(
+            f"Erro inesperado na sincronização: {e}") from e
 
 
 def sincronizar_para_google_sheets(
