@@ -169,7 +169,6 @@ class DialogoFiltroTurmas(tk.Toplevel):
         """Cria os botões de ação na parte inferior do diálogo."""
         frame = ttk.Frame(parent)
         frame.columnconfigure(tuple(range(4)), weight=1)
-
         botoes = [
             ("⚪", self._limpar_todos, "secondary-outline"),
             ("✅", self._selecionar_todos, "secondary-outline"),

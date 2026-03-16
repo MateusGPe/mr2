@@ -132,10 +132,11 @@ class AppRegistro(tk.Tk):
         frame_botoes.pack(side=RIGHT, anchor="e")
 
         botoes = [
-            ("📷", self._abrir_janela_self_service),
-            ("⚙️", self._abrir_dialogo_sessao),
-            ("📊", self._abrir_dialogo_filtro_turmas),
+            ("QR code", self._abrir_janela_self_service),
+            ("Sessão", self._abrir_dialogo_sessao),
+            ("Filtrar", self._abrir_dialogo_filtro_turmas),
         ]
+
         for texto, comando in botoes:
             ttk.Button(
                 frame_botoes, text=texto, command=comando, bootstyle="dark"
@@ -146,9 +147,9 @@ class AppRegistro(tk.Tk):
         )
 
         botoes_sync = [
-            ("📥", self._sincronizar_dados_mestre),
-            ("📤", self.sincronizar_sessao_com_planilha),
-            ("💾", self.exportar_e_encerrar_sessao),
+            ("Download", self._sincronizar_dados_mestre),
+            ("Upload", self.sincronizar_sessao_com_planilha),
+            ("Salvar e Sair", self.exportar_e_encerrar_sessao),
         ]
         for texto, comando in botoes_sync:
             ttk.Button(
@@ -505,7 +506,19 @@ class AppRegistro(tk.Tk):
             return False, "Erro interno: Fachada não disponível", {}
 
         try:
-            texto_limpo = AppRegistro.formatar_matricula(texto_entrada.strip().upper())
+            texto_limpo = AppRegistro.formatar_matricula(
+                texto_entrada.strip().upper())
+
+            elegiveis = self._fachada.obter_estudantes_para_sessao(
+                consumido=False, pular_grupos=True
+            )
+            if not any(e.get("pront") == texto_limpo for e in elegiveis):
+                match = self._buscar_melhor_match_por_nome(texto_entrada)
+                dados_erro = {
+                    "nome": match.get("nome") if match else texto_entrada,
+                    "turma": match.get("turma") if match else "Não Encontrado",
+                }
+                return False, "Não autorizado (sem reserva)", dados_erro
 
             # 1. Tenta registrar como se fosse um código/prontuário
             resultado = self._fachada.registrar_consumo(

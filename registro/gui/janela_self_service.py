@@ -189,7 +189,7 @@ class JanelaSelfService(tk.Toplevel):
         self._entrada_manual = ttk.Entry(
             frame_manual,
             textvariable=self._var_entrada_manual,
-            font=("Segoe UI", 12),
+            font=("Segoe UI", 18),
         )
         self._entrada_manual.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         self._entrada_manual.bind("<Return>", self._ao_submeter_manual)
