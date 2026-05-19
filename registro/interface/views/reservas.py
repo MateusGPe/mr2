@@ -1,8 +1,11 @@
+import logging
 import traceback
 from datetime import datetime
 import flet as ft
 from registro.nucleo.facade import FachadaRegistro
 from registro.interface.utils import show_error, show_success
+
+logger = logging.getLogger(__name__)
 
 class ReservasView(ft.Container):
     """Tela de gerenciamento de reservas."""
@@ -47,7 +50,9 @@ class ReservasView(ft.Container):
         try:
             grupos = self.fachada.listar_todos_os_grupos()
             self.dd_turma.options = [ft.dropdown.Option("Todas")] + [ft.dropdown.Option(g['nome']) for g in grupos]
-        except: pass
+        except Exception as ex:
+            logger.error(f"Erro ao carregar turmas: {ex}")
+            
         self._carregar_dados()
 
     def _on_date_change(self, e):
@@ -109,7 +114,8 @@ class ReservasView(ft.Container):
             try:
                 todos = self.fachada.listar_todos_os_estudantes()
                 opcoes_alunos = [ft.dropdown.Option(key=a['prontuario'], text=f"{a['prontuario']} - {a['nome']}") for a in todos]
-            except: pass
+            except Exception as ex:
+                logger.error(f"Erro ao carregar estudantes para modal: {ex}")
 
         dd_aluno = ft.Dropdown(label="Aluno", options=opcoes_alunos, visible=not is_edit, enable_filter=True)
         lbl_aluno = ft.TextField(label="Aluno", value=f"{reserva['nome_estudante']}" if is_edit else "", read_only=True, visible=is_edit)

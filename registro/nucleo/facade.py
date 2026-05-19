@@ -153,6 +153,26 @@ class FachadaRegistro:
             pular_grupos=pular_grupos,
         )
 
+    def registrar_consumo_com_reserva(
+        self,
+        prontuario: str,
+        excecao_grupos: Optional[Set[str]] = None,
+        pular_grupos: bool = False,
+    ) -> Dict[str, Any]:
+        """Registra que um estudante consumiu uma refeição, apenas se houver reserva."""
+        if self.id_sessao_ativa is None:
+            raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
+        return service_logic.registrar_consumo_com_reserva(
+            repo_sessao=self.repo_sessao,
+            repo_estudante=self.repo_estudante,
+            repo_reserva=self.repo_reserva,
+            repo_consumo=self.repo_consumo,
+            id_sessao=self.id_sessao_ativa,
+            prontuario=prontuario,
+            excecao_grupos=excecao_grupos or self.excessao_grupos,
+            pular_grupos=pular_grupos,
+        )
+
     def desfazer_consumo_por_prontuario(self, prontuario: str):
         """Desfaz o registro de consumo de uma refeição."""
         if self.id_sessao_ativa is None:

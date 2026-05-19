@@ -10,12 +10,15 @@ interações com o banco de dados via SQLAlchemy.
 """
 
 from typing import Any, Dict, Generic, List, Optional, Self, Sequence, Type, TypeVar
+import logging
 
 from sqlalchemy import ColumnElement, insert, select
 from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session as DBSession
 
 from registro.nucleo.models import Base
+
+logger = logging.getLogger(__name__)
 
 MODELO = TypeVar("MODELO", bound=Base)
 
@@ -118,7 +121,7 @@ class CRUD(Generic[MODELO]):
             self._sessao_db.execute(insert(self._modelo), linhas)
             return True
         except DBAPIError as e:
-            print(
+            logger.error(
                 f"Erro de banco de dados durante a inserção em massa de {type(self._modelo)}: {e}"
             )
             return False
@@ -131,7 +134,7 @@ class CRUD(Generic[MODELO]):
             self._sessao_db.bulk_update_mappings(self._modelo, linhas)  # type: ignore
             return True
         except DBAPIError as e:
-            print(
+            logger.error(
                 "Erro de banco de dados durante a atualização em massa de "
                 f"{type(self._modelo)}: {e}"
             )

@@ -355,6 +355,111 @@ def registrar_consumo(
     }
 
 
+def registrar_consumo_com_reserva(
+    repo_sessao: RepositorioSessao,
+    repo_estudante: RepositorioEstudante,
+    repo_reserva: RepositorioReserva,
+    repo_consumo: RepositorioConsumo,
+    id_sessao: int,
+    prontuario: str,
+    excecao_grupos: Optional[Set[str]] = None,
+    pular_grupos: bool = False,
+) -> Dict[str, Any]:
+    """
+    Aplica uma lógica de autorização estrita e, se bem-sucedido, registra o consumo.
+    O consumo só é autorizado se o estudante tiver uma reserva válida para a sessão
+    e pertencer a um grupo autorizado (grupo da sessão, grupo de exceção ou se a
+    verificação de grupos for pulada).
+    """
+    sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
+    estudantes = repo_estudante.ler_filtrado(prontuario=prontuario)
+    if not estudantes:
+        return {"autorizado": False, "motivo": "Estudante não encontrado."}
+    estudante = estudantes[0]
+    turma = (
+        ", ".join(sorted(g.nome for g in estudante.grupos))
+        if estudante.grupos
+        else "N/A"
+    )
+
+    consumo_existente = repo_consumo.ler_filtrado(
+        estudante_id=estudante.id, sessao_id=id_sessao
+    )
+    if consumo_existente:
+        return {
+            "autorizado": False,
+            "motivo": "Consumo já registrado.",
+            "nome": estudante.nome,
+            "aluno": estudante.nome,
+            "prontuario": estudante.prontuario,
+            "turma": turma,
+        }
+
+    id_reserva = None
+    autorizado = False
+    motivo = "Acesso Negado"
+    prato = "Sem Reserva"
+
+    # Regra 1: Deve ter uma reserva válida (típico para almoço).
+    reservas = []
+    if sessao.refeicao == "almoço":
+        reservas = repo_reserva.ler_filtrado(
+            estudante_id=estudante.id, data=sessao.data, cancelada=False
+        )
+
+    if not reservas:
+        motivo = "Sem reserva válida."
+    else:
+        # Se tem reserva, continua a verificação de grupo.
+        id_reserva = reservas[0].id
+        prato = reservas[0].prato or "Padrão"
+
+        # Regra 2: Deve pertencer a um grupo autorizado para a sessão.
+        nomes_grupos_estudante = {g.nome for g in estudante.grupos}
+        nomes_grupos_sessao = {g.nome for g in sessao.grupos}
+
+        grupo_autorizado = False
+        if pular_grupos:
+            grupo_autorizado = True
+            motivo = "Autorizado com reserva (grupos ignorados)."
+        elif nomes_grupos_estudante.intersection(nomes_grupos_sessao):
+            grupo_autorizado = True
+            motivo = "Autorizado com reserva (grupo da sessão)."
+        elif nomes_grupos_estudante.intersection(excecao_grupos or set()):
+            grupo_autorizado = True
+            motivo = "Autorizado com reserva (grupo de exceção)."
+
+        if grupo_autorizado:
+            autorizado = True
+        else:
+            # Se não está em nenhum grupo autorizado, nega o acesso.
+            autorizado = False
+            motivo = "Com reserva, mas sem permissão de grupo."
+
+    hora_consumo = ""
+    if autorizado:
+        hora_consumo = datetime.now().strftime("%H:%M:%S")
+        payload = {
+            "estudante_id": estudante.id,
+            "sessao_id": sessao.id,
+            "hora_consumo": hora_consumo,
+            "reserva_id": id_reserva,
+        }
+        repo_consumo.criar(payload)
+        repo_consumo.obter_sessao().commit()
+
+    return {
+        "autorizado": autorizado,
+        "motivo": motivo,
+        "aluno": estudante.nome,
+        "nome": estudante.nome,
+        "prontuario": estudante.prontuario,
+        "turma": turma,
+        "prato": prato,
+        "hora_consumo": hora_consumo,
+    }
+
+
 def desfazer_consumo(repo_consumo: RepositorioConsumo, id_consumo: int):
     """Remove um registro de consumo do banco de dados."""
     if repo_consumo.deletar(id_consumo):

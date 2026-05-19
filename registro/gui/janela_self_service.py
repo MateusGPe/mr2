@@ -6,11 +6,19 @@
 
 import logging
 import tkinter as tk
-from typing import Any, Callable, Dict, Optional, Tuple
+import re
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
+from fuzzywuzzy import fuzz
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
 from ttkbootstrap.constants import CENTER, LEFT, NSEW, RIGHT, X
+
+from registro.gui.constants import REGEX_LIMPEZA_PRONTUARIO
+from registro.nucleo.facade import FachadaRegistro
+
+if TYPE_CHECKING:
+    from registro.gui.app_registro import AppRegistro
 
 logger = logging.getLogger(__name__)
 
@@ -44,17 +52,18 @@ class JanelaSelfService(tk.Toplevel):
 
     def __init__(
         self,
-        parent: tk.Widget,
-        callback_registro: Callable[[str], Tuple[bool, str, Dict[str, Any]]],
-        callback_busca: Callable[[str], Optional[Dict[str, Any]]],
+        parent: "AppRegistro",
+        fachada: "FachadaRegistro",
     ):
         super().__init__(parent)
         self.title("📷 Autoatendimento")
         self.geometry("900x600")
         self.minsize(800, 500)
 
-        self._callback_registro = callback_registro
-        self._callback_busca = callback_busca
+        self._parent_app = parent
+        self._fachada = fachada
+        assert self._fachada is self._parent_app.get_fachada()
+        assert self._fachada.id_sessao_ativa is not None
         self._cap = None
         self._running = False
         self._cooldown_frames = 0
@@ -325,14 +334,14 @@ class JanelaSelfService(tk.Toplevel):
         """Executa a busca por sugestão e atualiza o label."""
         self._id_after_busca_manual = None
         termo_busca = self._var_entrada_manual.get()
-        if not termo_busca or not self._callback_busca or not self._lbl_sugestao_manual:
+        if not termo_busca or not self._lbl_sugestao_manual:
             return
 
-        melhor_match = self._callback_busca(termo_busca)
+        melhor_match = self._buscar_melhor_match_por_nome(termo_busca)
 
         if melhor_match:
             nome = melhor_match.get("nome", "Desconhecido")
-            turma = melhor_match.get("turma", "")
+            turma = melhor_match.get("turma", "N/A")
             self._lbl_sugestao_manual.config(
                 text=f"Sugestão: {nome} ({turma})")
         else:
@@ -348,7 +357,7 @@ class JanelaSelfService(tk.Toplevel):
         # Cooldown inicial preventivo
         self._cooldown_frames = 30
 
-        sucesso, msg, dados = self._callback_registro(codigo)
+        sucesso, msg, dados = self._registrar_entrada(codigo)
 
         if sucesso:
             self._lbl_nome.config(text=dados.get("nome", "Desconhecido"))
@@ -356,6 +365,14 @@ class JanelaSelfService(tk.Toplevel):
             self._lbl_mensagem.config(text="")
             self._definir_feedback_visual("sucesso")
             self._tocar_som(sucesso=True)
+            tupla_estudante = (
+                str(dados.get("prontuario", "")),
+                str(dados.get("nome", "Desconhecido")),
+                str(dados.get("turma", "")),
+                str(dados.get("hora_consumo", "")),
+                str(dados.get("prato", "")),
+            )
+            self._parent_app.notificar_sucesso_registro(tupla_estudante)
             self._cooldown_frames = 20
         else:
             self._lbl_mensagem.config(text=msg)
@@ -370,6 +387,113 @@ class JanelaSelfService(tk.Toplevel):
             self.after(self._cooldown_frames * 100,
                        lambda: self._definir_feedback_visual("padrao"))
             self._cooldown_frames = 0
+
+    @staticmethod
+    def formatar_matricula(valor):
+        """
+        Padroniza a matrícula para o formato IQ30XXXXX,
+        aceitando 'X' como dígito válido.
+        """
+        texto = str(valor).upper()
+        limpo = re.sub(r'[^0-9X]', '', texto)
+        sufixo = limpo[-5:].zfill(5)
+        return f"IQ30{sufixo}"
+
+    def _registrar_entrada(self, texto_entrada: str) -> Tuple[bool, str, Dict[str, Any]]:
+        """Processa a entrada e tenta registrar o consumo usando a lógica estrita."""
+        try:
+            prontuario = JanelaSelfService.formatar_matricula(texto_entrada)
+            resultado = self._fachada.registrar_consumo(
+                prontuario, excecao_grupos=self._fachada.excessao_grupos
+            )
+
+            if resultado.get("autorizado"):
+                return True, "Sucesso", resultado
+
+            motivo = resultado.get("motivo", "Não autorizado")
+            if "não encontrado" not in motivo.lower():
+                return False, motivo, resultado
+
+            # Se "Estudante não encontrado", tenta busca por nome
+            return self._buscar_por_nome_e_registrar(texto_entrada)
+
+        except Exception as e:
+            logger.exception("Erro ao processar entrada self-service: %s", e)
+            return False, str(e), {"nome": texto_entrada, "turma": "Erro de Sistema"}
+
+    def _buscar_por_nome_e_registrar(
+        self, nome_busca: str
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        """Busca por nome, e se encontrar um match claro, tenta registrar."""
+        elegiveis = self._fachada.obter_estudantes_para_sessao(
+            consumido=False, pular_grupos=True
+        )
+        correspondencias = []
+        nome_lower = nome_busca.lower()
+        for estudante in elegiveis:
+            nome_estudante = estudante.get("nome", "").lower()
+            if not nome_estudante:
+                continue
+            score = fuzz.ratio(nome_lower, nome_estudante)
+            if score >= 85:
+                estudante["score"] = score
+                correspondencias.append(estudante)
+
+        if not correspondencias:
+            return False, "Aluno não encontrado", {"nome": nome_busca, "turma": "Não Encontrado"}
+
+        correspondencias.sort(key=lambda x: -x["score"])
+        melhor_match = correspondencias[0]
+
+        if len(correspondencias) > 1 and (
+            melhor_match["score"] < 95
+            or (melhor_match["score"] - correspondencias[1]["score"]) < 10
+        ):
+            msg = "Múltiplos resultados. Seja mais específico."
+            return False, msg, {"nome": nome_busca, "turma": "Busca Ambigua"}
+
+        prontuario_encontrado = melhor_match.get("pront")
+        resultado_registro = self._fachada.registrar_consumo_com_reserva(
+            prontuario_encontrado, excecao_grupos=self._fachada.excessao_grupos
+        )
+        if resultado_registro.get("autorizado"):
+            return True, "Sucesso", resultado_registro
+
+        return False, resultado_registro.get("motivo", "Não autorizado"), resultado_registro
+
+    def _buscar_melhor_match_por_nome(
+        self, nome_busca: str
+    ) -> Optional[Dict[str, Any]]:
+        """Busca por nome e retorna o melhor match como sugestão, sem registrar."""
+        if len(nome_busca) < 3:
+            return None
+
+        try:
+            elegiveis = self._fachada.obter_estudantes_para_sessao(
+                consumido=False, pular_grupos=True
+            )
+
+            correspondencias = []
+            nome_lower = nome_busca.lower()
+
+            for estudante in elegiveis:
+                nome_estudante = estudante.get("nome", "").lower()
+                if not nome_estudante:
+                    continue
+
+                score = fuzz.ratio(nome_lower, nome_estudante)
+                if score >= 75:  # Limiar mais baixo para sugestões
+                    estudante["score"] = score
+                    correspondencias.append(estudante)
+
+            if not correspondencias:
+                return None
+
+            correspondencias.sort(key=lambda x: -x["score"])
+            return correspondencias[0]
+        except Exception as e:
+            logger.error("Erro ao buscar sugestão por nome: %s", e)
+            return None
 
     def _definir_feedback_visual(self, estado: str):
         """Altera as cores do painel de informações para dar feedback visual."""
@@ -413,4 +537,3 @@ class JanelaSelfService(tk.Toplevel):
         if self._cap:
             self._cap.release()
         self.destroy()
-

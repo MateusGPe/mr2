@@ -6,7 +6,6 @@
 
 import json
 import logging
-import re
 import sys
 import threading
 import tkinter as tk
@@ -14,8 +13,6 @@ from threading import Thread
 from tkinter import CENTER, TclError
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
-import ttkbootstrap as ttk
-from fuzzywuzzy import fuzz
 from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
@@ -27,6 +24,7 @@ from registro.gui.janela_self_service import JanelaSelfService
 from registro.gui.painel_acao_busca import PainelAcaoBusca
 from registro.gui.painel_status_registrados import PainelStatusRegistrados
 from registro.gui.utils import capitalizar
+import ttkbootstrap as ttk
 from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.utils import DADOS_SESSAO
@@ -440,182 +438,9 @@ class AppRegistro(tk.Tk):
 
         logger.info("Abrindo janela de autoatendimento.")
         JanelaSelfService(
-            self,
-            self._processar_entrada_self_service,
-            self._buscar_melhor_match_por_nome,
+            parent=self,
+            fachada=self._fachada,
         )
-
-    def _buscar_melhor_match_por_nome(
-        self, nome_busca: str
-    ) -> Optional[Dict[str, Any]]:
-        """Busca por nome e retorna o melhor match como sugestão, sem registrar."""
-        if not self._fachada or len(nome_busca) < 3:
-            return None
-
-        try:
-            elegiveis = self._fachada.obter_estudantes_para_sessao(
-                consumido=False, pular_grupos=True
-            )
-
-            correspondencias = []
-            nome_lower = nome_busca.lower()
-
-            for estudante in elegiveis:
-                nome_estudante = estudante.get("nome", "").lower()
-                if not nome_estudante:
-                    continue
-
-                score = fuzz.ratio(nome_lower, nome_estudante)
-                if score >= 75:  # Limiar mais baixo para sugestões
-                    estudante["score"] = score
-                    correspondencias.append(estudante)
-
-            if not correspondencias:
-                return None
-
-            correspondencias.sort(key=lambda x: -x["score"])
-            return correspondencias[0]
-        except Exception as e:
-            logger.error("Erro ao buscar sugestão por nome: %s", e)
-            return None
-
-    @staticmethod
-    def formatar_matricula(valor):
-        """
-        Padroniza a matrícula para o formato IQ30XXXXX, 
-        aceitando 'X' como dígito válido.
-        """
-        # 1. Converte para string e coloca em maiúsculo (trata 'x' e 'X' igual)
-        texto = str(valor).upper()
-
-        # 2. Remove tudo o que NÃO for número ou a letra 'X'
-        # O sinal ^ dentro do colchete significa "negação"
-        limpo = re.sub(r'[^0-9X]', '', texto)
-
-        # 3. Pega os últimos 5 caracteres
-        # O zfill(5) garante o preenchimento com zeros se a string for curta
-        sufixo = limpo[-5:].zfill(5)
-
-        return f"IQ30{sufixo}"
-
-    def _processar_entrada_self_service(
-        self, texto_entrada: str
-    ) -> Tuple[bool, str, Dict[str, Any]]:
-        """Callback para processar a entrada (código ou nome) da janela de autoatendimento."""
-        if not self._fachada:
-            return False, "Erro interno: Fachada não disponível", {}
-
-        try:
-            texto_limpo = AppRegistro.formatar_matricula(
-                texto_entrada.strip().upper())
-
-            elegiveis = self._fachada.obter_estudantes_para_sessao(
-                consumido=False, pular_grupos=True
-            )
-            if not any(e.get("pront") == texto_limpo for e in elegiveis):
-                match = self._buscar_melhor_match_por_nome(texto_entrada)
-                dados_erro = {
-                    "nome": match.get("nome") if match else texto_entrada,
-                    "turma": match.get("turma") if match else "Não Encontrado",
-                }
-                return False, "Não autorizado (sem reserva)", dados_erro
-
-            # 1. Tenta registrar como se fosse um código/prontuário
-            resultado = self._fachada.registrar_consumo(
-                texto_limpo, pular_grupos=True
-            )
-            if resultado.get("autorizado"):
-                return self._tratar_sucesso_registro_self_service(resultado)
-
-            motivo = resultado.get("motivo", "Não autorizado")
-            if "não encontrado" not in motivo.lower():
-                return self._tratar_falha_logica_self_service(resultado, texto_limpo)
-
-            # 2. Se foi "não encontrado", tenta busca por nome (fuzzy)
-            logger.info(
-                "Código '%s' não encontrado, tentando busca por nome.", texto_limpo
-            )
-            return self._buscar_por_nome_e_registrar(texto_limpo)
-
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.exception("Erro ao processar entrada self-service: %s", e)
-            msg_erro = str(e)
-            dados_erro = {"nome": texto_entrada.strip(),
-                          "turma": "Erro de Sistema"}
-            return False, msg_erro, dados_erro
-
-    def _buscar_por_nome_e_registrar(
-        self, nome_busca: str
-    ) -> Tuple[bool, str, Dict[str, Any]]:
-        """Busca por nome, e se encontrar um match claro, tenta registrar."""
-        if not self._fachada:
-            return False, "Erro interno", {}
-
-        elegiveis = self._fachada.obter_estudantes_para_sessao(
-            consumido=False, pular_grupos=True
-        )
-        correspondencias = []
-        nome_lower = nome_busca.lower()
-        for estudante in elegiveis:
-            nome_estudante = estudante.get("nome", "").lower()
-            if not nome_estudante:
-                continue
-            score = fuzz.ratio(nome_lower, nome_estudante)
-            if score >= 85:
-                estudante["score"] = score
-                correspondencias.append(estudante)
-
-        if not correspondencias:
-            return False, "Aluno não encontrado", {"nome": nome_busca, "turma": "Não Encontrado"}
-
-        correspondencias.sort(key=lambda x: -x["score"])
-        melhor_match = correspondencias[0]
-
-        if len(correspondencias) > 1 and (
-            melhor_match["score"] < 95
-            or (melhor_match["score"] - correspondencias[1]["score"]) < 10
-        ):
-            msg = "Múltiplos resultados. Seja mais específico."
-            return False, msg, {"nome": nome_busca, "turma": "Busca Ambigua"}
-
-        prontuario_encontrado = melhor_match.get("pront")
-        resultado_registro = self._fachada.registrar_consumo(
-            prontuario_encontrado, pular_grupos=True
-        )
-        if resultado_registro.get("autorizado"):
-            return self._tratar_sucesso_registro_self_service(resultado_registro)
-        return self._tratar_falha_logica_self_service(resultado_registro, nome_busca)
-
-    def _tratar_sucesso_registro_self_service(
-        self, resultado: Dict[str, Any]
-    ) -> Tuple[bool, str, Dict[str, Any]]:
-        """Lógica de UI para um registro bem-sucedido no self-service."""
-        tupla_estudante = (
-            str(resultado.get("prontuario", "")),
-            str(resultado.get("nome", "Desconhecido")),
-            str(resultado.get("turma", "")),
-            str(resultado.get("hora_consumo", "")),
-            str(resultado.get("prato", "")),
-        )
-        self.notificar_sucesso_registro(tupla_estudante)
-        self._atualizar_ui_apos_mudanca_dados()
-        return True, "Sucesso", resultado
-
-    def _tratar_falha_logica_self_service(
-        self, resultado: Dict[str, Any], texto_entrada: str
-    ) -> Tuple[bool, str, Dict[str, Any]]:
-        """Lógica de UI para uma falha lógica (negado, já consumiu) no self-service."""
-        motivo = resultado.get("motivo", "Não autorizado")
-        dados_erro = resultado.copy()
-        if "nome" not in dados_erro:
-            dados_erro["nome"] = texto_entrada
-        if "turma" not in dados_erro:
-            dados_erro["turma"] = (
-                "Não Encontrado"
-                if "não encontrado" in motivo.lower()
-                else "Acesso Negado"
-            )
-        return False, motivo, dados_erro
 
     def mostrar_barra_progresso(self, iniciar: bool, texto: Optional[str] = None):
         """Controla a visibilidade e o estado da barra de progresso."""
