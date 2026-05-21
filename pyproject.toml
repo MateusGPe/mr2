@@ -34,3 +34,4 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry.scripts]
 registrar = "registro.gui.app_registro:main"
 painel = "registro.app_principal:main"
+autoatendimento = "registro.gui.janela_self_service:main"
