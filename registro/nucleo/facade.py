@@ -486,3 +486,9 @@ class FachadaRegistro:
         service_logic.sincronizar_para_google_sheets(
             self.repo_sessao, self.repo_consumo, self.id_sessao_ativa
         )
+
+    def sincronizar_todas_sessoes_para_google_sheets(self):
+        """Envia os dados de consumo de todas as sessões para a planilha do Google Sheets."""
+        service_logic.sincronizar_todas_sessoes_para_google_sheets(
+            self.repo_sessao, self.repo_consumo
+        )

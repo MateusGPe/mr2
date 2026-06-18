@@ -661,12 +661,42 @@ def sincronizar_do_google_sheets(
             f"Erro inesperado na sincronização: {e}") from e
 
 
+def _montar_linhas_para_sessao(
+    sessao: Sessao,
+    consumos: Sequence[Consumo],
+) -> List[List[str]]:
+    """Constrói as linhas que serão enviadas para a planilha de uma sessão."""
+    linhas_para_adicionar = []
+    for consumo in consumos:
+        prato = "Sem Reserva (Exceção)"
+        if consumo.reserva:
+            prato = consumo.reserva.prato
+        elif sessao.refeicao == "lanche":
+            prato = sessao.item_servido or "Lanche"
+
+        turma = (
+            consumo.estudante.grupos[0].nome if consumo.estudante.grupos else "N/A"
+        )
+
+        linhas_para_adicionar.append(
+            [
+                consumo.estudante.prontuario,
+                sessao.data,
+                consumo.estudante.nome,
+                turma,
+                prato,
+                consumo.hora_consumo,
+            ]
+        )
+    return linhas_para_adicionar
+
+
 def sincronizar_para_google_sheets(
     repo_sessao: RepositorioSessao,
     repo_consumo: RepositorioConsumo,
     id_sessao: int,
 ):
-    """Envia os registros de consumo da sessão para a planilha do Google Sheets."""
+    """Envia os registros de consumo de uma sessão para a planilha do Google Sheets."""
     try:
         sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
         opcoes = [
@@ -677,29 +707,7 @@ def sincronizar_para_google_sheets(
             opcoes_carregamento=opcoes, sessao_id=id_sessao
         )
 
-        linhas_para_adicionar = []
-        for consumo in consumos:
-            prato = "Sem Reserva (Exceção)"
-            if consumo.reserva:
-                prato = consumo.reserva.prato
-            elif sessao.refeicao == "lanche":
-                prato = sessao.item_servido or "Lanche"
-
-            turma = (
-                consumo.estudante.grupos[0].nome if consumo.estudante.grupos else "N/A"
-            )
-
-            linhas_para_adicionar.append(
-                [
-                    consumo.estudante.prontuario,
-                    sessao.data,
-                    consumo.estudante.nome,
-                    turma,
-                    prato,
-                    consumo.hora_consumo,
-                ]
-            )
-
+        linhas_para_adicionar = _montar_linhas_para_sessao(sessao, consumos)
         if linhas_para_adicionar:
             planilha = google_api_service.obter_planilha()
             google_api_service.anexar_linhas_unicas(
@@ -710,4 +718,37 @@ def sincronizar_para_google_sheets(
     except Exception as e:
         raise ErroNucleoRegistro(
             f"Erro inesperado no upload para a planilha: {e}"
+        ) from e
+
+
+def sincronizar_todas_sessoes_para_google_sheets(
+    repo_sessao: RepositorioSessao,
+    repo_consumo: RepositorioConsumo,
+):
+    """Envia os registros de consumo de todas as sessões para a planilha do Google Sheets."""
+    try:
+        opcoes = [
+            selectinload(Consumo.reserva),
+            selectinload(Consumo.estudante).selectinload(Estudante.grupos),
+        ]
+        todas_sessoes = repo_sessao.ler_todos()
+
+        for sessao in todas_sessoes:
+            consumos = repo_consumo.ler_filtrado(
+                opcoes_carregamento=opcoes,
+                sessao_id=sessao.id,
+            )
+            linhas_para_adicionar = _montar_linhas_para_sessao(sessao, consumos)
+            if linhas_para_adicionar:
+                planilha = google_api_service.obter_planilha()
+                google_api_service.anexar_linhas_unicas(
+                    planilha,
+                    linhas_para_adicionar,
+                    sessao.refeicao.capitalize(),
+                )
+    except (ErroAPIGoogle, ErroSessao) as e:
+        raise e
+    except Exception as e:
+        raise ErroNucleoRegistro(
+            f"Erro inesperado no upload de todas as sessões: {e}"
         ) from e

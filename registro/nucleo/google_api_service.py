@@ -34,6 +34,14 @@ CAMINHO_CREDENCIAS = CAMINHO_CONFIG / "credentials.json"
 CAMINHO_PLANILHA_JSON = CAMINHO_CONFIG / "spreadsheet.json"
 
 
+def _chave_identificadora_linha(linha: List[str]) -> tuple[str, ...]:
+    """Gera uma chave de identidade usando apenas os campos relevantes."""
+    valores = [str(item).strip() for item in linha]
+    if len(valores) < 4:
+        return tuple(valores)
+    return tuple(valores[:2] + valores[-2:])
+
+
 def _obter_credenciais(
     caminho_token: Path = CAMINHO_TOKEN,
     caminho_credenciais: Path = CAMINHO_CREDENCIAS,
@@ -104,11 +112,16 @@ class GoogleSheetsService:
     def anexar_linhas_unicas(self, nome_aba: str, linhas: List[List[str]]) -> int:
         try:
             aba = self._planilha.worksheet(nome_aba)
-            dados_existentes = set(tuple(row) for row in aba.get_all_values())
-            novas_linhas_set = set(tuple(map(str, row)) for row in linhas)
-            linhas_para_adicionar = [
-                list(row) for row in novas_linhas_set - dados_existentes
-            ]
+            dados_existentes = {
+                _chave_identificadora_linha(row)
+                for row in aba.get_all_values()
+            }
+            linhas_para_adicionar = []
+            for row in linhas:
+                chave = _chave_identificadora_linha(row)
+                if chave not in dados_existentes:
+                    linhas_para_adicionar.append(row)
+                    dados_existentes.add(chave)
             if linhas_para_adicionar:
                 aba.append_rows(
                     linhas_para_adicionar,
@@ -174,15 +187,20 @@ def anexar_linhas_unicas(
 ) -> int:
     """
     Adiciona linhas únicas a uma aba a partir de um objeto planilha.
-    Esta função é mantida sem alterações, pois sua lógica é independente.
+    A comparação considera apenas a matrícula, a data, a refeição e a hora.
     """
     try:
         aba = planilha.worksheet(nome_aba)
-        dados_existentes = set(tuple(row) for row in aba.get_all_values())
-        novas_linhas_set = set(tuple(row) for row in linhas)
-        linhas_unicas_para_adicionar = [
-            list(row) for row in novas_linhas_set - dados_existentes
-        ]
+        dados_existentes = {
+            _chave_identificadora_linha(row)
+            for row in aba.get_all_values()
+        }
+        linhas_unicas_para_adicionar = []
+        for row in linhas:
+            chave = _chave_identificadora_linha(row)
+            if chave not in dados_existentes:
+                linhas_unicas_para_adicionar.append(row)
+                dados_existentes.add(chave)
         if linhas_unicas_para_adicionar:
             aba.append_rows(
                 linhas_unicas_para_adicionar,

@@ -502,23 +502,20 @@ class AppRegistro(tk.Tk):
         )
 
     def sincronizar_sessao_com_planilha(self, automatico: bool = False):
-        """Inicia a sincronização dos dados da sessão atual para a planilha."""
-        if not self._fachada or self._fachada.id_sessao_ativa is None:
-            if not automatico:
-                Messagebox.show_warning(
-                    "Nenhuma Sessão Ativa",
-                    "É necessário ter uma sessão ativa.",
-                    parent=self,
-                )
+        """Inicia a sincronização dos dados de todas as sessões para a planilha."""
+        if not self._fachada:
             return
 
         if automatico:
             logger.info("Iniciando sincronização automática de servidos para planilha.")
 
         self.mostrar_barra_progresso(
-            True, "Sincronizando servidos para planilha...")
+            True, "Sincronizando servidos para planilha..."
+        )
         self._iniciar_thread_sinc(
-            self._fachada.sincronizar_para_google_sheets, "Sincronização de Servidos", automatico=automatico
+            self._fachada.sincronizar_todas_sessoes_para_google_sheets,
+            "Sincronização de Servidos",
+            automatico=automatico,
         )
 
     def _iniciar_thread_sinc(self, funcao_sinc: Callable, nome_tarefa: str, automatico: bool = False):
@@ -688,16 +685,18 @@ class AppRegistro(tk.Tk):
 
         if self._fachada:
             id_sessao = self._fachada.id_sessao_ativa
-            if not acionado_por_fim_sessao and id_sessao:
-                # Sincroniza os dados de consumo da sessão antes de fechar
+            if not acionado_por_fim_sessao:
+                # Sincroniza os dados de consumo de todas as sessões antes de fechar
                 self._executar_sinc_bloqueante(
-                    self._fachada.sincronizar_para_google_sheets, "Sincronização de Servidos"
+                    self._fachada.sincronizar_todas_sessoes_para_google_sheets,
+                    "Sincronização de Servidos",
                 )
 
-                CAMINHO_SESSAO.write_text(
-                    f'{{"id_sessao": {id_sessao}}}', encoding="utf-8"
-                )
-                logger.info("Estado da sessão salvo em %s.", CAMINHO_SESSAO)
+                if id_sessao:
+                    CAMINHO_SESSAO.write_text(
+                        f'{{"id_sessao": {id_sessao}}}', encoding="utf-8"
+                    )
+                    logger.info("Estado da sessão salvo em %s.", CAMINHO_SESSAO)
 
             logger.info("Fechando conexão com DB...")
             self._fachada.fechar_conexao()
