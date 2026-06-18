@@ -19,7 +19,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
 from gspread.utils import ValueInputOption
-
+from requests.exceptions import RequestException
+ 
 from registro.nucleo.exceptions import ErroAPIGoogle
 
 SCOPES = [
@@ -97,7 +98,7 @@ class GoogleSheetsService:
         try:
             aba = self._planilha.worksheet(nome_aba)
             return aba.get_all_values()
-        except (WorksheetNotFound, APIError) as e:
+        except (WorksheetNotFound, APIError, RequestException) as e:
             raise ErroAPIGoogle(f"Falha ao ler dados da aba '{nome_aba}': {e}") from e
 
     def anexar_linhas_unicas(self, nome_aba: str, linhas: List[List[str]]) -> int:
@@ -114,7 +115,7 @@ class GoogleSheetsService:
                     value_input_option=ValueInputOption.user_entered,
                 )
             return len(linhas_para_adicionar)
-        except (WorksheetNotFound, APIError) as e:
+        except (WorksheetNotFound, APIError, RequestException) as e:
             raise ErroAPIGoogle(f"Falha ao anexar linhas em '{nome_aba}': {e}") from e
 
 
@@ -164,7 +165,7 @@ def buscar_valores_aba(planilha: gspread.Spreadsheet, nome_aba: str) -> List[Lis
     try:
         aba = planilha.worksheet(nome_aba)
         return aba.get_all_values()
-    except (WorksheetNotFound, APIError) as e:
+    except (WorksheetNotFound, APIError, RequestException) as e:
         raise ErroAPIGoogle(f"Falha ao buscar dados da aba '{nome_aba}': {e}") from e
 
 
@@ -188,5 +189,5 @@ def anexar_linhas_unicas(
                 value_input_option=ValueInputOption.user_entered,
             )
         return len(linhas_unicas_para_adicionar)
-    except (WorksheetNotFound, APIError) as e:
+    except (WorksheetNotFound, APIError, RequestException) as e:
         raise ErroAPIGoogle(f"Falha ao adicionar linhas em '{nome_aba}': {e}") from e

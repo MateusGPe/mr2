@@ -68,7 +68,7 @@ class FachadaRegistro:
         """Permite o uso da Fachada como um gerenciador de contexto."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Garante que a conexão com o banco de dados seja fechada."""
         self.fechar_conexao()
 

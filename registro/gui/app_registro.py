@@ -3,7 +3,7 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
-
+import datetime as dt
 import json
 import logging
 import sys
@@ -27,6 +27,7 @@ from registro.gui.utils import capitalizar
 import ttkbootstrap as ttk
 from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
+from registro.nucleo.models import SessaoLocal, SyncLog
 from registro.nucleo.utils import DADOS_SESSAO
 
 logger = logging.getLogger(__name__)
@@ -76,6 +77,24 @@ class AppRegistro(tk.Tk):
             logger.critical("Tentativa de acessar Fachada não inicializada.")
             raise RuntimeError("FachadaRegistro não foi inicializada.")
         return self._fachada
+
+    def _logar_sincronizacao(self, direction: str, status: str, message: Optional[str] = None, records_affected: Optional[int] = None):
+        """Registra um evento de sincronização no banco de dados."""
+        logger.info(f"Logando sincronização: direction={direction}, status={status}, records={records_affected}")
+        with SessaoLocal() as session:
+            try:
+                log_entry = SyncLog(
+                    timestamp=dt.datetime.now().isoformat(),
+                    direction=direction,
+                    status=status,
+                    message=message,
+                    records_affected=records_affected
+                )
+                session.add(log_entry)
+                session.commit()
+            except Exception as e:
+                logger.error(f"Falha ao logar evento de sincronização no BD: {e}")
+                session.rollback()
 
     def _configurar_estilo(self):
         """Configura o estilo da aplicação usando ttkbootstrap."""
@@ -334,6 +353,8 @@ class AppRegistro(tk.Tk):
 
             self._focar_janela()
             logger.info("UI configurada para sessão ID: %s", id_sessao)
+            # Sincroniza dados mestre na inicialização
+            self._sincronizar_dados_mestre(automatico=True)
 
         except ErroSessaoNaoAtiva:
             logger.error("Não é possível configurar UI: Nenhuma sessão ativa.")
@@ -461,88 +482,135 @@ class AppRegistro(tk.Tk):
         except tk.TclError as e:
             logger.error("Erro Tcl ao manipular barra de progresso: %s", e)
 
-    def _sincronizar_dados_mestre(self):
+    def _sincronizar_dados_mestre(self, automatico: bool = False):
         """Inicia a sincronização dos dados mestre (cadastros)."""
         if not self._fachada:
             return
-        if Messagebox.yesno(
+        if not automatico and Messagebox.yesno(
             "Confirmar Sincronização",
             "Deseja sincronizar os dados mestre?",
             parent=self,
         ) == MessageCatalog.translate("No"):
             return
+
+        if automatico:
+            logger.info("Iniciando sincronização automática de cadastros.")
+
         self.mostrar_barra_progresso(True, "Sincronizando cadastros...")
         self._iniciar_thread_sinc(
-            self._fachada.sincronizar_do_google_sheets, "Sincronização de Cadastros"
+            self._fachada.sincronizar_do_google_sheets, "Sincronização de Cadastros", automatico=automatico
         )
 
-    def sincronizar_sessao_com_planilha(self):
+    def sincronizar_sessao_com_planilha(self, automatico: bool = False):
         """Inicia a sincronização dos dados da sessão atual para a planilha."""
         if not self._fachada or self._fachada.id_sessao_ativa is None:
-            Messagebox.show_warning(
-                "Nenhuma Sessão Ativa",
-                "É necessário ter uma sessão ativa.",
-                parent=self,
-            )
+            if not automatico:
+                Messagebox.show_warning(
+                    "Nenhuma Sessão Ativa",
+                    "É necessário ter uma sessão ativa.",
+                    parent=self,
+                )
             return
+
+        if automatico:
+            logger.info("Iniciando sincronização automática de servidos para planilha.")
+
         self.mostrar_barra_progresso(
             True, "Sincronizando servidos para planilha...")
         self._iniciar_thread_sinc(
-            self._fachada.sincronizar_para_google_sheets, "Sincronização de Servidos"
+            self._fachada.sincronizar_para_google_sheets, "Sincronização de Servidos", automatico=automatico
         )
 
-    def _iniciar_thread_sinc(self, funcao_sinc: Callable, nome_tarefa: str):
+    def _iniciar_thread_sinc(self, funcao_sinc: Callable, nome_tarefa: str, automatico: bool = False):
         """Inicia uma função de sincronização em uma thread separada para não bloquear a UI."""
         thread = Thread(
             target=self._acao_sinc_wrapper, args=(funcao_sinc,), daemon=True
         )
         thread.start()
-        self._monitorar_thread_sinc(thread, nome_tarefa)
+        self._monitorar_thread_sinc(thread, nome_tarefa, automatico)
+
+    def _executar_sinc_bloqueante(self, funcao_sinc: Callable, nome_tarefa: str):
+        """Executa uma sincronização de forma bloqueante (para o fechamento do app)."""
+        logger.info("Executando sincronização bloqueante: %s", nome_tarefa)
+        self.mostrar_barra_progresso(True, f"Finalizando: {nome_tarefa}...")
+        thread = Thread(
+            target=self._acao_sinc_wrapper, args=(funcao_sinc,), daemon=False
+        )
+        thread.start()
+        # Enquanto aguarda, processa eventos da UI para evitar congelamento total
+        while thread.is_alive():
+            self.update()
+            thread.join(0.1)
+
+        # Agora que terminou, processa o resultado
+        self._monitorar_thread_sinc(thread, nome_tarefa, automatico=True)
 
     def _acao_sinc_wrapper(self, funcao_sinc: Callable):
         """Wrapper que executa a função de sincronização e captura exceções na thread."""
         thread = threading.current_thread()
         setattr(thread, "error", None)
         setattr(thread, "success", False)
+        setattr(thread, "records_affected", 0)
 
         try:
-            funcao_sinc()
+            # Assume que funcao_sinc retorna o número de registros afetados
+            records_affected = funcao_sinc()
             setattr(thread, "success", True)
+            setattr(thread, "records_affected", records_affected or 0)
         except Exception as e:  # pylint: disable=broad-exception-caught
             setattr(thread, "error", e)
 
-    def _monitorar_thread_sinc(self, thread: Thread, nome_tarefa: str):
+    def _monitorar_thread_sinc(self, thread: Thread, nome_tarefa: str, automatico: bool = False):
         """Verifica o status da thread de sincronização e exibe o resultado ao final."""
         if thread.is_alive():
             self.after(150, lambda: self._monitorar_thread_sinc(
-                thread, nome_tarefa))
+                thread, nome_tarefa, automatico))
             return
 
         self.mostrar_barra_progresso(False)
         erro = getattr(thread, "error", None)
         sucesso = getattr(thread, "success", False)
+        records_affected = getattr(thread, "records_affected", 0)
+
+        direction = 'download' if 'Cadastros' in nome_tarefa else 'upload'
 
         if erro:
             logger.error("%s falhou: %s", nome_tarefa, erro)
-            Messagebox.show_error(
-                "Erro na Sincronização", f"{nome_tarefa} falhou:\n{erro}", parent=self
-            )
+            self._logar_sincronizacao(direction=direction, status='failure', message=str(erro), records_affected=0)
+            if not automatico:
+                Messagebox.show_error(
+                    "Erro na Sincronização", f"{nome_tarefa} falhou:\n{erro}", parent=self
+                )
         elif sucesso:
-            logger.info("%s concluída com sucesso.", nome_tarefa)
-            Messagebox.show_info(
-                "Sincronização Concluída",
-                f"{nome_tarefa} concluída com sucesso.",
-                parent=self,
+            logger.info("%s concluída com sucesso. Registros afetados: %d", nome_tarefa, records_affected)
+            self._logar_sincronizacao(
+                direction=direction,
+                status='success',
+                message=f"{nome_tarefa} concluída com sucesso.",
+                records_affected=records_affected
             )
+            if not automatico:
+                Messagebox.show_info(
+                    "Sincronização Concluída",
+                    f"{nome_tarefa} concluída com sucesso.",
+                    parent=self,
+                )
             self._atualizar_ui_apos_mudanca_dados()
         else:
             logger.warning(
                 "%s finalizada com estado indeterminado.", nome_tarefa)
-            Messagebox.show_warning(
-                "Status Desconhecido",
-                f"{nome_tarefa} finalizada, mas o status é incerto.",
-                parent=self,
+            self._logar_sincronizacao(
+                direction=direction,
+                status='unknown',
+                message=f"{nome_tarefa} finalizada com estado indeterminado.",
+                records_affected=0
             )
+            if not automatico:
+                Messagebox.show_warning(
+                    "Status Desconhecido",
+                    f"{nome_tarefa} finalizada, mas o status é incerto.",
+                    parent=self,
+                )
 
     def exportar_sessao_para_excel(self) -> bool:
         """Exporta os dados da sessão atual para um arquivo XLSX."""
@@ -621,6 +689,11 @@ class AppRegistro(tk.Tk):
         if self._fachada:
             id_sessao = self._fachada.id_sessao_ativa
             if not acionado_por_fim_sessao and id_sessao:
+                # Sincroniza os dados de consumo da sessão antes de fechar
+                self._executar_sinc_bloqueante(
+                    self._fachada.sincronizar_para_google_sheets, "Sincronização de Servidos"
+                )
+
                 CAMINHO_SESSAO.write_text(
                     f'{{"id_sessao": {id_sessao}}}', encoding="utf-8"
                 )
