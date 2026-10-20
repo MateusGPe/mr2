@@ -21,13 +21,13 @@ Esta aplicação fornece uma interface gráfica de usuário para registrar aluno
 ## Installation / Instalação
 
 1.  Ensure you have Python 3 installed on your system. / Certifique-se de ter o Python 3 instalado em seu sistema.
-2.  Install Poetry following the instructions on the official Poetry website: [https://python-poetry.org/docs/#installation](https://python-poetry.org/docs/#installation) / Instale o Poetry seguindo as instruções no site oficial do Poetry: [https://python-poetry.org/docs/#installation](https://python-poetry.org/docs/#installation)
+2.  Install uv following the instructions on the official uv website: [https://docs.astral.sh/uv/](https://docs.astral.sh/uv/) / Instale o uv seguindo as instruções no site oficial: [https://docs.astral.sh/uv/](https://docs.astral.sh/uv/)
 3.  Clone the repository (if applicable). / Clone o repositório (se aplicável).
 4.  Navigate to the project directory in your terminal. / Navegue até o diretório do projeto no seu terminal.
-5.  Install the project dependencies using Poetry: / Instale as dependências do projeto usando o Poetry:
+5.  Install the project dependencies using uv: / Instale as dependências do projeto usando o uv:
 
     ```bash
-    poetry install
+    uv sync
     ```
 
 6.  Set up your Google Sheets API credentials. Follow the instructions in the `registro/control/google_creds.py` (implicitly referenced) to create a service account and download the credentials JSON file. Place this file in the appropriate location or configure the path as needed. / Configure suas credenciais da API do Google Sheets. Siga as instruções em `registro/control/google_creds.py` (referenciado implicitamente) para criar uma conta de serviço e baixar o arquivo JSON de credenciais. Coloque este arquivo no local apropriado ou configure o caminho conforme necessário.
@@ -50,16 +50,15 @@ Certifique-se de que esses arquivos existam no diretório `./config` ou ajuste o
 
 ## Usage / Utilização
 
-1.  Activate the Poetry shell within the project directory: / Ative o shell do Poetry dentro do diretório do projeto:
+1.  Run the application scripts using `uv run`: / Execute os scripts da aplicação usando `uv run`:
 
     ```bash
-    poetry shell
+    uv run registrar
     ```
 
-2.  Run the main application script using the `registrar` command defined in `pyproject.toml`: / Execute o script principal da aplicação usando o comando `registrar` definido em `pyproject.toml`:
-
+    Or for the main panel / Ou para o painel principal:
     ```bash
-    registrar
+    uv run painel
     ```
 
 3.  Upon starting, if no previous session is found, a "Nova seção" (New Session) dialog will appear. / Ao iniciar, se nenhuma sessão anterior for encontrada, uma caixa de diálogo "Nova seção" aparecerá.
