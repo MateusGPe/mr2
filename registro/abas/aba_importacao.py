@@ -26,6 +26,7 @@ from registro.controles.treeview_simples import TreeviewSimples
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.importar.definitions import ItemRevisao, ResumoImportacao
+from registro.nucleo.importar.facade import FachadaImportacao
 
 
 class RowItemRevisao(ttk.Frame):

@@ -9,9 +9,16 @@ import logging
 import sys
 import threading
 import tkinter as tk
+import warnings
 from threading import Thread
 from tkinter import CENTER, TclError
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+
+warnings.filterwarnings(
+    "ignore",
+    message=r".*MessageDialog icon.*",
+    category=UserWarning,
+)
 
 from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
 from ttkbootstrap.dialogs import Messagebox

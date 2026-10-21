@@ -34,6 +34,19 @@ autoatendimento = "registro.janela_self_service:main"
 dev = [
     "qrcode>=8.2",
     "pytest-cov>=6.0.0",
+    "ruff>=0.9.0",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+select = [
+    "E9",    # Syntax errors and fatal parser errors
+    "F821",  # Undefined name
+    "F822",  # Undefined export in __all__
+    "F823",  # Local variable referenced before assignment
 ]
 
 [build-system]

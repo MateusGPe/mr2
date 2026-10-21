@@ -74,7 +74,7 @@ def importar_estudantes_csv(
                 linha = ajustar_chaves_e_valores(linha)
                 pront = linha.get("pront")
                 if not pront:
-                    logger.warning(
+                    logger.debug(
                         "Linha %d do CSV ignorada: 'prontuário' ausente ou vazio. Dados: %s",
                         i + 2,  # +1 para cabeçalho, +1 para índice 0
                         linha_original,
