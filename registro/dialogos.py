@@ -216,7 +216,7 @@ class ReservaDialog(ttk.Toplevel):
             row=2, column=0, sticky=EW, pady=(0, 5)
         )
         self.data_entry = DateEntry(
-            form_frame, bootstyle="primary", dateformat="%Y-%m-%d"
+            form_frame, bootstyle="primary", date_format="%Y-%m-%d"
         )
         self.data_entry.grid(row=3, column=0, sticky=EW, pady=(0, 10), padx=(0, 5))
 
@@ -370,7 +370,7 @@ class SessionDialog(ttk.Toplevel):
         ttk.Label(new_session_frame, text="Grupos Permitidos:", anchor=W).pack(
             fill=X, pady=(5, 5)
         )
-        scrolled_frame = ScrolledFrame(new_session_frame, autohide=True, height=120)
+        scrolled_frame = ScrolledFrame(new_session_frame, auto_hide=True, height=120)
         scrolled_frame.pack(fill=X, expand=True, pady=5)
         self.grupos_frame = scrolled_frame.container
         self.grupos_vars = {}

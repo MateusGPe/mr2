@@ -76,7 +76,7 @@ def criar_secao_filtro_turmas_dialogo(
         row=1, column=0, columnspan=3, sticky=EW, pady=5
     )
 
-    frame_rolavel = ScrolledFrame(frame_secao, padding=5, autohide=True)
+    frame_rolavel = ScrolledFrame(frame_secao, padding=5, auto_hide=True)
     frame_rolavel.grid(row=2, column=0, columnspan=3, sticky=NSEW)
     frame_rolavel.columnconfigure(0, weight=2)
     frame_rolavel.columnconfigure((1, 2), weight=1)

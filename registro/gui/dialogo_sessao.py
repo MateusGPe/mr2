@@ -174,7 +174,7 @@ class DialogoSessao(tk.Toplevel):
             ttk.DateEntry,
             width=12,
             bootstyle="primary",
-            dateformat="%d/%m/%Y",
+            date_format="%d/%m/%Y",
         )
         self._combobox_refeicao = self._criar_campo_detalhe(
             frame,
@@ -248,7 +248,7 @@ class DialogoSessao(tk.Toplevel):
     def _criar_checkboxes_turmas(self, master, turmas):
         """Cria os checkboxes para cada turma dentro de um ScrolledFrame."""
         container = ScrolledFrame(
-            master, autohide=True, bootstyle="round", height=100, width=500
+            master, auto_hide=True, bootstyle="round", height=100, width=500
         )
         dados = []
         if not turmas:

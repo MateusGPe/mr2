@@ -114,7 +114,7 @@ class FrameSelfService(ttk.Frame):
             frame_cam,
             text="Inicializando Câmera...",
             anchor=CENTER,
-            bootstyle="inverse-dark",
+            bootstyle="@dark",
         )
         self._lbl_video.grid(row=0, column=0, sticky=NSEW, padx=2, pady=2)
 
@@ -568,22 +568,22 @@ class AbaDashboard(ttk.Frame):
         card_total = ttk.Frame(self, bootstyle="primary", padding=20)
         card_total.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
         ttk.Label(card_total, text="Consumos Registrados", font=(
-            "Segoe UI", 12), bootstyle="inverse-primary").pack()
+            "Segoe UI", 12), bootstyle="@primary").pack()
         self.lbl_total_consumos = ttk.Label(
-            card_total, text="0", font=("Segoe UI", 48, "bold"), bootstyle="inverse-primary"
+            card_total, text="0", font=("Segoe UI", 48, "bold"), bootstyle="@primary"
         )
         self.lbl_total_consumos.pack(expand=True)
 
         card_ultimo = ttk.Frame(self, bootstyle="info", padding=20)
         card_ultimo.grid(row=1, column=1, sticky="nsew", padx=(10, 0))
         ttk.Label(card_ultimo, text="Último Registro", font=(
-            "Segoe UI", 12), bootstyle="inverse-info").pack()
+            "Segoe UI", 12), bootstyle="@info").pack()
         self.lbl_ultimo_consumo_nome = ttk.Label(
-            card_ultimo, text="--", font=("Segoe UI", 22, "bold"), bootstyle="inverse-info", wraplength=300
+            card_ultimo, text="--", font=("Segoe UI", 22, "bold"), bootstyle="@info", wraplength=300
         )
         self.lbl_ultimo_consumo_nome.pack(expand=True)
         self.lbl_ultimo_consumo_hora = ttk.Label(
-            card_ultimo, text="", font=("Segoe UI", 14), bootstyle="inverse-info"
+            card_ultimo, text="", font=("Segoe UI", 14), bootstyle="@info"
         )
         self.lbl_ultimo_consumo_hora.pack()
 

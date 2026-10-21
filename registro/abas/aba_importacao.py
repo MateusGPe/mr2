@@ -48,7 +48,7 @@ class RowItemRevisao(ttk.Frame):
         dados_txt = f"{pront_csv} - {nome_csv}" if pront_csv else nome_csv
 
         self.lbl_dados = ttk.Label(
-            info_frame, text=dados_txt, font="-weight bold", bootstyle="inverse-light"
+            info_frame, text=dados_txt, font="-weight bold", bootstyle="@light"
         )
         self.lbl_dados.pack(anchor=W)
 
@@ -63,7 +63,7 @@ class RowItemRevisao(ttk.Frame):
             info_frame,
             text=f"Status: {detalhe_txt}",
             font="-size 8",
-            bootstyle="light-inverse",
+            bootstyle="@light",
         )
         lbl_detalhe.pack(anchor=W)
 
@@ -327,7 +327,7 @@ class AbaImportacao(ttk.Frame):
 
         ttk.Label(def_frame, text="Data:").pack(side=LEFT)
         self.entry_data_default = DateEntry(
-            def_frame, dateformat="%d/%m/%Y", bootstyle="primary", width=12
+            def_frame, date_format="%d/%m/%Y", bootstyle="primary", width=12
         )
         self.entry_data_default.pack(side=LEFT, padx=(5, 15))
 
@@ -343,7 +343,7 @@ class AbaImportacao(ttk.Frame):
             frame, text="Revisão de Conflitos", padding=0)
         list_container.grid(row=2, column=0, sticky=NSEW)
 
-        self.lista_revisao_frame = ScrolledFrame(list_container, autohide=True)
+        self.lista_revisao_frame = ScrolledFrame(list_container, auto_hide=True)
         self.lista_revisao_frame.pack(fill=BOTH, expand=True)
 
         btn_frame = ttk.Frame(frame, padding=(0, 10))
@@ -572,7 +572,7 @@ class AbaImportacao(ttk.Frame):
             container,
             text="📤 Exportar Dados",
             font="-weight bold",
-            bootstyle="inverse-light",
+            bootstyle="@light",
         ).grid(row=0, column=0, columnspan=3, sticky=W, pady=(0, 5))
 
         RoundedButton(

@@ -137,7 +137,7 @@ class PainelAcaoBusca(ttk.Frame):
             frame_preview,
             text="Pesquise um aluno.",
             justify=LEFT,
-            bootstyle="inverse-info",
+            bootstyle="@info",
             wraplength=350,
             style="Preview.TLabel",
         )
@@ -556,17 +556,17 @@ class PainelAcaoBusca(ttk.Frame):
 
         if erro:
             texto = "Erro ao obter dados do aluno."
-            estilo = "inverse-danger"
+            estilo = "@danger"
         elif self._dados_elegivel_selecionado:
             pront = self._dados_elegivel_selecionado.get("Pront", "?")
             nome = self._dados_elegivel_selecionado.get("Nome", "?")
             turma = self._dados_elegivel_selecionado.get("Turma", "S/ Turma")
             prato = self._dados_elegivel_selecionado.get("Prato") or "Sem Reserva"
             texto = f"Pront: {pront}\nNome: {nome}\nTurma: {turma}\nPrato: {prato}"
-            estilo = "inverse-primary"
+            estilo = "@primary"
         else:
             texto = "Pesquise um aluno."
-            estilo = "inverse-info"
+            estilo = "@info"
 
         self._label_aluno_selecionado.config(text=texto, bootstyle=estilo)
 

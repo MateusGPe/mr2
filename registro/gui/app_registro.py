@@ -155,7 +155,7 @@ class AppRegistro(tk.Tk):
             self._barra_superior,
             text="Carregando Sessão...",
             font="-size 14 -weight bold",
-            bootstyle="dark-inverse",
+            bootstyle="@dark",
         )
         self._label_info_sessao.pack(side=LEFT, padx=(0, 20), anchor="w")
 
@@ -217,7 +217,7 @@ class AppRegistro(tk.Tk):
         self._label_barra_status = ttk.Label(
             self._barra_status,
             text="Pronto.",
-            bootstyle="inverse-light",
+            bootstyle="@light",
             font=("-size 10"),
         )
         self._label_barra_status.pack(side=LEFT, padx=5, anchor="w")
@@ -341,7 +341,7 @@ class AppRegistro(tk.Tk):
             self.title(titulo)
             if self._label_info_sessao:
                 self._label_info_sessao.config(
-                    text=titulo, bootstyle="inverse-dark")
+                    text=titulo, bootstyle="@dark")
 
             if self._painel_acao:
                 self._painel_acao.habilitar_controles()

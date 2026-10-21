@@ -110,7 +110,7 @@ class JanelaSelfService(tk.Toplevel):
             frame_cam,
             text="Inicializando Câmera...",
             anchor=CENTER,
-            bootstyle="inverse-dark",
+            bootstyle="@dark",
         )
         self._lbl_video.grid(row=0, column=0, sticky=NSEW, padx=2, pady=2)
 

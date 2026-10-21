@@ -56,12 +56,12 @@ class AbaDashboard(ttk.Frame):
             card,
             text=value,
             font=("Segoe UI", 36, "bold"),
-            bootstyle=f"inverse-{style}",
+            bootstyle=f"@{style}",
         )
         value_label.grid(row=0, column=0, sticky="nsew")
 
         label_text = ttk.Label(
-            card, text=label, font=("Segoe UI", 12), bootstyle=f"inverse-{style}"
+            card, text=label, font=("Segoe UI", 12), bootstyle=f"@{style}"
         )
         label_text.grid(row=1, column=0, sticky="nsew")
 
