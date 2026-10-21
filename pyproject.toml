@@ -33,8 +33,20 @@ autoatendimento = "registro.janela_self_service:main"
 [dependency-groups]
 dev = [
     "qrcode>=8.2",
+    "pytest-cov>=6.0.0",
 ]
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-ra -q"
+
+[tool.coverage.run]
+source = ["registro/nucleo", "registro/importar"]
+omit = [
+    "*/__main__.py",
+]

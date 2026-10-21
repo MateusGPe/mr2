@@ -603,6 +603,7 @@ def exportar_sessao_para_xlsx(
 
     if nome_arquivo_arg:
         caminho_arquivo = nome_arquivo_arg
+        nome_arquivo = Path(caminho_arquivo).stem
     else:
         nome_arquivo = ".".join(
             (
@@ -617,7 +618,7 @@ def exportar_sessao_para_xlsx(
     with xlsxwriter.Workbook(str(caminho_arquivo)) as workbook:
         _escrever_consumos_em_planilha(
             workbook=workbook,
-            worksheet_name=nome_arquivo,
+            worksheet_name=nome_arquivo[:31],
             consumos=consumos,
             incluir_sessao_id=False,
         )

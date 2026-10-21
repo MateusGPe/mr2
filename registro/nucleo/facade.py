@@ -18,6 +18,7 @@ import re
 from typing import Any, Dict, List, Optional, Sequence, Set
 
 from fuzzywuzzy import fuzz
+from sqlalchemy.orm import Session
 
 from registro.nucleo import service_logic
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
@@ -43,13 +44,17 @@ class FachadaRegistro:
     Interface simplificada para o sistema de registro de refeições.
     """
 
-    def __init__(self):
+    def __init__(self, sessao_db: Optional[Session] = None):
         """
         Inicializa a Fachada, configurando a conexão com o banco de dados
-        e instanciando os repositórios.
+        e instanciando os repositórios. Permite injetar uma sessão de banco
+        customizada (por exemplo, em memória para testes).
         """
-        criar_banco_de_dados_e_tabelas()
-        self._sessao_db = SessaoLocal()
+        if sessao_db is not None:
+            self._sessao_db = sessao_db
+        else:
+            criar_banco_de_dados_e_tabelas()
+            self._sessao_db = SessaoLocal()
 
         self.repo_estudante = RepositorioEstudante(self._sessao_db)
         self.repo_reserva = RepositorioReserva(self._sessao_db)

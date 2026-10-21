@@ -1,6 +1,12 @@
+"""
+Testes de integração para a sincronização com Google Sheets e persistência de dados.
+"""
+
 from types import SimpleNamespace
+import pytest
 
 from registro.nucleo import google_api_service, service_logic
+from registro.nucleo.exceptions import ErroAPIGoogle
 
 
 class FakeRepoSessao:
@@ -20,6 +26,7 @@ class FakeRepoConsumo:
 
 
 def test_sincronizar_todas_sessoes_para_google_sheets_processa_todas_as_sessoes(monkeypatch):
+    """Verifica que a rotina de sincronização itera e envia cada sessão com o título formatado."""
     sessao1 = SimpleNamespace(
         id=1,
         refeicao="almoço",
@@ -82,6 +89,7 @@ def test_sincronizar_todas_sessoes_para_google_sheets_processa_todas_as_sessoes(
 
 
 def test_anexar_linhas_unicas_ignora_duplicatas_pelo_identificador_de_colunas():
+    """Garante que linhas com chaves já presentes na planilha do Google Sheets são descartadas."""
     linhas_existentes = [
         ["123", "01/01/2026", "Ana", "A", "Almoço", "12:00"],
     ]
