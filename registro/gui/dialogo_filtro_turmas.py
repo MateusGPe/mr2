@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Callable, List, Tuple
 
 import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.scrolled import ScrolledFrame
+from ttkbootstrap import ScrolledFrame
 
 from registro.nucleo.facade import FachadaRegistro
 

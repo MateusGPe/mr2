@@ -11,7 +11,7 @@ from datetime import datetime
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, END, EW, LEFT, E, W, X, HORIZONTAL
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.scrolled import ScrolledFrame
+from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.widgets import DateEntry
 
 from registro.nucleo.exceptions import ErroSessao

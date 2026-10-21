@@ -96,7 +96,7 @@ class PainelAcaoBusca(ttk.Frame):
 
     def _criar_barra_busca(self):
         """Cria a barra de busca com campo de entrada e botões."""
-        barra_busca = ttk.Frame(self, bootstyle="ligth", padding=1)
+        barra_busca = ttk.Frame(self, bootstyle="light", padding=1)
         barra_busca.grid(row=0, column=0, sticky="ew", pady=(0, 1))
         barra_busca.grid_columnconfigure(0, weight=1)
 
@@ -104,7 +104,7 @@ class PainelAcaoBusca(ttk.Frame):
             barra_busca,
             textvariable=self._var_entrada_busca,
             font=("Segoe UI", 12),
-            bootstyle="ligth",
+            bootstyle="light",
         )
         self._entrada_busca.grid(row=0, column=0, sticky="ew")
 

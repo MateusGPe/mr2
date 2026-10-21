@@ -28,7 +28,7 @@ dependencies = [
 [project.scripts]
 registrar = "registro.gui.app_registro:main"
 painel = "registro.app_principal:main"
-autoatendimento = "registro.gui.janela_self_service:main"
+autoatendimento = "registro.janela_self_service:main"
 
 [dependency-groups]
 dev = [

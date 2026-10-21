@@ -16,7 +16,7 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import E, EW, HORIZONTAL, NSEW, W
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
-from ttkbootstrap.scrolled import ScrolledFrame
+from ttkbootstrap import ScrolledFrame
 
 from registro.controles.treeview_simples import TreeviewSimples
 from registro.gui.constants import (

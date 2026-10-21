@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Literal, Optional
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, E, EW, LEFT, NSEW, RIGHT, W, X
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.scrolled import ScrolledFrame
+from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.widgets import DateEntry
 
 from registro.controles.rounded_button import RoundedButton

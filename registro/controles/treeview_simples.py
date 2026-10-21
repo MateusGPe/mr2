@@ -8,9 +8,9 @@ import logging
 import re
 import tkinter as tk
 from functools import partial
-from tkinter import ttk
 from typing import Any, Dict, List, Literal, Optional, Tuple, Union, cast
 
+import ttkbootstrap as ttk
 import ttkbootstrap as ttkb
 from ttkbootstrap.constants import END, HORIZONTAL, VERTICAL, W
 from ttkbootstrap.style import Colors
