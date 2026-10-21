@@ -9,7 +9,6 @@ from registro.abas.aba_alunos import AbaAlunos
 from registro.abas.aba_dashboard import AbaDashboard
 from registro.abas.aba_importacao import AbaImportacao
 from registro.abas.aba_reservas import AbaReservas
-from registro.importar.facade import FachadaImportacao
 from registro.nucleo.facade import FachadaRegistro
 
 
@@ -20,9 +19,6 @@ class App(ttk.Window):
 
         try:
             self.fachada_nucleo: FachadaRegistro = FachadaRegistro()
-            self.fachada_importacao: FachadaImportacao = FachadaImportacao(
-                self.fachada_nucleo
-            )
         except Exception:
             Messagebox.show_error(
                 "Erro Fatal",
@@ -33,7 +29,6 @@ class App(ttk.Window):
             return
 
         self.fachada_nucleo: FachadaRegistro
-        self.fachada_importacao: FachadaImportacao
 
         self.selected: str
         self.buttons: Dict[str, ttk.Button] = {}
@@ -69,13 +64,7 @@ class App(ttk.Window):
             "importacao": (AbaImportacao, "🔄"),
         }
         for i, (nome, (FrameClass, texto_botao)) in enumerate(paginas.items()):
-            if nome == "importacao":
-                frame = FrameClass(
-                    self.content_frame, self.fachada_nucleo, self.fachada_importacao
-                )
-            else:
-                frame = FrameClass(self.content_frame, self.fachada_nucleo)
-
+            frame = FrameClass(self.content_frame, self.fachada_nucleo)
             self.frames[nome] = frame
             btn = ttk.Button(
                 navigation_frame,

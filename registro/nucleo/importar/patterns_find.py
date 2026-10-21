@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/importar/patterns_find.py (Deteção de padrões em strings)
+# Arquivo: registro/nucleo/importar/patterns_find.py (Deteção de padrões em strings)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

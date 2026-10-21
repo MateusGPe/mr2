@@ -17,7 +17,7 @@ from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
 
-from registro.gui.constants import CAMINHO_SESSAO, DadosNovaSessao
+from registro.gui.constants import DadosNovaSessao
 from registro.gui.dialogo_filtro_turmas import DialogoFiltroTurmas
 from registro.gui.dialogo_sessao import DialogoSessao
 from registro.gui.janela_self_service import JanelaSelfService
@@ -27,7 +27,6 @@ from registro.gui.utils import capitalizar
 import ttkbootstrap as ttk
 from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
-from registro.nucleo.models import SessaoLocal, SyncLog
 from registro.nucleo.utils import DADOS_SESSAO
 
 logger = logging.getLogger(__name__)
@@ -78,23 +77,31 @@ class AppRegistro(tk.Tk):
             raise RuntimeError("FachadaRegistro não foi inicializada.")
         return self._fachada
 
-    def _logar_sincronizacao(self, direction: str, status: str, message: Optional[str] = None, records_affected: Optional[int] = None):
-        """Registra um evento de sincronização no banco de dados."""
-        logger.info(f"Logando sincronização: direction={direction}, status={status}, records={records_affected}")
-        with SessaoLocal() as session:
-            try:
-                log_entry = SyncLog(
-                    timestamp=dt.datetime.now().isoformat(),
-                    direction=direction,
-                    status=status,
-                    message=message,
-                    records_affected=records_affected
-                )
-                session.add(log_entry)
-                session.commit()
-            except Exception as e:
-                logger.error(f"Falha ao logar evento de sincronização no BD: {e}")
-                session.rollback()
+    def _logar_sincronizacao(
+        self,
+        direction: str,
+        status: str,
+        message: Optional[str] = None,
+        records_affected: Optional[int] = None,
+    ):
+        """Registra um evento de sincronização no banco de dados através da fachada."""
+        logger.info(
+            "Logando sincronização: direction=%s, status=%s, records=%s",
+            direction,
+            status,
+            records_affected,
+        )
+        if self._fachada:
+            self._fachada.registrar_log_sincronizacao(
+                direction=direction,
+                status=status,
+                message=message,
+                records_affected=records_affected,
+            )
+        else:
+            logger.warning(
+                "Não foi possível registrar log de sincronização: Fachada não inicializada."
+            )
 
     def _configurar_estilo(self):
         """Configura o estilo da aplicação usando ttkbootstrap."""
@@ -225,25 +232,10 @@ class AppRegistro(tk.Tk):
             self.after(100, self._abrir_dialogo_sessao)
 
     def _carregar_arquivo_estado_sessao(self) -> Optional[Dict[str, Any]]:
-        """Lê o arquivo session.json e define a sessão ativa na fachada."""
-        if not CAMINHO_SESSAO.exists():
-            logger.info(
-                "Arquivo de estado da sessão não encontrado: %s", CAMINHO_SESSAO
-            )
+        """Lê o estado da sessão e define a sessão ativa na fachada."""
+        if not self._fachada:
             return None
-        try:
-            with open(CAMINHO_SESSAO, "r", encoding="utf-8") as f:
-                dados_sessao = json.load(f)
-            logger.info("Estado da sessão carregado: %s", CAMINHO_SESSAO)
-            if self._fachada:
-                self._fachada.definir_sessao_ativa(
-                    dados_sessao.get("id_sessao"))
-            return dados_sessao
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.error(
-                "Erro ao carregar estado da sessão de %s: %s", CAMINHO_SESSAO, e
-            )
-            return None
+        return self._fachada.carregar_estado_sessao()
 
     def tratar_resultado_dialogo_sessao(
         self, resultado: Union[DadosNovaSessao, Dict, int, None]
@@ -280,9 +272,7 @@ class AppRegistro(tk.Tk):
                         "Não é possível iniciar sessão sem reservas ativas."
                     )
 
-                CAMINHO_SESSAO.write_text(
-                    f'{{"id_sessao": {id_sessao}}}', encoding="utf-8"
-                )
+                self._fachada.salvar_estado_sessao(id_sessao)
                 sucesso = True
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Falha ao %s", desc_acao)
@@ -324,7 +314,8 @@ class AppRegistro(tk.Tk):
             ) == MessageCatalog.translate("No"):
                 return
 
-        CAMINHO_SESSAO.unlink(missing_ok=True)
+        if self._fachada:
+            self._fachada.limpar_estado_sessao()
         self.ao_fechar_app(acionado_por_fim_sessao=True)
 
     def _configurar_ui_para_sessao_carregada(self):
@@ -693,10 +684,7 @@ class AppRegistro(tk.Tk):
                 )
 
                 if id_sessao:
-                    CAMINHO_SESSAO.write_text(
-                        f'{{"id_sessao": {id_sessao}}}', encoding="utf-8"
-                    )
-                    logger.info("Estado da sessão salvo em %s.", CAMINHO_SESSAO)
+                    self._fachada.salvar_estado_sessao(id_sessao)
 
             logger.info("Fechando conexão com DB...")
             self._fachada.fechar_conexao()

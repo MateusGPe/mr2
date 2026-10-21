@@ -9,13 +9,23 @@ Módulo de serviço funcional que encapsula toda a lógica de negócio
 da aplicação de registro de refeições.
 """
 
+import csv
+import datetime as dt
+import json
+import logging
+import re
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Set
+from typing import Any, Dict, List, Optional, Sequence, Set, Union
 
+logger = logging.getLogger(__name__)
+
+from fuzzywuzzy import fuzz
 import xlsxwriter
 from sqlalchemy import select, union
 from sqlalchemy.orm import selectinload
+
+REGEX_LIMPEZA_PRONTUARIO: re.Pattern[str] = re.compile(r"^[Ii][Qq]30+")
 
 from registro.nucleo import google_api_service, importers_service, models
 from registro.nucleo.exceptions import (
@@ -753,3 +763,445 @@ def sincronizar_todas_sessoes_para_google_sheets(
         raise ErroNucleoRegistro(
             f"Erro inesperado no upload de todas as sessões: {e}"
         ) from e
+
+
+def criar_estudante(
+    repo_estudante: RepositorioEstudante,
+    repo_grupo: RepositorioGrupo,
+    prontuario: str,
+    nome: str,
+    grupos: Optional[List[str]] = None,
+) -> Dict[str, Any]:
+    """Cria um novo estudante e associa aos grupos fornecidos."""
+    existente = repo_estudante.ler_filtrado(prontuario=prontuario)
+    if existente:
+        raise ValueError(f"Estudante com prontuário {prontuario} já existe.")
+
+    novo_estudante = repo_estudante.criar({"prontuario": prontuario, "nome": nome})
+
+    if grupos:
+        for grupo_nome in grupos:
+            grupo = repo_grupo.por_nome(grupo_nome)
+            if not grupo:
+                grupo = repo_grupo.criar({"nome": grupo_nome})
+            novo_estudante.grupos.append(grupo)
+    repo_estudante.obter_sessao().commit()
+    return {
+        "id": novo_estudante.id,
+        "prontuario": novo_estudante.prontuario,
+        "nome": novo_estudante.nome,
+    }
+
+
+def atualizar_estudante(
+    repo_estudante: RepositorioEstudante,
+    id_estudante: int,
+    dados: Dict[str, Any],
+) -> bool:
+    """Atualiza os dados de um estudante."""
+    estudante = repo_estudante.atualizar(id_estudante, dados)
+    if estudante:
+        repo_estudante.obter_sessao().commit()
+        return True
+    return False
+
+
+def listar_todos_os_estudantes(
+    repo_estudante: RepositorioEstudante,
+) -> List[Dict[str, Any]]:
+    """Retorna todos os estudantes com seus grupos associados."""
+    sessao = repo_estudante.obter_sessao()
+    estudantes = (
+        sessao.query(Estudante)
+        .options(selectinload(Estudante.grupos))
+        .order_by(Estudante.nome)
+        .all()
+    )
+    return [
+        {
+            "id": e.id,
+            "prontuario": e.prontuario,
+            "nome": e.nome,
+            "ativo": e.ativo,
+            "grupos": [g.nome for g in e.grupos],
+        }
+        for e in estudantes
+    ]
+
+
+def listar_estudantes(
+    repo_estudante: RepositorioEstudante,
+    termo_busca: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Lista estudantes com filtro textual opcional por nome ou prontuário."""
+    sessao = repo_estudante.obter_sessao()
+    query = sessao.query(Estudante).options(selectinload(Estudante.grupos))
+    if termo_busca:
+        termo_like = f"%{termo_busca}%"
+        query = query.filter(
+            (Estudante.nome.ilike(termo_like))
+            | (Estudante.prontuario.ilike(termo_like))
+        )
+    estudantes = query.order_by(Estudante.nome).all()
+    return [
+        {
+            "id": est.id,
+            "prontuario": est.prontuario,
+            "nome": est.nome,
+            "ativo": est.ativo,
+            "grupos": [g.nome for g in est.grupos],
+        }
+        for est in estudantes
+    ]
+
+
+def listar_estudantes_fuzzy(
+    repo_estudante: RepositorioEstudante,
+    termo_busca: Optional[str] = None,
+    limite: int = 60,
+) -> List[Dict[str, Any]]:
+    """Lista estudantes ordenados por relevância fuzzy."""
+    if not termo_busca or not termo_busca.strip():
+        todos_estudantes = repo_estudante.ler_todos_com_grupos()
+        estudantes = sorted(todos_estudantes, key=lambda e: e.nome)
+    else:
+        termo_lower = termo_busca.lower().strip()
+        pront_lower = REGEX_LIMPEZA_PRONTUARIO.sub("", termo_lower)
+        candidatos = repo_estudante.ler_todos_com_grupos()
+        resultados_com_score = []
+        for est in candidatos:
+            score_nome = fuzz.partial_ratio(termo_lower, est.nome.lower())
+            score_pront = fuzz.ratio(
+                pront_lower,
+                REGEX_LIMPEZA_PRONTUARIO.sub("", est.prontuario.lower()),
+            )
+            final_score = max(score_nome, score_pront)
+            if final_score >= limite:
+                resultados_com_score.append(
+                    {"estudante": est, "score": final_score}
+                )
+
+        resultados_com_score.sort(key=lambda x: x["score"], reverse=True)
+        estudantes = [item["estudante"] for item in resultados_com_score]
+
+    return [
+        {
+            "id": est.id,
+            "prontuario": est.prontuario,
+            "nome": est.nome,
+            "ativo": est.ativo,
+            "grupos": [g.nome for g in est.grupos],
+        }
+        for est in estudantes
+    ]
+
+
+def criar_reserva(
+    repo_estudante: RepositorioEstudante,
+    repo_reserva: RepositorioReserva,
+    prontuario_estudante: str,
+    dados_reserva: Dict[str, Any],
+) -> Dict[str, Any]:
+    """Cria uma reserva para o estudante especificado."""
+    estudantes = repo_estudante.ler_filtrado(prontuario=prontuario_estudante)
+    if not estudantes:
+        raise ValueError(
+            f"Estudante com prontuário {prontuario_estudante} não encontrado."
+        )
+
+    payload = dados_reserva.copy()
+    payload["estudante_id"] = estudantes[0].id
+
+    nova_reserva = repo_reserva.criar(payload)
+    repo_reserva.obter_sessao().commit()
+
+    return {
+        "id": nova_reserva.id,
+        "estudante_id": nova_reserva.estudante_id,
+        "prato": nova_reserva.prato,
+        "data": nova_reserva.data,
+        "cancelada": nova_reserva.cancelada,
+    }
+
+
+def atualizar_reserva(
+    repo_reserva: RepositorioReserva,
+    id_reserva: int,
+    dados: Dict[str, Any],
+) -> bool:
+    """Atualiza os dados de uma reserva."""
+    reserva = repo_reserva.atualizar(id_reserva, dados)
+    if reserva:
+        repo_reserva.obter_sessao().commit()
+        return True
+    return False
+
+
+def deletar_reserva(
+    repo_reserva: RepositorioReserva,
+    id_reserva: int,
+) -> bool:
+    """Remove uma reserva do sistema."""
+    if repo_reserva.deletar(id_reserva):
+        repo_reserva.obter_sessao().commit()
+        return True
+    return False
+
+
+def listar_datas_reservas(repo_reserva: RepositorioReserva) -> List[str]:
+    """Retorna uma lista única e cronologicamente ordenada de datas de reservas existentes."""
+    from registro.nucleo.importar.patterns_find import obter_data
+
+    def _chave_data(texto: str) -> int:
+        obj = obter_data(texto)
+        return int(obj.timestamp()) if obj else 0
+
+    datas = {s.data for s in repo_reserva.ler_unicos() if s.data}
+    return sorted(datas, reverse=True, key=_chave_data)
+
+
+def listar_reservas(
+    repo_grupo: RepositorioGrupo,
+    repo_reserva: RepositorioReserva,
+    filtros: Optional[Dict[str, Any]] = None,
+) -> List[Dict[str, Any]]:
+    """Lista reservas com base nos filtros fornecidos."""
+    filtros = filtros or {}
+    if "grupos" in filtros or "grupo" in filtros:
+        grupos = set(filtros.get("grupos", [])) or set(
+            filtros.get("grupo", ""),
+        )
+        grupos_ids = [g.id for g in repo_grupo.por_nomes(grupos)]
+        reservas = repo_reserva.por_data_e_grupos(
+            grupos_ids=grupos_ids, data_formatada=filtros.get("data")
+        )
+    else:
+        reservas = repo_reserva.ler_filtrado(**filtros)
+
+    return [
+        {
+            "id": res.id,
+            "prontuario_estudante": res.estudante.prontuario,
+            "nome_estudante": res.estudante.nome,
+            "prato": res.prato,
+            "data": res.data,
+            "cancelada": res.cancelada,
+        }
+        for res in reservas
+    ]
+
+
+def salvar_importacao_dados(
+    repo_estudante: RepositorioEstudante,
+    repo_reserva: RepositorioReserva,
+    dados: List[Dict[str, Any]],
+) -> Dict[str, int]:
+    """Persiste dados importados de estudantes e reservas de forma atômica."""
+    novos_estudantes = []
+    reservas_para_criar = []
+
+    for linha in dados:
+        id_banco = linha.get("_id_banco")
+        pront = linha.get("prontuario")
+
+        if not (data := linha.get("data")):
+            continue
+
+        if not id_banco and pront:
+            novos_estudantes.append(
+                {
+                    "prontuario": pront,
+                    "nome": linha.get("nome", "Desconhecido"),
+                    "ativo": True,
+                }
+            )
+
+        reservas_para_criar.append(
+            {
+                "payload": {
+                    "prato": linha.get("prato"),
+                    "data": data,
+                    "cancelada": False,
+                },
+                "chave": id_banco if id_banco else pront,
+            }
+        )
+
+    if novos_estudantes:
+        unicos = {e["prontuario"]: e for e in novos_estudantes}.values()
+        repo_estudante.criar_em_massa(list(unicos))
+
+    mapa_ids = {}
+    if novos_estudantes:
+        pronts = {e["prontuario"] for e in novos_estudantes}
+        objs = repo_estudante.por_prontuarios(pronts)
+        mapa_ids = {e.prontuario: e.id for e in objs}
+
+    reservas_finais = []
+    for item in reservas_para_criar:
+        chave = item["chave"]
+        id_final = None
+
+        if isinstance(chave, int):
+            id_final = chave
+        elif isinstance(chave, str):
+            id_final = mapa_ids.get(chave)
+
+        if id_final:
+            payload = item["payload"]
+            payload["estudante_id"] = id_final
+            reservas_finais.append(payload)
+
+    if reservas_finais:
+        repo_reserva.criar_em_massa(reservas_finais)
+
+    repo_estudante.obter_sessao().commit()
+
+    return {
+        "estudantes_criados": len(novos_estudantes),
+        "reservas_criadas": len(reservas_finais),
+    }
+
+
+def carregar_estado_sessao(fachada: Any) -> Optional[Dict[str, Any]]:
+    """Carrega o arquivo session.json e define a sessão ativa na fachada se existir."""
+    from registro.nucleo.constants import CAMINHO_SESSAO
+
+    if not CAMINHO_SESSAO.exists():
+        logger.info("Arquivo de estado da sessão não encontrado: %s", CAMINHO_SESSAO)
+        return None
+    try:
+        with open(CAMINHO_SESSAO, "r", encoding="utf-8") as f:
+            dados = json.load(f)
+        logger.info("Estado da sessão carregado: %s", CAMINHO_SESSAO)
+        if "id_sessao" in dados:
+            fachada.definir_sessao_ativa(dados["id_sessao"])
+        return dados
+    except Exception as e:
+        logger.error("Erro ao carregar estado da sessão de %s: %s", CAMINHO_SESSAO, e)
+        return None
+
+
+def salvar_estado_sessao(fachada: Any, id_sessao: Optional[int] = None) -> bool:
+    """Salva o estado da sessão ativa no arquivo session.json."""
+    from registro.nucleo.constants import CAMINHO_SESSAO
+
+    sid = id_sessao if id_sessao is not None else getattr(fachada, "id_sessao_ativa", None)
+    if sid is None:
+        return False
+    try:
+        CAMINHO_SESSAO.parent.mkdir(parents=True, exist_ok=True)
+        CAMINHO_SESSAO.write_text(
+            json.dumps({"id_sessao": sid}, indent=2, ensure_ascii=False), encoding="utf-8"
+        )
+        logger.info("Estado da sessão salvo em %s.", CAMINHO_SESSAO)
+        return True
+    except Exception as e:
+        logger.error("Erro ao salvar estado da sessão em %s: %s", CAMINHO_SESSAO, e)
+        return False
+
+
+def limpar_estado_sessao(fachada: Any) -> bool:
+    """Remove o arquivo session.json e desativa a sessão."""
+    from registro.nucleo.constants import CAMINHO_SESSAO
+
+    try:
+        CAMINHO_SESSAO.unlink(missing_ok=True)
+        fachada.id_sessao_ativa = None
+        logger.info("Estado da sessão limpo: %s", CAMINHO_SESSAO)
+        return True
+    except Exception as e:
+        logger.error("Erro ao limpar estado da sessão: %s", e)
+        return False
+
+
+def exportar_estudantes_para_csv(
+    repo_estudante: RepositorioEstudante, caminho_arquivo: Union[str, Path]
+) -> str:
+    """Exporta todos os estudantes cadastrados para um arquivo CSV."""
+    caminho = Path(caminho_arquivo)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    estudantes = repo_estudante.ler_todos()
+    dados = []
+    for est in estudantes:
+        dados.append(
+            {
+                "id": est.id,
+                "prontuario": est.prontuario,
+                "nome": est.nome,
+                "grupos": ", ".join(g.nome for g in est.grupos) if est.grupos else "",
+                "ativo": "Sim" if getattr(est, "ativo", True) else "Não",
+            }
+        )
+    keys = list(dados[0].keys()) if dados else ["id", "prontuario", "nome", "grupos", "ativo"]
+    with open(caminho, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(dados)
+    return str(caminho)
+
+
+def exportar_reservas_para_csv(
+    repo_grupo: RepositorioGrupo,
+    repo_reserva: RepositorioReserva,
+    caminho_arquivo: Union[str, Path],
+) -> str:
+    """Exporta todas as reservas cadastradas para um arquivo CSV."""
+    caminho = Path(caminho_arquivo)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+    reservas = listar_reservas(repo_grupo, repo_reserva)
+    dados = []
+    for r in reservas:
+        dados.append(
+            {
+                "id": r.get("id"),
+                "data": r.get("data"),
+                "prontuario": r.get("prontuario_estudante"),
+                "nome": r.get("nome_estudante"),
+                "prato": r.get("prato"),
+                "cancelada": "Sim" if r.get("cancelada") else "Não",
+            }
+        )
+    keys = list(dados[0].keys()) if dados else ["id", "data", "prontuario", "nome", "prato", "cancelada"]
+    with open(caminho, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(dados)
+    return str(caminho)
+
+
+def obter_estatisticas_dashboard(
+    repo_estudante: RepositorioEstudante,
+    repo_reserva: RepositorioReserva,
+    repo_grupo: RepositorioGrupo,
+    repo_consumo: RepositorioConsumo,
+) -> Dict[str, Any]:
+    """Calcula estatísticas consolidadas para o dashboard."""
+    hoje_iso = dt.date.today().isoformat()
+    hoje_br = dt.date.today().strftime("%d/%m/%Y")
+    ontem_iso = (dt.date.today() - dt.timedelta(days=1)).isoformat()
+    ontem_br = (dt.date.today() - dt.timedelta(days=1)).strftime("%d/%m/%Y")
+
+    alunos = repo_estudante.ler_todos()
+    grupos = repo_grupo.ler_todos()
+
+    reservas_hoje = [
+        r
+        for r in repo_reserva.ler_todos()
+        if not r.cancelada and (r.data == hoje_iso or r.data == hoje_br)
+    ]
+
+    consumos_ontem = [
+        c
+        for c in repo_consumo.ler_todos()
+        if c.data == ontem_iso or c.data == ontem_br
+    ]
+
+    return {
+        "alunos_ativos": len(alunos),
+        "reservas_hoje": len(reservas_hoje),
+        "consumo_ontem": len(consumos_ontem),
+        "grupos_total": len(grupos),
+    }
+
+

@@ -37,13 +37,13 @@ class AbaDashboard(ttk.Frame):
         stats_frame.pack(fill=X, expand=True, padx=10, pady=10)
         stats_frame.columnconfigure((0, 1, 2), weight=1)
 
-        self.card_alunos_ativos = self._criar_stat_card(
+        self.card_alunos_ativos, self.lbl_alunos_ativos = self._criar_stat_card(
             stats_frame, 0, "Alunos Ativos", "0", "success"
         )
-        self.card_reservas_hoje = self._criar_stat_card(
+        self.card_reservas_hoje, self.lbl_reservas_hoje = self._criar_stat_card(
             stats_frame, 1, "Reservas Hoje", "0", "info"
         )
-        self.card_consumo_ontem = self._criar_stat_card(
+        self.card_consumo_ontem, self.lbl_consumo_ontem = self._criar_stat_card(
             stats_frame, 2, "Consumo Ontem", "0", "warning"
         )
 
@@ -65,11 +65,14 @@ class AbaDashboard(ttk.Frame):
         )
         label_text.grid(row=1, column=0, sticky="nsew")
 
-        return card
+        return card, value_label
 
     def _carregar_estatisticas(self):
         try:
-            # TODO: Implementar a lógica real para buscar e exibir estatísticas
-            pass
+            stats = self.fachada_nucleo.obter_estatisticas_dashboard()
+            self.lbl_alunos_ativos.configure(text=str(stats.get("alunos_ativos", 0)))
+            self.lbl_reservas_hoje.configure(text=str(stats.get("reservas_hoje", 0)))
+            self.lbl_consumo_ontem.configure(text=str(stats.get("consumo_ontem", 0)))
         except Exception:
             pass
+

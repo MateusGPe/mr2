@@ -15,7 +15,6 @@ from ttkbootstrap.localization.msgcat import MessageCatalog
 from registro.controles.rounded_button import RoundedButton
 from registro.dialogos import ReservaDialog
 from registro.controles.treeview_simples import TreeviewSimples
-from registro.importar.patterns_find import obter_data
 
 
 class AbaReservas(ttk.Frame):
@@ -68,13 +67,7 @@ class AbaReservas(ttk.Frame):
         ttk.Label(filter_frame, text="Filtrar por Data:").pack(
             side=LEFT, padx=(0, 5))
 
-        def _data(texto: str) -> int:
-            obj = obter_data(texto)
-            return int(obj.timestamp()) if obj else 0
-
-        itens = sorted(
-            self.fachada_nucleo.listar_datas_reservas(), reverse=True, key=_data
-        )
+        itens = self.fachada_nucleo.listar_datas_reservas()
 
         self.var_data = tk.StringVar(value=itens[0] if itens else None)
         self.var_data.trace(

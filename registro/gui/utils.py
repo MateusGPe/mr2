@@ -161,94 +161,13 @@ def obter_caminho_documentos() -> str:
     return str(caminho.resolve())
 
 
-def carregar_json(nome_arquivo: str) -> Optional[Any]:
-    """
-    Carrega dados de um arquivo JSON de forma segura.
+from registro.nucleo.utils import (
+    carregar_csv_como_dict,
+    carregar_json,
+    salvar_csv_de_lista,
+    salvar_json,
+)
 
-    Args:
-        nome_arquivo: O caminho para o arquivo JSON.
-
-    Returns:
-        Os dados desserializados do JSON, ou None em caso de erro.
-    """
-    logger.debug("Carregando JSON de: %s", nome_arquivo)
-    try:
-        with open(nome_arquivo, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e: # pylint: disable=broad-exception-caught
-        _tratar_erro_arquivo(e, nome_arquivo, "leitura JSON")
-        return None
-
-
-def salvar_json(nome_arquivo: str, dados: Union[Dict, List]) -> bool:
-    """
-    Salva dados em um arquivo JSON com formatação legível.
-
-    Args:
-        nome_arquivo: O caminho onde o arquivo será salvo.
-        dados: Os dados (dicionário ou lista) a serem serializados.
-
-    Returns:
-        True se a operação foi bem-sucedida, False caso contrário.
-    """
-    logger.debug("Salvando JSON em: %s", nome_arquivo)
-    try:
-        caminho = Path(nome_arquivo)
-        caminho.parent.mkdir(parents=True, exist_ok=True)
-        with open(caminho, "w", encoding="utf-8") as f:
-            json.dump(dados, f, indent=2, ensure_ascii=False)
-        return True
-    except Exception as e: # pylint: disable=broad-exception-caught
-        _tratar_erro_arquivo(e, nome_arquivo, "escrita JSON")
-        return False
-
-
-def carregar_csv_como_dict(nome_arquivo: str) -> Optional[List[Dict[str, str]]]:
-    """
-    Lê um arquivo CSV e o retorna como uma lista de dicionários.
-
-    Args:
-        nome_arquivo: O caminho para o arquivo CSV.
-
-    Returns:
-        Uma lista de dicionários representando as linhas do CSV, ou None em caso de erro.
-    """
-    logger.debug("Carregando CSV como dict de: %s", nome_arquivo)
-    try:
-        with open(nome_arquivo, "r", newline="", encoding="utf-8") as f:
-            return list(csv.DictReader(f))
-    except Exception as e: # pylint: disable=broad-exception-caught
-        _tratar_erro_arquivo(e, nome_arquivo, "leitura CSV (como dict)")
-        return None
-
-
-def salvar_csv_de_lista(dados: List[List[Any]], nome_arquivo: str, **kwargs) -> bool:
-    """
-    Salva uma lista de listas em um arquivo CSV.
-
-    Args:
-        dados: Uma lista de listas, onde a primeira lista é o cabeçalho.
-        nome_arquivo: O caminho onde o arquivo será salvo.
-        **kwargs: Argumentos adicionais para csv.writer (delimiter, etc.).
-
-    Returns:
-        True se a operação foi bem-sucedida, False caso contrário.
-    """
-    logger.debug("Salvando lista para CSV: %s", nome_arquivo)
-    if not dados:
-        logger.warning("Nenhum dado para salvar em: %s.", nome_arquivo)
-        return True
-    try:
-        caminho = Path(nome_arquivo)
-        caminho.parent.mkdir(parents=True, exist_ok=True)
-        with open(caminho, "w", newline="", encoding="utf-8") as f:
-            writer = csv.writer(f, **kwargs)
-            writer.writerows(dados)
-        logger.info("%s linhas salvas no CSV: %s", len(dados), nome_arquivo)
-        return True
-    except Exception as e: # pylint: disable=broad-exception-caught
-        _tratar_erro_arquivo(e, nome_arquivo, "escrita CSV (de lista)")
-        return False
 
 
 def _tratar_erro_arquivo(e: Exception, caminho: Union[str, Path], operacao: str):

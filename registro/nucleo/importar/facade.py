@@ -1,19 +1,19 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/importar/facade.py (Fachada de Importação)
+# Arquivo: registro/nucleo/importar/facade.py (Fachada de Importação)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Fachada do subsistema de importação.
-Ponto único de acesso para a interface gráfica.
+Mantida para retrocompatibilidade com a interface gráfica existente.
 """
 
 from typing import Any, Dict, List, Optional
 
-from registro.importar.definitions import ItemRevisao
-from registro.importar.service import ServicoImportacao
-from registro.importar.strategies import (
+from registro.nucleo.importar.definitions import ItemRevisao
+from registro.nucleo.importar.service import ServicoImportacao
+from registro.nucleo.importar.strategies import (
     CarregarCSVComCabecalho,
     CarregarCSVPosicional,
     CarregarGoogleSheets,
@@ -26,6 +26,7 @@ class FachadaImportacao:
     """Interface pública para o fluxo de importação."""
 
     def __init__(self, fachada_nucleo: FachadaRegistro):
+        self._fachada_nucleo = fachada_nucleo
         self._servico = ServicoImportacao(fachada_nucleo)
 
     def analisar_arquivo(self, caminho: str, tipo: str = "auto") -> Dict[str, Any]:

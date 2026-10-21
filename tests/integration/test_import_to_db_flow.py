@@ -4,8 +4,8 @@ Teste de integração de ponta a ponta: Ingestão de CSV -> Persistência -> Ses
 
 from pathlib import Path
 
-from registro.importar.service import ServicoImportacao
-from registro.importar.strategies import CarregarCSVComCabecalho
+from registro.nucleo.importar.service import ServicoImportacao
+from registro.nucleo.importar.strategies import CarregarCSVComCabecalho
 from registro.nucleo.facade import FachadaRegistro
 
 

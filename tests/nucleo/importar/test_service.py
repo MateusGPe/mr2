@@ -1,12 +1,12 @@
 """
-Testes unitários para o orquestrador ServicoImportacao em registro.importar.service.
+Testes unitários para o orquestrador ServicoImportacao em registro.nucleo.importar.service.
 """
 
 from pathlib import Path
 import pytest
 
-from registro.importar.service import ServicoImportacao
-from registro.importar.strategies import CarregarCSVComCabecalho
+from registro.nucleo.importar.service import ServicoImportacao
+from registro.nucleo.importar.strategies import CarregarCSVComCabecalho
 from registro.nucleo.exceptions import ErroImportacaoDados
 from registro.nucleo.facade import FachadaRegistro
 

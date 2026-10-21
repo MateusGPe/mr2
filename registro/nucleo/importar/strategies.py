@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/importar/strategies.py (Estratégias de Carregamento)
+# Arquivo: registro/nucleo/importar/strategies.py (Estratégias de Carregamento)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
@@ -12,7 +12,7 @@ import abc
 import csv
 from typing import Dict, List, Optional
 
-from registro.importar.patterns_find import (
+from registro.nucleo.importar.patterns_find import (
     ajustar_chaves_e_valores,
     checar_prontuario,
     detectar_tipo_coluna,

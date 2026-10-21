@@ -1,8 +1,8 @@
 """
-Testes unitários para padrões, detecção de tipos e normalização em registro.importar.patterns_find.
+Testes unitários para padrões, detecção de tipos e normalização em registro.nucleo.importar.patterns_find.
 """
 
-from registro.importar import patterns_find
+from registro.nucleo.importar import patterns_find
 
 
 def test_checar_prontuario():

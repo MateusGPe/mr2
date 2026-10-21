@@ -46,7 +46,7 @@ pythonpath = ["."]
 addopts = "-ra -q"
 
 [tool.coverage.run]
-source = ["registro/nucleo", "registro/importar"]
+source = ["registro/nucleo"]
 omit = [
     "*/__main__.py",
 ]

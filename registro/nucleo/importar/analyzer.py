@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/importar/analyzer.py (Módulo de análise)
+# Arquivo: registro/nucleo/importar/analyzer.py (Módulo de análise)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from fuzzywuzzy import fuzz
 
-from registro.importar.definitions import (
+from registro.nucleo.importar.definitions import (
     REGEX_LIMPEZA_PRONTUARIO,
     CandidatoMatch,
     ItemRevisao,
@@ -31,12 +31,16 @@ class AnalisadorSimplificado:
     SCORE_PENALIDADE_PRONTUARIO = 20
     NOME_DECONHECIDO = "Nome Desconhecido"
 
-    def __init__(self, repo_estudante: RepositorioEstudante) -> None:
+    def __init__(self, estudantes_ou_repo: Any) -> None:
         """
         Inicializa o analisador e pré-carrega dados para performance.
+        Aceita RepositorioEstudante ou uma sequência de objetos de estudantes.
         """
+        if hasattr(estudantes_ou_repo, "ler_todos_com_grupos"):
+            self._todos_alunos = estudantes_ou_repo.ler_todos_com_grupos()
+        else:
+            self._todos_alunos = list(estudantes_ou_repo)
 
-        self._todos_alunos = repo_estudante.ler_todos_com_grupos()
         self._mapa_prontuario = {a.prontuario: a for a in self._todos_alunos}
 
         self._cache_busca: List[Tuple[Any, str, str]] = []

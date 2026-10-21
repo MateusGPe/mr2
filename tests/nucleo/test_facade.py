@@ -2,6 +2,8 @@
 Testes unitários e de regressão para a classe FachadaRegistro em registro.nucleo.facade.
 """
 
+import datetime as dt
+from pathlib import Path
 import pytest
 from sqlalchemy.orm import Session
 
@@ -273,3 +275,201 @@ def test_facade_operacoes_sessao_e_delegacoes(facade: FachadaRegistro, tmp_path)
         m_sync_para.assert_called_once()
 
 
+def test_facade_repositorio_encapsulamento_e_propriedades(facade: FachadaRegistro):
+    """Garante que repositórios são atributos privados e acessíveis por propriedades."""
+    assert hasattr(facade, "_repo_estudante")
+    assert hasattr(facade, "_repo_reserva")
+    assert hasattr(facade, "_repo_sessao")
+    assert hasattr(facade, "_repo_consumo")
+    assert hasattr(facade, "_repo_grupo")
+
+    assert facade.repo_estudante is facade._repo_estudante
+    assert facade.repo_reserva is facade._repo_reserva
+    assert facade.repo_sessao is facade._repo_sessao
+    assert facade.repo_consumo is facade._repo_consumo
+    assert facade.repo_grupo is facade._repo_grupo
+
+    # Teste de propriedade de compatibilidade ortográfica (excecao_grupos / excessao_grupos)
+    facade.excessao_grupos = {"GrupoTeste"}
+    assert "GrupoTeste" in facade.excecao_grupos
+    assert "GrupoTeste" in facade.excessao_grupos
+
+    facade.excecao_grupos = {"GrupoNovo"}
+    assert "GrupoNovo" in facade.excessao_grupos
+
+
+def test_facade_importacao_unificada(facade: FachadaRegistro, tmp_path):
+    """Testa o fluxo unificado de importação diretamente pela FachadaRegistro."""
+    csv_file = tmp_path / "alunos_import.csv"
+    csv_file.write_text(
+        "prontuario,nome,prato,data\n"
+        "IQ3009999,Novo Importado,Almoço,2026-10-25\n",
+        encoding="utf-8",
+    )
+
+    # 1. Analisar arquivo diretamente pela FachadaRegistro
+    res = facade.analisar_arquivo(str(csv_file), tipo="header")
+    assert "resumo" in res
+    assert res["resumo"]["total_linhas"] == 1
+
+    # 2. Simular importação
+    preview = facade.simular_importacao(res["itens_revisao"])
+    assert "novos_estudantes" in preview
+
+    # 3. Confirmar importação
+    resultado = facade.confirmar_importacao(res["itens_revisao"])
+    assert resultado["estudantes_criados"] == 1
+    assert resultado["reservas_criadas"] == 1
+
+    # Verificar que estudante e reserva agora existem no banco
+    estudantes = facade.listar_estudantes("IQ3009999")
+    assert len(estudantes) == 1
+    assert estudantes[0]["nome"] == "Novo Importado"
+
+    reservas = facade.listar_reservas({"data": "25/10/2026"})
+    assert len(reservas) == 1
+    assert reservas[0]["prontuario_estudante"] == "IQ3009999"
+
+
+def test_facade_obter_todos_estudantes_com_grupos(
+    facade: FachadaRegistro, criar_grupo, criar_estudante
+):
+    """Testa consulta otimizada de todos os estudantes com grupos para o analisador."""
+    grupo = criar_grupo(nome="Grupo Opt")
+    criar_estudante(prontuario="IQ3008888", nome="Aluno Opt", grupos=[grupo])
+
+    todos = facade.obter_todos_estudantes_com_grupos()
+    prontuarios = [e.prontuario for e in todos]
+    assert "IQ3008888" in prontuarios
+
+
+def test_facade_parametros_grafia_excecao(
+    facade: FachadaRegistro, criar_grupo, criar_estudante
+):
+    """Verifica aceitação de ambos os parâmetros 'excecao_grupos' e 'excessao_grupos'."""
+    grupo = criar_grupo(nome="Grupo Grafia")
+    criar_estudante(prontuario="IQ3007777", nome="Aluno Grafia", grupos=[grupo])
+
+    id_sessao = facade.iniciar_nova_sessao({
+        "refeicao": "lanche",
+        "periodo": "Manhã",
+        "data": "2026-10-21",
+        "hora": "09:00",
+        "item_servido": "Fruta",
+        "grupos": ["Grupo Grafia"],
+    })
+
+    # Atualizar usando o parâmetro corrigido excecao_grupos
+    facade.atualizar_grupos_sessao(["Grupo Grafia"], excecao_grupos=["Grupo Outro"])
+    assert "Grupo Outro" in facade.excecao_grupos
+
+    # Testar registrar consumo com o parâmetro corrigido
+    res = facade.registrar_consumo("IQ3007777", excecao_grupos={"Grupo Grafia"})
+    assert res["autorizado"] is True
+
+
+def test_facade_registrar_log_sincronizacao(facade: FachadaRegistro, db_session: Session):
+    """Testa o registro de eventos de sincronização via FachadaRegistro."""
+    from registro.nucleo.models import SyncLog
+
+    sucesso = facade.registrar_log_sincronizacao(
+        direction="download",
+        status="success",
+        message="Sincronização concluída com sucesso.",
+        records_affected=15,
+    )
+    assert sucesso is True
+
+    logs = db_session.query(SyncLog).all()
+    assert len(logs) == 1
+    assert logs[0].direction == "download"
+    assert logs[0].status == "success"
+    assert logs[0].records_affected == 15
+    assert "Sincronização concluída" in logs[0].message
+
+
+def test_facade_session_persistence(facade: FachadaRegistro, tmp_path, monkeypatch):
+    """Testa salvar, carregar e limpar o estado da sessão via fachada."""
+    session_file = tmp_path / "session.json"
+    import registro.nucleo.constants as constants
+    monkeypatch.setattr(constants, "CAMINHO_SESSAO", session_file)
+
+    # Iniciar sessão
+    estudante = facade.criar_estudante("IQ3009999", "Aluno Sessao", grupos=["Grupo Teste"])
+    facade.criar_reserva(estudante["prontuario"], {"data": "2026-10-21", "prato": "Geral"})
+    id_sessao = facade.iniciar_nova_sessao({
+        "refeicao": "lanche",
+        "periodo": "Integral",
+        "data": "2026-10-21",
+        "hora": "09:00",
+        "item_servido": "Bolo",
+        "grupos": ["Grupo Teste"],
+    })
+
+    # Salvar estado
+    assert facade.salvar_estado_sessao(id_sessao) is True
+    assert session_file.exists()
+
+    # Carregar estado
+    facade.id_sessao_ativa = None
+    estado = facade.carregar_estado_sessao()
+    assert estado is not None
+    assert estado.get("id_sessao") == id_sessao
+    assert facade.id_sessao_ativa == id_sessao
+
+    # Limpar estado
+    assert facade.limpar_estado_sessao() is True
+    assert not session_file.exists()
+    assert facade.id_sessao_ativa is None
+
+
+def test_facade_exportar_estudantes_e_reservas_para_csv(facade: FachadaRegistro, tmp_path):
+    """Testa exportação de estudantes e reservas para CSV através da fachada."""
+    e1 = facade.criar_estudante("IQ3001111", "Estudante Export 1", grupos=["Turma A"])
+    e2 = facade.criar_estudante("IQ3002222", "Estudante Export 2", grupos=["Turma B"])
+    facade.criar_reserva(e1["prontuario"], {"data": "2026-10-21", "prato": "Tradicional"})
+    facade.criar_reserva(e2["prontuario"], {"data": "2026-10-22", "prato": "Vegetariano"})
+
+    csv_alunos = tmp_path / "alunos.csv"
+    res_alunos = facade.exportar_estudantes_para_csv(csv_alunos)
+    assert Path(res_alunos).exists()
+    conteudo_alunos = Path(res_alunos).read_text(encoding="utf-8")
+    assert "Estudante Export 1" in conteudo_alunos
+    assert "IQ3002222" in conteudo_alunos
+
+    csv_reservas = tmp_path / "reservas.csv"
+    res_reservas = facade.exportar_reservas_para_csv(csv_reservas)
+    assert Path(res_reservas).exists()
+    conteudo_reservas = Path(res_reservas).read_text(encoding="utf-8")
+    assert "Tradicional" in conteudo_reservas
+    assert "Vegetariano" in conteudo_reservas
+
+
+def test_facade_obter_estatisticas_dashboard(facade: FachadaRegistro):
+    """Testa obtenção de estatísticas para o dashboard."""
+    estudante = facade.criar_estudante("IQ3003333", "Estudante Dash", grupos=["Turma Dash"])
+    hoje_iso = dt.date.today().isoformat()
+    facade.criar_reserva(estudante["prontuario"], {"data": hoje_iso, "prato": "Geral"})
+
+    stats = facade.obter_estatisticas_dashboard()
+    assert "alunos_ativos" in stats
+    assert "reservas_hoje" in stats
+    assert "consumo_ontem" in stats
+    assert "grupos_total" in stats
+    assert stats["alunos_ativos"] >= 1
+    assert stats["reservas_hoje"] >= 1
+
+
+def test_facade_listar_datas_reservas_ordenadas(facade: FachadaRegistro):
+    """Testa se as datas de reservas são retornadas em ordem cronológica decrescente."""
+    est = facade.criar_estudante("IQ3004444", "Estudante Datas", grupos=["Turma Datas"])
+    facade.criar_reserva(est["prontuario"], {"data": "10/01/2026", "prato": "P1"})
+    facade.criar_reserva(est["prontuario"], {"data": "25/12/2026", "prato": "P2"})
+    facade.criar_reserva(est["prontuario"], {"data": "05/06/2026", "prato": "P3"})
+
+    datas = facade.listar_datas_reservas()
+    assert len(datas) >= 3
+    idx_dez = datas.index("25/12/2026")
+    idx_jun = datas.index("05/06/2026")
+    idx_jan = datas.index("10/01/2026")
+    assert idx_dez < idx_jun < idx_jan

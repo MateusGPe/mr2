@@ -1,12 +1,12 @@
 """
-Testes unitários para a classe FachadaImportacao em registro.importar.facade.
+Testes unitários para a classe FachadaImportacao em registro.nucleo.importar.facade.
 """
 
 from unittest.mock import MagicMock
 import pytest
 
-from registro.importar.facade import FachadaImportacao
-from registro.importar.strategies import (
+from registro.nucleo.importar.facade import FachadaImportacao
+from registro.nucleo.importar.strategies import (
     CarregarCSVComCabecalho,
     CarregarCSVPosicional,
     CarregarGoogleSheets,

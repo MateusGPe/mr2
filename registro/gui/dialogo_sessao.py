@@ -19,14 +19,8 @@ from ttkbootstrap.localization.msgcat import MessageCatalog
 from ttkbootstrap import ScrolledFrame
 
 from registro.controles.treeview_simples import TreeviewSimples
-from registro.gui.constants import (
-    CAMINHO_JSON_LANCHES,
-    NOME_LANCHE_PADRAO,
-    CAMINHO_JSON_PRESETS_TURMAS,
-    TURMAS_INTEGRADO,
-    DadosNovaSessao,
-)
-from registro.gui.utils import capitalizar, carregar_json, salvar_json
+from registro.gui.constants import TURMAS_INTEGRADO, DadosNovaSessao
+from registro.gui.utils import capitalizar
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:

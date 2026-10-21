@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/importar/service.py (Serviço de Importação)
+# Arquivo: registro/nucleo/importar/service.py (Serviço de Importação)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
@@ -11,9 +11,9 @@ Gerencia estado entre etapas e garante persistência segura.
 
 from typing import Any, Dict, List, Optional
 
-from registro.importar.analyzer import AnalisadorSimplificado
-from registro.importar.definitions import ItemRevisao, ResumoImportacao
-from registro.importar.strategies import EstrategiaCarregamento
+from registro.nucleo.importar.analyzer import AnalisadorSimplificado
+from registro.nucleo.importar.definitions import ItemRevisao, ResumoImportacao
+from registro.nucleo.importar.strategies import EstrategiaCarregamento
 from registro.nucleo.exceptions import ErroImportacaoDados
 from registro.nucleo.facade import FachadaRegistro
 
@@ -36,7 +36,12 @@ class ServicoImportacao:
         if not dados_brutos:
             raise ErroImportacaoDados("Nenhum dado válido encontrado na fonte.")
 
-        analisador = AnalisadorSimplificado(self._fachada.repo_estudante)
+        alunos = (
+            self._fachada.obter_todos_estudantes_com_grupos()
+            if hasattr(self._fachada, "obter_todos_estudantes_com_grupos")
+            else self._fachada.repo_estudante
+        )
+        analisador = AnalisadorSimplificado(alunos)
         autos, revisao, invalidos = analisador.processar_lote(dados_brutos)
 
         self._cache_automaticos = autos
@@ -154,6 +159,9 @@ class ServicoImportacao:
 
     def _persistir_dados(self, dados: List[Dict]) -> Dict[str, int]:
         """Persistência segura com tratamento de dependências (IDs)."""
+        if hasattr(self._fachada, "salvar_importacao_dados"):
+            return self._fachada.salvar_importacao_dados(dados)
+
         novos_estudantes = []
         reservas_para_criar = []
 

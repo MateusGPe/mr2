@@ -467,3 +467,108 @@ def test_sincronizacao_google_sheets(repos, tmp_path, monkeypatch):
         mock_anexar.assert_called_once()
 
 
+def test_service_logic_estudante_crud(repos):
+    """Testa criação, atualização e listagem de estudantes via service_logic."""
+    # Criar estudante
+    res = service_logic.criar_estudante(
+        repos["estudante"], repos["grupo"], "IQ3006001", "Aluno Service", ["Grupo SL"]
+    )
+    assert res["prontuario"] == "IQ3006001"
+    assert res["nome"] == "Aluno Service"
+
+    # Tentativa de criar duplicado deve falhar
+    with pytest.raises(ValueError, match="já existe"):
+        service_logic.criar_estudante(
+            repos["estudante"], repos["grupo"], "IQ3006001", "Duplicado"
+        )
+
+    # Atualizar estudante
+    atualizado = service_logic.atualizar_estudante(
+        repos["estudante"], res["id"], {"nome": "Aluno Service Atualizado"}
+    )
+    assert atualizado is True
+
+    # Listar todos os estudantes
+    todos = service_logic.listar_todos_os_estudantes(repos["estudante"])
+    assert any(e["prontuario"] == "IQ3006001" for e in todos)
+
+    # Listar com filtro
+    filtrados = service_logic.listar_estudantes(repos["estudante"], "Atualizado")
+    assert len(filtrados) == 1
+    assert filtrados[0]["nome"] == "Aluno Service Atualizado"
+
+    # Listar fuzzy
+    fuzzy = service_logic.listar_estudantes_fuzzy(repos["estudante"], "aluno service")
+    assert len(fuzzy) >= 1
+    assert fuzzy[0]["prontuario"] == "IQ3006001"
+
+
+def test_service_logic_reserva_crud_e_listagem(repos):
+    """Testa operações de criação, atualização, listagem e exclusão de reservas."""
+    # Criar estudante para reserva
+    est = service_logic.criar_estudante(
+        repos["estudante"], repos["grupo"], "IQ3006002", "Aluno Reserva"
+    )
+
+    # Criar reserva com estudante existente
+    reserva = service_logic.criar_reserva(
+        repos["estudante"],
+        repos["reserva"],
+        "IQ3006002",
+        {"prato": "Vegetariano", "data": "22/10/2026", "cancelada": False},
+    )
+    assert reserva["prato"] == "Vegetariano"
+    assert reserva["data"] == "22/10/2026"
+
+    # Criar reserva com estudante inexistente
+    with pytest.raises(ValueError, match="não encontrado"):
+        service_logic.criar_reserva(
+            repos["estudante"], repos["reserva"], "IQ9999999", {"prato": "Normal", "data": "22/10/2026"}
+        )
+
+    # Listar datas de reservas
+    datas = service_logic.listar_datas_reservas(repos["reserva"])
+    assert "22/10/2026" in datas
+
+    # Listar reservas
+    lista_res = service_logic.listar_reservas(
+        repos["grupo"], repos["reserva"], {"data": "22/10/2026"}
+    )
+    assert len(lista_res) >= 1
+    assert lista_res[0]["prontuario_estudante"] == "IQ3006002"
+
+    # Atualizar reserva
+    ok_att = service_logic.atualizar_reserva(
+        repos["reserva"], reserva["id"], {"prato": "Vegano"}
+    )
+    assert ok_att is True
+
+    # Deletar reserva
+    ok_del = service_logic.deletar_reserva(repos["reserva"], reserva["id"])
+    assert ok_del is True
+
+
+def test_service_logic_salvar_importacao_dados(repos):
+    """Testa salvar_importacao_dados para persistência em lote de novos estudantes e reservas."""
+    dados_import = [
+        {
+            "prontuario": "IQ3006003",
+            "nome": "Estudante Batch",
+            "data": "23/10/2026",
+            "prato": "Geral",
+        }
+    ]
+
+    resultado = service_logic.salvar_importacao_dados(
+        repos["estudante"], repos["reserva"], dados_import
+    )
+    assert resultado["estudantes_criados"] == 1
+    assert resultado["reservas_criadas"] == 1
+
+    # Verificar existência
+    est = repos["estudante"].por_prontuarios({"IQ3006003"})
+    assert len(est) == 1
+    assert est[0].nome == "Estudante Batch"
+
+
+

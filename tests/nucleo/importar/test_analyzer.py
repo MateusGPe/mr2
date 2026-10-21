@@ -1,10 +1,10 @@
 """
-Testes unitários para a classificação e matching de dados em registro.importar.analyzer.
+Testes unitários para a classificação e matching de dados em registro.nucleo.importar.analyzer.
 """
 
 from sqlalchemy.orm import Session
 
-from registro.importar.analyzer import AnalisadorSimplificado
+from registro.nucleo.importar.analyzer import AnalisadorSimplificado
 from registro.nucleo.repository import RepositorioEstudante
 
 

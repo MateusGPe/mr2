@@ -8,7 +8,6 @@ Módulo de interface gráfica para importação de dados.
 Implementa um Wizard de 4 passos: Seleção, Revisão, Preview e Confirmação.
 """
 
-import csv
 import tkinter as tk
 from tkinter import filedialog
 import traceback
@@ -24,10 +23,9 @@ from ttkbootstrap.widgets import DateEntry
 
 from registro.controles.rounded_button import RoundedButton
 from registro.controles.treeview_simples import TreeviewSimples
-from registro.importar.definitions import ItemRevisao, ResumoImportacao
-from registro.importar.facade import FachadaImportacao
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
+from registro.nucleo.importar.definitions import ItemRevisao, ResumoImportacao
 
 
 class RowItemRevisao(ttk.Frame):
@@ -143,11 +141,11 @@ class AbaImportacao(ttk.Frame):
         self,
         parent,
         fachada_nucleo: FachadaRegistro,
-        fachada_importacao: FachadaImportacao,
+        fachada_importacao: Optional[FachadaImportacao] = None,
     ):
         super().__init__(parent)
         self.fachada_nucleo = fachada_nucleo
-        self.fachada_importacao = fachada_importacao
+        self.fachada_importacao = fachada_importacao or fachada_nucleo
 
         self.itens_revisao: List[ItemRevisao] = []
         self.resumo_analise: Optional[ResumoImportacao] = None
@@ -616,21 +614,10 @@ class AbaImportacao(ttk.Frame):
 
             if tipo == "consumo":
                 self.fachada_nucleo.exportar_consumos_para_xlsx(Path(filepath))
+            elif tipo == "alunos":
+                self.fachada_nucleo.exportar_estudantes_para_csv(Path(filepath))
             else:
-                if tipo == "alunos":
-                    dados = self.fachada_nucleo.listar_todos_os_estudantes()
-                else:
-
-                    dados = self.fachada_nucleo.listar_reservas()
-                keys = dados[0].keys() if dados else []
-                with open(filepath, "w", newline="", encoding="utf-8") as f:
-                    writer = csv.DictWriter(f, fieldnames=keys)
-                    writer.writeheader()
-
-                    for d in dados:
-                        if "grupos" in d and isinstance(d["grupos"], list):
-                            d["grupos"] = ", ".join(d["grupos"])
-                    writer.writerows(dados)
+                self.fachada_nucleo.exportar_reservas_para_csv(Path(filepath))
 
             Messagebox.show_info(f"Arquivo salvo em:\n{filepath}", "Sucesso")
 
