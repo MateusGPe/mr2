@@ -1,80 +1,125 @@
-# Meal Registration / Registro de Refeições
+# Registro de Refeições
 
-## Description / Descrição
+Sistema completo para gestão, controle e registro de presença em refeições de estudantes, projetado para instituições de ensino e refeitórios escolares. A aplicação oferece interfaces gráficas modernas construídas com Tkinter e `ttkbootstrap`, suporte a autoatendimento autônomo com leitura de QR Code, sincronização bidirecional com Google Sheets e persistência local via SQLite e SQLAlchemy 2.0.
 
-This application provides a graphical user interface for registering students for meals. It allows users to search for students, record their meal choices, and manage serving sessions. The system can synchronize data with Google Sheets and export session data to XLSX files.
+---
 
-Esta aplicação fornece uma interface gráfica de usuário para registrar alunos para refeições. Ela permite que os usuários pesquisem alunos, registrem suas escolhas de refeição e gerenciem sessões de serviço. O sistema pode sincronizar dados com o Google Sheets e exportar dados de sessão para arquivos XLSX.
+## 🚀 Funcionalidades Principais
 
-## Features / Funcionalidades
+* **Totem de Autoatendimento (`autoatendimento`):** Interface autônoma otimizada para terminais e totens interativos. Oferece validação em tempo real com leitura de QR Code via webcam (OpenCV e PyZbar), leitor USB de código de barras ou digitação manual com busca incremental de matrículas. Conta com menu de contexto rápido para o operador, dashboard embutido e gestão de consumos.
+* **Terminal de Registro do Operador (`registrar`):** Interface desktop para atendentes e operadores. Permite a busca rápida de estudantes por nome ou matrícula, confirmação visual/sonora de atendimento, controle de sessão ativa e filtragem instantânea de turmas autorizadas.
+* **Painel Administrativo (`painel`):** Central de controle com abas dedicadas para:
+  * **Alunos:** Consulta, cadastro, edição e exclusão de estudantes e suas turmas.
+  * **Reservas:** Gestão de refeições reservadas por data e estudante.
+  * **Importação:** Carga em lote inteligente de listas de alunos e reservas a partir de planilhas CSV ou Excel (`.xlsx`).
+  * **Dashboard:** Visualização de indicadores estatísticos e métricas consolidadas de consumo.
+* **Gerenciamento de Sessões de Refeição:** Criação e configuração de sessões com tipo de refeição (almoço, lanche, jantar, etc.), data, horário, período e vinculação com as turmas autorizadas.
+* **Sincronização com Google Sheets:** Sincronização automática e sob demanda com planilhas do Google Drive via Google Sheets API (gspread), garantindo envio seguro de registros e controle de duplicidade.
+* **Exportação de Relatórios:** Exportação dos dados de consumo e frequência de refeições para relatórios formatados em Excel (`.xlsx`) na pasta de Documentos do usuário.
+* **Persistência Confiável:** Armazenamento local estruturado em banco de dados SQLite orquestrado pelo ORM SQLAlchemy 2.0 com integridade referencial e suporte a migrações em memória para testes automatizados.
 
-* **Student Registration / Registro de Alunos:** Allows users to search for students by registration number or name and record their attendance for a meal. / Permite que os usuários pesquisem alunos por número de matrícula ou nome e registrem sua presença para uma refeição.
-* **Session Management / Gerenciamento de Sessões:** Enables the creation and configuration of meal serving sessions, including setting the meal type, date, time, and applicable classes. / Permite a criação e configuração de sessões de serviço de refeições, incluindo a definição do tipo de refeição, data, hora e turmas aplicáveis.
-* **Data Synchronization / Sincronização de Dados:** Can synchronize served meal data with a specified Google Sheet. / Pode sincronizar dados de refeições servidas com uma planilha do Google especificada.
-* **Data Export / Exportação de Dados:** Allows exporting the current session's data to an XLSX file. / Permite exportar os dados da sessão atual para um arquivo XLSX.
-* **Class Filtering / Filtragem por Turma:** Enables filtering students based on selected classes for a session. / Permite filtrar alunos com base nas turmas selecionadas para uma sessão.
-* **Unique Row Appending / Adição de Linhas Únicas:** When synchronizing with Google Sheets, only unique rows are appended, preventing duplicates. / Ao sincronizar com o Google Sheets, apenas linhas únicas são adicionadas, evitando duplicatas.
-* **Local Data Storage / Armazenamento Local de Dados:** Manages session data locally in JSON files. / Gerencia os dados da sessão localmente em arquivos JSON.
-* **Database Integration / Integração com Banco de Dados:** Uses SQLAlchemy for interacting with a local database to store student and reserve information. / Utiliza SQLAlchemy para interagir com um banco de dados local para armazenar informações de alunos e reservas.
+---
 
+## 🛠️ Requisitos e Pré-requisitos
 
-## Installation / Instalação
+* **Python:** Versão 3.11 ou superior (até 3.13).
+* **uv:** Gerenciador de projetos e dependências Python ultrarrápido ([documentação oficial do uv](https://docs.astral.sh/uv/)).
+* **Câmera/Webcam (Opcional):** Necessária caso queira utilizar a leitura de QR Code no totem de autoatendimento.
 
-1.  Ensure you have Python 3 installed on your system. / Certifique-se de ter o Python 3 instalado em seu sistema.
-2.  Install uv following the instructions on the official uv website: [https://docs.astral.sh/uv/](https://docs.astral.sh/uv/) / Instale o uv seguindo as instruções no site oficial: [https://docs.astral.sh/uv/](https://docs.astral.sh/uv/)
-3.  Clone the repository (if applicable). / Clone o repositório (se aplicável).
-4.  Navigate to the project directory in your terminal. / Navegue até o diretório do projeto no seu terminal.
-5.  Install the project dependencies using uv: / Instale as dependências do projeto usando o uv:
+---
 
-    ```bash
-    uv sync
-    ```
+## 📦 Instalação
 
-6.  Set up your Google Sheets API credentials. Follow the instructions in the `registro/control/google_creds.py` (implicitly referenced) to create a service account and download the credentials JSON file. Place this file in the appropriate location or configure the path as needed. / Configure suas credenciais da API do Google Sheets. Siga as instruções em `registro/control/google_creds.py` (referenciado implicitamente) para criar uma conta de serviço e baixar o arquivo JSON de credenciais. Coloque este arquivo no local apropriado ou configure o caminho conforme necessário.
+1. Clone o repositório ou faça o download dos arquivos do projeto:
+   ```bash
+   git clone https://github.com/MateusGPe/mr2.git
+   cd mr2
+   ```
 
-## Configuration / Configuração
+2. Instale o ambiente virtual e todas as dependências com o `uv`:
+   ```bash
+   uv sync
+   ```
 
-The application uses several configuration files located in the `./config` directory:
+---
 
-A aplicação utiliza diversos arquivos de configuração localizados no diretório `./config`:
+## ⚙️ Configuração
 
-* **`spreadsheet.json`:** Contains the key of the Google Spreadsheet used for manual data synchronization. / Contém a chave da planilha do Google utilizada para a sincronização manual de dados.
-* **`session.json`:** Stores the data for the current meal serving session. / Armazena os dados da sessão de serviço de refeições atual (automático).
-* **`lanches.json`:** Contains a list of available snacks. / Contém uma lista de lanches disponíveis (manual).
-* **`students.csv`:** Used for automatic importing of student data into the local database. / Utilizado para a importação automática de dados de alunos para o banco de dados local.
-* **`reserves.csv`:** Used for automatic importing of reserve data into the local database. / Utilizado para a importação automática de dados de reservas para o banco de dados local.
+Os arquivos de configuração e dados locais residem no diretório `./config`:
 
-Ensure these files exist in the `./config` directory or adjust the paths in the code if necessary. You might need to create the `./config` directory if it doesn't exist.
+| Arquivo | Descrição |
+| :--- | :--- |
+| `credentials.json` | Credenciais da Conta de Serviço (Service Account) ou OAuth da Google Cloud Platform para acesso à API do Google Sheets. |
+| `token.json` | Token de autenticação gerado automaticamente após a autorização do Google. |
+| `spreadsheet.json` | Contém o ID/chave da planilha do Google Sheets utilizada para sincronização. |
+| `lanches.json` | Lista e opções de itens de refeição/lanche disponíveis para seleção rápida. |
+| `presets_turmas.json` | Predefinições de turmas e grupos para facilidade na abertura de sessões. |
+| `session.json` | Estado da sessão de refeição atualmente ativa (gerenciado automaticamente pelo sistema). |
+| `registro.db` | Banco de dados SQLite local contendo alunos, grupos, reservas e consumos registrados. |
+| `students.xlsx` / `reserves.xlsx` | Planilhas modelo ou de importação em lote de alunos e reservas. |
 
-Certifique-se de que esses arquivos existam no diretório `./config` ou ajuste os caminhos no código, se necessário. Você pode precisar criar o diretório `./config` se ele não existir.
+### Configuração da API do Google Sheets
+Para habilitar a sincronização online com planilhas:
+1. No [Google Cloud Console](https://console.cloud.google.com/), crie um projeto e ative a **Google Sheets API** e a **Google Drive API**.
+2. Crie uma Conta de Serviço ou credencial de aplicativo de desktop e baixe o arquivo JSON.
+3. Salve o arquivo como `./config/credentials.json`.
+4. Defina o ID da sua planilha Google em `./config/spreadsheet.json`:
+   ```json
+   {
+     "spreadsheet_id": "SEU_ID_DE_PLANILHA_AQUI"
+   }
+   ```
 
-## Usage / Utilização
+---
 
-1.  Run the application scripts using `uv run`: / Execute os scripts da aplicação usando `uv run`:
+## 💻 Como Executar
 
-    ```bash
-    uv run registrar
-    ```
+A aplicação disponibiliza três comandos principais registrados no `pyproject.toml`:
 
-    Or for the main panel / Ou para o painel principal:
-    ```bash
-    uv run painel
-    ```
+### 1. Totem de Autoatendimento
+Inicia o terminal autônomo com suporte a leitura por câmera de QR Code, leitor de código de barras USB ou busca manual:
+```bash
+uv run autoatendimento
+```
+> **Dica do Operador:** Clique com o botão direito no cabeçalho ou use `F2` para abrir o menu de controle do operador (abertura de sessão, filtros de turma, dashboard e CRUD de consumos).
 
-3.  Upon starting, if no previous session is found, a "Nova seção" (New Session) dialog will appear. / Ao iniciar, se nenhuma sessão anterior for encontrada, uma caixa de diálogo "Nova seção" aparecerá.
-4.  In the dialog, configure the meal type, time, date, period, and select the classes for the session. / Na caixa de diálogo, configure o tipo de refeição, hora, data, período e selecione as turmas para a sessão.
-5.  Click "Ok" to start the session. / Clique em "Ok" para iniciar a sessão.
-6.  In the main window, use the "Registrar" tab to search for students by typing their registration number or name. / Na janela principal, use a aba "Registrar" para pesquisar alunos digitando seu número de matrícula ou nome.
-7.  Select the student from the search results and click "Registrar" or double-click the student to record their meal. / Selecione o aluno nos resultados da pesquisa e clique em "Registrar" ou clique duas vezes no aluno para registrar sua refeição.
-8.  The "Sessão" tab allows you to view and manage the current session, export data, and synchronize with Google Sheets. / A aba "Sessão" permite visualizar e gerenciar a sessão atual, exportar dados e sincronizar com o Google Sheets.
-9.  Click "Salvar (xlsx)..." to save the session data to an XLSX file in your Documents folder and upload the session data to the specified Google Sheet. / Clique em "Salvar (xlsx)..." para salvar os dados da sessão em um arquivo XLSX na sua pasta de Documentos e enviar os dados da sessão para a planilha do Google especificada.
-10. Click "Salvar e encerrar..." to save the session data to an XLSX file in your Documents folder, upload the session data to the specified Google Sheet, and close the application, removing the local session file. / Clique em "Salvar e encerrar..." para salvar os dados da sessão em um arquivo XLSX na sua pasta de Documentos, enviar os dados da sessão para a planilha do Google especificada e fechar a aplicação, removendo o arquivo de sessão local.
-11. Use the "Sync" button in the "Sessão" tab to synchronize the reserves with the configured Google Sheet. / Use o botão "Sync" na aba "Sessão" para sincronizar as reservas com a planilha do Google configurada.
+### 2. Terminal do Operador / Registro
+Inicia a interface de registro assistido pelo atendente:
+```bash
+uv run registrar
+```
 
-## License / Licença
+### 3. Painel Administrativo
+Inicia a central de cadastros, importação de dados e análise estatística:
+```bash
+uv run painel
+```
 
-This project is licensed under the MIT License. / Este projeto está licenciado sob a Licença MIT.
+---
 
-## Copyright / Direitos Autorais
+## 🧪 Testes Automatizados
 
-Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+O projeto conta com uma ampla suíte de testes unitários e de integração, garantindo a integridade dos serviços, fachada, regras de negócio e interface:
+
+```bash
+uv run pytest
+```
+
+Para verificar análise estática e regras de estilo com o Ruff:
+```bash
+uv run ruff check .
+```
+
+---
+
+## 📄 Licença
+
+Este projeto está licenciado sob os termos da [Licença MIT](LICENSE).
+
+---
+
+## 👤 Autoria e Contato
+
+**Mateus G. Pereira**  
+E-mail: [mateus.pereira@ifsp.edu.br](mailto:mateus.pereira@ifsp.edu.br)  
+Copyright (c) 2024-2025 Instituto Federal de Educação, Ciência e Tecnologia de São Paulo (IFSP)

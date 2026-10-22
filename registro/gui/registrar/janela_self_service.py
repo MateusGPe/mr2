@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/gui/janela_self_service.py (Janela de Autoatendimento)
+# Arquivo: registro/gui/registrar/janela_self_service.py (Janela de Autoatendimento)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

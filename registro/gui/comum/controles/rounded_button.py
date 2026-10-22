@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/controles/rounded_button.py (Botão Personalizado)
+# Arquivo: registro/gui/comum/controles/rounded_button.py (Botão Personalizado)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

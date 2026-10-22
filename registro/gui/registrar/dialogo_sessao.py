@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/gui/dialogo_sessao.py (Diálogo de Gerenciamento de Sessão)
+# Arquivo: registro/gui/registrar/dialogo_sessao.py (Diálogo de Gerenciamento de Sessão)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

@@ -1,7 +1,7 @@
 [project]
 name = "registro"
 version = "0.7.1"
-description = ""
+description = "Sistema de registro de refeições com suporte a autoatendimento (totem), painel administrativo e sincronização com Google Sheets."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
 authors = [
