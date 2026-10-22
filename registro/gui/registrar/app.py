@@ -448,18 +448,20 @@ class AppRegistro(tk.Tk):
             )
 
     def _abrir_janela_self_service(self):
-        """Abre a janela de autoatendimento com webcam."""
-        if not self._fachada or self._fachada.id_sessao_ativa is None:
-            Messagebox.show_warning(
-                "Nenhuma Sessão Ativa", "É necessário iniciar uma sessão.", parent=self
-            )
-            return
+        """Abre o totem de autoatendimento autônomo em processo independente."""
+        import subprocess
+        logger.info("Iniciando totem de autoatendimento autônomo...")
+        try:
+            if self._fachada and self._fachada.id_sessao_ativa:
+                self._fachada.salvar_estado_sessao(self._fachada.id_sessao_ativa)
 
-        logger.info("Abrindo janela de autoatendimento.")
-        JanelaSelfService(
-            parent=self,
-            fachada=self._fachada,
-        )
+            subprocess.Popen([sys.executable, "-m", "registro.gui.autoatendimento"])
+        except Exception as e:
+            logger.warning("Falha ao abrir processo autônomo: %s. Abrindo janela interna.", e)
+            JanelaSelfService(
+                parent=self,
+                fachada=self._fachada,
+            )
 
     def mostrar_barra_progresso(self, iniciar: bool, texto: Optional[str] = None):
         """Controla a visibilidade e o estado da barra de progresso."""

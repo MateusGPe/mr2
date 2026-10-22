@@ -404,7 +404,7 @@ class JanelaSelfService(tk.Toplevel):
         try:
             prontuario = JanelaSelfService.formatar_matricula(texto_entrada)
             resultado = self._fachada.registrar_consumo(
-                prontuario, excecao_grupos=self._fachada.excessao_grupos
+                prontuario, excecao_grupos=self._fachada.excecao_grupos
             )
 
             if resultado.get("autorizado"):
@@ -454,7 +454,7 @@ class JanelaSelfService(tk.Toplevel):
 
         prontuario_encontrado = melhor_match.get("pront")
         resultado_registro = self._fachada.registrar_consumo_com_reserva(
-            prontuario_encontrado, excecao_grupos=self._fachada.excessao_grupos
+            prontuario_encontrado, excecao_grupos=self._fachada.excecao_grupos
         )
         if resultado_registro.get("autorizado"):
             return True, "Sucesso", resultado_registro

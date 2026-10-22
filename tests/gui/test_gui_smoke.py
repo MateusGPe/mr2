@@ -136,3 +136,67 @@ def test_aba_reservas_inicializacao(app_root, mock_fachada):
     aba = AbaReservas(parent=app_root, fachada_nucleo=mock_fachada)
     assert aba is not None
     aba.destroy()
+
+
+def test_frame_self_service_inicializacao(app_root, mock_fachada):
+    """Testa a instanciação e métodos do FrameSelfService no totem de autoatendimento."""
+    from registro.gui.autoatendimento.app import FrameSelfService
+
+    callback_mock = MagicMock()
+    with patch.object(FrameSelfService, "_iniciar_camera"):
+        frame = FrameSelfService(
+            master=app_root,
+            fachada=mock_fachada,
+            notification_callback=callback_mock,
+        )
+        assert frame is not None
+        assert hasattr(frame, "focar_entrada")
+        assert hasattr(frame, "recarregar_sessao")
+
+        # Teste de formatação de matrícula
+        assert FrameSelfService.formatar_matricula("12345") == "IQ3012345"
+        assert FrameSelfService.formatar_matricula("IQ3000123") == "IQ3000123"
+
+        frame.recarregar_sessao()
+        frame.incrementar_contador()
+
+        # Testar atualização consistente de cores dos itens no feedback visual
+        frame._definir_feedback_visual("sucesso")
+        assert frame._lbl_status["text"] == "REGISTRADO COM SUCESSO!"
+        assert frame._frame_estudante["bg"] == frame.COR_FUNDO_SUCESSO
+        assert frame._lbl_prato["fg"] == "#FEF08A"
+
+        frame._definir_feedback_visual("erro")
+        assert frame._lbl_status["text"] == "ATENÇÃO: NÃO AUTORIZADO"
+        assert frame._frame_estudante["bg"] == frame.COR_FUNDO_ERRO
+        assert frame._lbl_mensagem["fg"] == "#FEF08A"
+
+        frame._definir_feedback_visual("padrao")
+        assert frame._lbl_status["text"] == "Aguardando Leitura..."
+        assert frame._frame_estudante["bg"] == frame.COR_FUNDO_PADRAO
+        assert frame._lbl_prato["fg"] == "#93C5FD"
+
+        frame.stop()
+        frame.destroy()
+
+
+def test_autoatendimento_dashboard_e_consumos(app_root, mock_fachada):
+    """Testa as abas de Dashboard e Consumos do autoatendimento com troca dinâmica de sessão."""
+    from registro.gui.autoatendimento.app import AbaDashboard as AbaDashAuto, AbaConsumos as AbaConsAuto
+
+    mock_fachada.obter_estudantes_para_sessao.return_value = [
+        {"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "hora_consumo": "12:05", "prato": "Almoço"}
+    ]
+
+    dash = AbaDashAuto(master=app_root, fachada=mock_fachada, id_sessao=1)
+    assert dash is not None
+    dash.definir_sessao(2)
+    dash.destroy()
+
+    consumos = AbaConsAuto(master=app_root, fachada=mock_fachada, id_sessao=1)
+    assert consumos is not None
+    consumos.definir_sessao(2)
+    consumos.adicionar_consumo(("IQ30002", "Outro Aluno", "2INFO", "12:10", "Almoço"))
+    consumos.destroy()
+
+

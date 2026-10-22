@@ -7,7 +7,7 @@
 import logging
 import tkinter as tk
 from tkinter import BOTH, EW, HORIZONTAL, NSEW, YES, W
-from typing import TYPE_CHECKING, Callable, List, Tuple
+from typing import TYPE_CHECKING, Any, Callable, List, Tuple
 
 import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox
@@ -118,7 +118,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
 
     def __init__(
         self,
-        parent: "AppRegistro",
+        parent: Any,
         fachada_nucleo: "FachadaRegistro",
         callback_aplicar: Callable[[List[str]], None],
     ):

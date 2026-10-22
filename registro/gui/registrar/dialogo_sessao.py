@@ -6,11 +6,21 @@
 
 import datetime as dt
 import logging
-import threading
-import tkinter as tk
 from pathlib import Path
+import threading
 from threading import Thread
-from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Set, Tuple, Union
+import tkinter as tk
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import E, EW, HORIZONTAL, NSEW, W
@@ -45,7 +55,7 @@ class DialogoSessao(tk.Toplevel):
         self,
         title: str,
         callback: Callable[[Union[DadosNovaSessao, int, None]], bool],
-        parente_app: "AppRegistro",
+        parente_app: Any,
     ):
         super().__init__(parente_app)
         self.withdraw()
@@ -55,7 +65,14 @@ class DialogoSessao(tk.Toplevel):
 
         self._callback = callback
         self._parente_app = parente_app
-        self._fachada: "FachadaRegistro" = parente_app.get_fachada()
+        if hasattr(parente_app, "get_fachada"):
+            self._fachada: "FachadaRegistro" = parente_app.get_fachada()
+        elif hasattr(parente_app, "fachada_nucleo"):
+            self._fachada = parente_app.fachada_nucleo
+        elif hasattr(parente_app, "_fachada"):
+            self._fachada = parente_app._fachada
+        else:
+            raise AttributeError("Parente não possui fachada de registro.")
         self._dados_checkbox_turmas: List[
             Tuple[str, tk.BooleanVar, ttk.Checkbutton]
         ] = []
@@ -578,8 +595,10 @@ class DialogoSessao(tk.Toplevel):
 
     def _ao_sincronizar_reservas(self):
         """Inicia o processo de sincronização de reservas em uma thread."""
-        self._parente_app.mostrar_barra_progresso(
-            True, "Sincronizando reservas...")
+        if hasattr(self._parente_app, "mostrar_barra_progresso"):
+            self._parente_app.mostrar_barra_progresso(
+                True, "Sincronizando reservas..."
+            )
         self.update_idletasks()
 
         thread = Thread(target=self._acao_sincronizacao, daemon=True)
@@ -601,7 +620,8 @@ class DialogoSessao(tk.Toplevel):
             self.after(150, lambda: self._monitorar_sincronizacao(thread))
             return
 
-        self._parente_app.mostrar_barra_progresso(False)
+        if hasattr(self._parente_app, "mostrar_barra_progresso"):
+            self._parente_app.mostrar_barra_progresso(False)
         erro = getattr(thread, "error", None)
         if erro:
             Messagebox.show_error(
