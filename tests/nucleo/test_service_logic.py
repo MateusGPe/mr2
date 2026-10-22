@@ -571,4 +571,63 @@ def test_service_logic_salvar_importacao_dados(repos):
     assert est[0].nome == "Estudante Batch"
 
 
+def test_atualizar_consumo_e_estatisticas_sessao(repos, criar_estudante, criar_reserva, criar_grupo):
+    """Testa atualizar_consumo e a geração detalhada de obter_estatisticas_sessao."""
+    grupo = criar_grupo(nome="1INFO")
+    est1 = criar_estudante(prontuario="IQ3099901", nome="Estudante Alpha", grupos=[grupo])
+    est2 = criar_estudante(prontuario="IQ3099902", nome="Estudante Beta", grupos=[grupo])
+
+    # Cria sessão
+    dados_sessao = {
+        "refeicao": "almoço",
+        "periodo": "Almoço",
+        "data": "2026-10-22",
+        "hora": "12:00",
+        "grupos": ["1INFO"],
+    }
+    criar_reserva(estudante=est1, data="22/10/2026", prato="Padrão")
+    criar_reserva(estudante=est2, data="22/10/2026", prato="Vegetariano")
+
+    id_sessao = service_logic.iniciar_nova_sessao(
+        repos["sessao"], repos["grupo"], repos["reserva"], dados_sessao
+    )
+    assert id_sessao is not None
+
+    # Registra consumo para est1
+    res = service_logic.registrar_consumo(
+        repos["sessao"], repos["estudante"], repos["reserva"], repos["consumo"],
+        id_sessao=id_sessao, prontuario="IQ3099901"
+    )
+    assert res.get("autorizado") is True
+    consumo = repos["consumo"].por_prontuario_e_sessao("IQ3099901", id_sessao)
+    assert consumo is not None
+    id_consumo = consumo.id
+
+    # Testa atualizar_consumo
+    ok_att = service_logic.atualizar_consumo(
+        repos["consumo"], repos["reserva"],
+        id_consumo=id_consumo, hora_consumo="12:15:30", prato="Vegano"
+    )
+    assert ok_att is True
+
+    # Verifica atualização
+    consumo_db = repos["consumo"].ler_um(id_consumo)
+    assert consumo_db.hora_consumo == "12:15:30"
+    assert consumo_db.reserva.prato == "Vegano"
+
+    # Testa estatísticas da sessão
+    stats = service_logic.obter_estatisticas_sessao(
+        repos["sessao"], repos["estudante"], repos["reserva"],
+        repos["consumo"], repos["grupo"], id_sessao=id_sessao
+    )
+    assert stats["id_sessao"] == id_sessao
+    assert stats["total_consumidos"] == 1
+    assert stats["total_restantes"] == 1
+    assert stats["total_esperado"] == 2
+    assert stats["taxa_adesao"] == 50.0
+    assert stats["total_com_reserva"] == 1
+    assert "Vegano" in stats["distribuicao_pratos"]
+    assert "1INFO" in stats["distribuicao_turmas"]
+
+
 

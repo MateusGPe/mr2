@@ -487,6 +487,54 @@ def desfazer_consumo_por_prontuario(
     return False
 
 
+def atualizar_consumo(
+    repo_consumo: RepositorioConsumo,
+    repo_reserva: RepositorioReserva,
+    id_consumo: int,
+    hora_consumo: Optional[str] = None,
+    prato: Optional[str] = None,
+) -> bool:
+    """Atualiza campos de um registro de consumo (horário e prato da reserva associada)."""
+    consumo = repo_consumo.ler_um(id_consumo)
+    if not consumo:
+        return False
+
+    if hora_consumo is not None:
+        consumo.hora_consumo = hora_consumo.strip()
+
+    if prato is not None:
+        prato_limpo = prato.strip()
+        if consumo.reserva_id:
+            reserva = repo_reserva.ler_um(consumo.reserva_id)
+            if reserva:
+                reserva.prato = prato_limpo
+        else:
+            data_sessao = consumo.sessao.data if consumo.sessao else None
+            if data_sessao:
+                reservas = repo_reserva.ler_filtrado(
+                    estudante_id=consumo.estudante_id,
+                    data=data_sessao,
+                    cancelada=False,
+                )
+                if reservas:
+                    reserva = reservas[0]
+                    reserva.prato = prato_limpo
+                    consumo.reserva_id = reserva.id
+                else:
+                    nova_reserva = repo_reserva.criar(
+                        {
+                            "estudante_id": consumo.estudante_id,
+                            "data": data_sessao,
+                            "prato": prato_limpo,
+                            "cancelada": False,
+                        }
+                    )
+                    consumo.reserva_id = nova_reserva.id
+
+    repo_consumo.obter_sessao().commit()
+    return True
+
+
 def atualizar_cancelamento_reserva(
     repo_reserva: RepositorioReserva, id_reserva: int, cancelar: bool = True
 ):
@@ -1202,6 +1250,136 @@ def obter_estatisticas_dashboard(
         "reservas_hoje": len(reservas_hoje),
         "consumo_ontem": len(consumos_ontem),
         "grupos_total": len(grupos),
+    }
+
+
+def obter_estatisticas_sessao(
+    repo_sessao: RepositorioSessao,
+    repo_estudante: RepositorioEstudante,
+    repo_reserva: RepositorioReserva,
+    repo_consumo: RepositorioConsumo,
+    repo_grupo: RepositorioGrupo,
+    id_sessao: int,
+    excessao_grupos: Optional[Set[str]] = None,
+) -> Dict[str, Any]:
+    """Calcula estatísticas detalhadas e consolidadas para uma sessão de refeição."""
+    sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
+    consumidos = obter_estudantes_para_sessao(
+        repo_sessao=repo_sessao,
+        repo_estudante=repo_estudante,
+        repo_reserva=repo_reserva,
+        repo_consumo=repo_consumo,
+        repo_grupo=repo_grupo,
+        id_sessao=id_sessao,
+        consumido=True,
+        pular_grupos=True,
+        excessao_grupos=excessao_grupos,
+    )
+    elegiveis = obter_estudantes_para_sessao(
+        repo_sessao=repo_sessao,
+        repo_estudante=repo_estudante,
+        repo_reserva=repo_reserva,
+        repo_consumo=repo_consumo,
+        repo_grupo=repo_grupo,
+        id_sessao=id_sessao,
+        consumido=False,
+        excessao_grupos=excessao_grupos,
+    )
+
+    total_consumidos = len(consumidos)
+    total_restantes = len(elegiveis)
+    total_esperado = total_consumidos + total_restantes
+    taxa_adesao = (
+        round((total_consumidos / total_esperado * 100), 1)
+        if total_esperado > 0
+        else 0.0
+    )
+
+    dist_pratos: Dict[str, int] = {}
+    total_com_reserva = 0
+    total_sem_reserva = 0
+    dist_turmas: Dict[str, int] = {}
+    dist_horarios: Dict[str, int] = {}
+
+    consumidos_com_hora = [c for c in consumidos if c.get("hora_consumo")]
+    consumidos_com_hora.sort(key=lambda x: str(x.get("hora_consumo", "")))
+
+    for c in consumidos:
+        prato = str(c.get("prato") or "Sem Reserva")
+        dist_pratos[prato] = dist_pratos.get(prato, 0) + 1
+        if prato == "Sem Reserva" or c.get("status") == "Sem Reserva":
+            total_sem_reserva += 1
+        else:
+            total_com_reserva += 1
+
+        turma = str(c.get("turma") or "N/A")
+        for t in [item.strip() for item in turma.split(",") if item.strip()]:
+            dist_turmas[t] = dist_turmas.get(t, 0) + 1
+
+        hora = str(c.get("hora_consumo", ""))
+        if hora and len(hora) >= 5:
+            try:
+                partes = hora.split(":")
+                h = int(partes[0])
+                m = int(partes[1])
+                bloco_m = (m // 15) * 15
+                bloco_fim_m = bloco_m + 15
+                bloco_fim_h = h
+                if bloco_fim_m >= 60:
+                    bloco_fim_m = 0
+                    bloco_fim_h = (h + 1) % 24
+                chave_intervalo = (
+                    f"{h:02d}:{bloco_m:02d} - {bloco_fim_h:02d}:{bloco_fim_m:02d}"
+                )
+                dist_horarios[chave_intervalo] = (
+                    dist_horarios.get(chave_intervalo, 0) + 1
+                )
+            except Exception:
+                chave_hora = f"{hora[:2]}:00"
+                dist_horarios[chave_hora] = dist_horarios.get(chave_hora, 0) + 1
+
+    horario_pico = None
+    if dist_horarios:
+        horario_pico = max(dist_horarios.items(), key=lambda x: x[1])
+
+    primeiro_consumo = consumidos_com_hora[0] if consumidos_com_hora else None
+    ultimo_consumo = consumidos_com_hora[-1] if consumidos_com_hora else None
+
+    velocidade = 0.0
+    if len(consumidos_com_hora) >= 2 and primeiro_consumo and ultimo_consumo:
+        try:
+            h_ini_str = str(primeiro_consumo.get("hora_consumo", ""))[:8]
+            h_fim_str = str(ultimo_consumo.get("hora_consumo", ""))[:8]
+            fmt = "%H:%M:%S" if len(h_ini_str) == 8 else "%H:%M"
+            h_ini = dt.datetime.strptime(h_ini_str, fmt)
+            h_fim = dt.datetime.strptime(h_fim_str, fmt)
+            minutos = (h_fim - h_ini).total_seconds() / 60.0
+            if minutos >= 1.0:
+                velocidade = round(total_consumidos / minutos, 1)
+        except Exception:
+            velocidade = 0.0
+
+    return {
+        "id_sessao": id_sessao,
+        "refeicao": sessao.refeicao,
+        "data": sessao.data,
+        "hora_prevista": sessao.hora,
+        "item_servido": sessao.item_servido,
+        "total_consumidos": total_consumidos,
+        "total_restantes": total_restantes,
+        "total_esperado": total_esperado,
+        "taxa_adesao": taxa_adesao,
+        "total_com_reserva": total_com_reserva,
+        "total_sem_reserva": total_sem_reserva,
+        "distribuicao_pratos": dist_pratos,
+        "distribuicao_turmas": dict(
+            sorted(dist_turmas.items(), key=lambda x: x[1], reverse=True)
+        ),
+        "distribuicao_horarios": dict(sorted(dist_horarios.items())),
+        "horario_pico": horario_pico,
+        "primeiro_consumo": primeiro_consumo,
+        "ultimo_consumo": ultimo_consumo,
+        "velocidade_por_minuto": velocidade,
     }
 
 

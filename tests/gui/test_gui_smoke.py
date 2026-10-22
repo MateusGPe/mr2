@@ -181,22 +181,103 @@ def test_frame_self_service_inicializacao(app_root, mock_fachada):
 
 
 def test_autoatendimento_dashboard_e_consumos(app_root, mock_fachada):
-    """Testa as abas de Dashboard e Consumos do autoatendimento com troca dinâmica de sessão."""
+    """Testa as abas de Dashboard e Consumos do autoatendimento com troca dinâmica de sessão e CRUD."""
     from registro.gui.autoatendimento.app import AbaDashboard as AbaDashAuto, AbaConsumos as AbaConsAuto
 
     mock_fachada.obter_estudantes_para_sessao.return_value = [
-        {"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "hora_consumo": "12:05", "prato": "Almoço"}
+        {"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "hora_consumo": "12:05", "prato": "Almoço", "id_consumo": 1}
     ]
+    mock_fachada.obter_estatisticas_sessao.return_value = {
+        "id_sessao": 1,
+        "refeicao": "almoço",
+        "data": "22/10/2026",
+        "hora_prevista": "12:00",
+        "item_servido": "Refeição",
+        "total_consumidos": 1,
+        "total_restantes": 2,
+        "total_esperado": 3,
+        "taxa_adesao": 33.3,
+        "total_com_reserva": 1,
+        "total_sem_reserva": 0,
+        "distribuicao_pratos": {"Almoço": 1},
+        "distribuicao_turmas": {"1INFO": 1},
+        "distribuicao_horarios": {"12:00 - 12:15": 1},
+        "horario_pico": ("12:00 - 12:15", 1),
+        "primeiro_consumo": {"nome": "Aluno Teste", "hora_consumo": "12:05"},
+        "ultimo_consumo": {"nome": "Aluno Teste", "hora_consumo": "12:05"},
+        "velocidade_por_minuto": 0.0,
+    }
 
     dash = AbaDashAuto(master=app_root, fachada=mock_fachada, id_sessao=1)
     assert dash is not None
+    assert dash.lbl_total_consumos["text"] == "1"
+    assert dash.lbl_restantes["text"] == "2"
+    assert dash.lbl_adesao["text"] == "33.3%"
     dash.definir_sessao(2)
     dash.destroy()
 
     consumos = AbaConsAuto(master=app_root, fachada=mock_fachada, id_sessao=1)
     assert consumos is not None
+    assert len(consumos._consumos_raw) == 1
+
+    # Teste de filtro / busca em tempo real
+    consumos.var_busca.set("IQ30001")
+    consumos._ao_digitar_busca()
+    assert len(consumos._mapa_iid_para_consumo) == 1
+
+    consumos.var_busca.set("NaoExiste")
+    consumos._ao_digitar_busca()
+    assert len(consumos._mapa_iid_para_consumo) == 0
+
+    consumos.var_busca.set("")
+    consumos._ao_digitar_busca()
+    assert len(consumos._mapa_iid_para_consumo) == 1
+
     consumos.definir_sessao(2)
     consumos.adicionar_consumo(("IQ30002", "Outro Aluno", "2INFO", "12:10", "Almoço"))
+    assert len(consumos._consumos_raw) == 2
     consumos.destroy()
+
+
+def test_dialogos_autoatendimento_smoke(app_root, mock_fachada):
+    """Testa a instanciação dos novos diálogos de CRUD do autoatendimento."""
+    from registro.gui.autoatendimento.dialogos import (
+        DialogoNovoConsumo,
+        DialogoEditarConsumo,
+        DialogoDetalhesConsumo,
+    )
+
+    mock_fachada.obter_estudantes_para_sessao.return_value = [
+        {"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "prato": "Almoço"}
+    ]
+
+    with patch.object(DialogoNovoConsumo, "wait_window"), \
+         patch.object(DialogoNovoConsumo, "grab_set"), \
+         patch.object(DialogoNovoConsumo, "transient"):
+        diag_novo = DialogoNovoConsumo(parent=app_root, fachada=mock_fachada)
+        assert diag_novo is not None
+        diag_novo.destroy()
+
+    with patch.object(DialogoEditarConsumo, "wait_window"), \
+         patch.object(DialogoEditarConsumo, "grab_set"), \
+         patch.object(DialogoEditarConsumo, "transient"):
+        diag_edit = DialogoEditarConsumo(
+            parent=app_root,
+            fachada=mock_fachada,
+            id_consumo=1,
+            dados_consumo={"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "hora_consumo": "12:00", "prato": "Almoço"},
+        )
+        assert diag_edit is not None
+        diag_edit.destroy()
+
+    with patch.object(DialogoDetalhesConsumo, "wait_window"), \
+         patch.object(DialogoDetalhesConsumo, "grab_set"), \
+         patch.object(DialogoDetalhesConsumo, "transient"):
+        diag_det = DialogoDetalhesConsumo(
+            parent=app_root,
+            dados_consumo={"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "hora_consumo": "12:00", "prato": "Almoço", "id_consumo": 1},
+        )
+        assert diag_det is not None
+        diag_det.destroy()
 
 

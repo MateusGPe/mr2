@@ -18,7 +18,13 @@ from PIL import Image, ImageTk
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import CENTER, LEFT, NSEW, RIGHT, X, EW, BOTH, HORIZONTAL
 from ttkbootstrap.dialogs import Messagebox
+from ttkbootstrap.localization.msgcat import MessageCatalog
 
+from registro.gui.autoatendimento.dialogos import (
+    DialogoNovoConsumo,
+    DialogoEditarConsumo,
+    DialogoDetalhesConsumo,
+)
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 from registro.gui.comum.constants import REGEX_LIMPEZA_PRONTUARIO
 from registro.gui.registrar.dialogo_sessao import DialogoSessao
@@ -791,7 +797,10 @@ class FrameSelfService(ttk.Frame):
 
 
 class AbaDashboard(ttk.Frame):
-    """Painel com as métricas da sessão de autoatendimento."""
+    """
+    Painel avançado com estatísticas consolidadas e métricas em tempo real
+    da sessão de autoatendimento.
+    """
 
     def __init__(
         self,
@@ -799,70 +808,265 @@ class AbaDashboard(ttk.Frame):
         fachada: "FachadaRegistro",
         id_sessao: Optional[int],
         voltar_callback: Optional[Callable[[], None]] = None,
-        abrir_controles_callback: Optional[Callable[[], None]] = None,
+        abrir_controles_callback: Optional[Callable[..., None]] = None,
+        navegar_callback: Optional[Callable[[str], None]] = None,
     ):
-        super().__init__(master, padding=20)
+        super().__init__(master, padding=(16, 12))
         self.fachada = fachada
         self.id_sessao = id_sessao
         self.voltar_callback = voltar_callback
         self.abrir_controles_callback = abrir_controles_callback
+        self.navegar_callback = navegar_callback
 
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(1, weight=0)  # Linha dos KPI Cards
+        self.rowconfigure(2, weight=1)  # Linha das Análises e Distribuições
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
 
-        # Barra Superior de Navegação
+        self._construir_interface()
+        self.atualizar_dados()
+
+    def _construir_interface(self):
+        """Constrói a interface com navegação, cards KPI e painéis analíticos."""
+        # --- Barra Superior de Navegação ---
         frame_topo = ttk.Frame(self)
-        frame_topo.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 20))
+        frame_topo.grid(row=0, column=0, sticky="ew", pady=(0, 14))
         frame_topo.columnconfigure(1, weight=1)
+
+        frame_nav_esq = ttk.Frame(frame_topo)
+        frame_nav_esq.grid(row=0, column=0, sticky="w")
 
         if self.voltar_callback:
             ttk.Button(
-                frame_topo,
-                text=" ⬅ Voltar ao Autoatendimento ",
+                frame_nav_esq,
+                text=" ⬅ Voltar ao Totem ",
                 command=self.voltar_callback,
                 bootstyle="primary",
                 padding=(10, 6),
-            ).grid(row=0, column=0, sticky="w")
+            ).pack(side=LEFT, padx=(0, 6))
+
+        if self.navegar_callback:
+            ttk.Button(
+                frame_nav_esq,
+                text=" 📋 Ver Registros (CRUD) ",
+                command=lambda: self.navegar_callback("consumos"),
+                bootstyle="info-outline",
+                padding=(10, 6),
+            ).pack(side=LEFT)
 
         ttk.Label(
             frame_topo,
-            text="📊 Dashboard da Sessão",
-            font=("Segoe UI", 20, "bold"),
+            text="📊 Dashboard & Estatísticas da Sessão",
+            font=("Segoe UI", 18, "bold"),
             anchor="center",
         ).grid(row=0, column=1, sticky="ew")
 
+        frame_nav_dir = ttk.Frame(frame_topo)
+        frame_nav_dir.grid(row=0, column=2, sticky="e")
+
+        ttk.Button(
+            frame_nav_dir,
+            text=" 🔄 Atualizar ",
+            command=self.atualizar_dados,
+            bootstyle="secondary-outline",
+            padding=(8, 6),
+        ).pack(side=LEFT, padx=(0, 6))
+
         if self.abrir_controles_callback:
             btn_ctrl = ttk.Button(
-                frame_topo,
+                frame_nav_dir,
                 text=" ⚙️ Controles ",
-                bootstyle="secondary-outline",
+                bootstyle="secondary",
                 padding=(8, 6),
             )
-            btn_ctrl.config(command=lambda b=btn_ctrl: self.abrir_controles_callback(widget=b))
-            btn_ctrl.grid(row=0, column=2, sticky="e")
+            btn_ctrl.config(
+                command=lambda b=btn_ctrl: self.abrir_controles_callback(widget=b)
+            )
+            btn_ctrl.pack(side=LEFT)
 
-        card_total = ttk.Frame(self, bootstyle="primary", padding=20)
-        card_total.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
-        ttk.Label(card_total, text="Consumos Registrados", font=("Segoe UI", 14), bootstyle="@primary").pack()
+        # --- Linha 1: Cards KPI Principais ---
+        frame_kpis = ttk.Frame(self)
+        frame_kpis.grid(row=1, column=0, sticky="ew", pady=(0, 14))
+        for col in range(5):
+            frame_kpis.columnconfigure(col, weight=1)
+
+        # 1. Total Consumos
+        card_total = ttk.Frame(frame_kpis, bootstyle="primary", padding=(12, 12))
+        card_total.grid(row=0, column=0, sticky="nsew", padx=4)
+        ttk.Label(
+            card_total, text="Refeições Servidas", font=("Segoe UI", 10), bootstyle="@primary"
+        ).pack(anchor="center")
         self.lbl_total_consumos = ttk.Label(
-            card_total, text="0", font=("Segoe UI", 56, "bold"), bootstyle="@primary"
+            card_total, text="0", font=("Segoe UI", 36, "bold"), bootstyle="@primary"
         )
         self.lbl_total_consumos.pack(expand=True)
+        self.lbl_total_sub = ttk.Label(
+            card_total, text="Atendimentos registrados", font=("Segoe UI", 8), bootstyle="@primary"
+        )
+        self.lbl_total_sub.pack(anchor="center")
 
-        card_ultimo = ttk.Frame(self, bootstyle="info", padding=20)
-        card_ultimo.grid(row=1, column=1, sticky="nsew", padx=(10, 0))
-        ttk.Label(card_ultimo, text="Último Registro", font=("Segoe UI", 14), bootstyle="@info").pack()
+        # 2. Restantes
+        card_rest = ttk.Frame(frame_kpis, bootstyle="warning", padding=(12, 12))
+        card_rest.grid(row=0, column=1, sticky="nsew", padx=4)
+        ttk.Label(
+            card_rest, text="Alunos Restantes", font=("Segoe UI", 10), bootstyle="@warning"
+        ).pack(anchor="center")
+        self.lbl_restantes = ttk.Label(
+            card_rest, text="0", font=("Segoe UI", 36, "bold"), bootstyle="@warning"
+        )
+        self.lbl_restantes.pack(expand=True)
+        self.lbl_restantes_sub = ttk.Label(
+            card_rest, text="Aguardando atendimento", font=("Segoe UI", 8), bootstyle="@warning"
+        )
+        self.lbl_restantes_sub.pack(anchor="center")
+
+        # 3. Taxa de Adesão
+        card_adesao = ttk.Frame(frame_kpis, bootstyle="success", padding=(12, 12))
+        card_adesao.grid(row=0, column=2, sticky="nsew", padx=4)
+        ttk.Label(
+            card_adesao, text="Taxa de Adesão", font=("Segoe UI", 10), bootstyle="@success"
+        ).pack(anchor="center")
+        self.lbl_adesao = ttk.Label(
+            card_adesao, text="0%", font=("Segoe UI", 36, "bold"), bootstyle="@success"
+        )
+        self.lbl_adesao.pack(expand=True)
+        self.progress_adesao = ttk.Progressbar(
+            card_adesao, value=0, maximum=100, bootstyle="success-striped"
+        )
+        self.progress_adesao.pack(fill=X, padx=10, pady=(2, 4))
+        self.lbl_esperados = ttk.Label(
+            card_adesao, text="0 de 0 esperados", font=("Segoe UI", 8), bootstyle="@success"
+        )
+        self.lbl_esperados.pack(anchor="center")
+
+        # 4. Reservas vs Avulsos
+        card_reserva = ttk.Frame(frame_kpis, bootstyle="info", padding=(12, 12))
+        card_reserva.grid(row=0, column=3, sticky="nsew", padx=4)
+        ttk.Label(
+            card_reserva, text="Com Reserva / Avulso", font=("Segoe UI", 10), bootstyle="@info"
+        ).pack(anchor="center")
+        self.lbl_reserva_info = ttk.Label(
+            card_reserva, text="0 / 0", font=("Segoe UI", 28, "bold"), bootstyle="@info"
+        )
+        self.lbl_reserva_info.pack(expand=True)
+        self.lbl_reserva_sub = ttk.Label(
+            card_reserva, text="Planejados vs Exceções", font=("Segoe UI", 8), bootstyle="@info"
+        )
+        self.lbl_reserva_sub.pack(anchor="center")
+
+        # 5. Último Atendimento
+        card_ultimo = ttk.Frame(frame_kpis, bootstyle="secondary", padding=(12, 12))
+        card_ultimo.grid(row=0, column=4, sticky="nsew", padx=4)
+        ttk.Label(
+            card_ultimo, text="Último Registro", font=("Segoe UI", 10), bootstyle="@secondary"
+        ).pack(anchor="center")
         self.lbl_ultimo_consumo_nome = ttk.Label(
-            card_ultimo, text="--", font=("Segoe UI", 24, "bold"), bootstyle="@info", wraplength=350
+            card_ultimo,
+            text="--",
+            font=("Segoe UI", 13, "bold"),
+            bootstyle="@secondary",
+            wraplength=180,
+            anchor="center",
+            justify="center",
         )
         self.lbl_ultimo_consumo_nome.pack(expand=True)
         self.lbl_ultimo_consumo_hora = ttk.Label(
-            card_ultimo, text="", font=("Segoe UI", 16), bootstyle="@info"
+            card_ultimo, text="", font=("Segoe UI", 11), bootstyle="@secondary"
         )
-        self.lbl_ultimo_consumo_hora.pack()
+        self.lbl_ultimo_consumo_hora.pack(anchor="center")
 
-        self.atualizar_dados()
+        # --- Linha 2: Painéis de Distribuição e Desempenho Analítico ---
+        frame_analises = ttk.Frame(self)
+        frame_analises.grid(row=2, column=0, sticky="nsew", pady=(0, 10))
+        frame_analises.columnconfigure((0, 1, 2), weight=1)
+        frame_analises.rowconfigure(0, weight=1)
+
+        # Painel A: Distribuição por Prato
+        self.card_pratos = ttk.LabelFrame(
+            frame_analises, text=" 🍽️ Distribuição por Cardápio / Prato ", padding=12
+        )
+        self.card_pratos.grid(row=0, column=0, sticky="nsew", padx=(0, 6))
+        self.card_pratos.rowconfigure(0, weight=1)
+        self.card_pratos.columnconfigure(0, weight=1)
+
+        self.frame_lista_pratos = ttk.Frame(self.card_pratos)
+        self.frame_lista_pratos.grid(row=0, column=0, sticky="nsew")
+        self.frame_lista_pratos.columnconfigure(1, weight=1)
+
+        # Painel B: Top Turmas
+        self.card_turmas = ttk.LabelFrame(
+            frame_analises, text=" 👥 Top Turmas Atendidas ", padding=12
+        )
+        self.card_turmas.grid(row=0, column=1, sticky="nsew", padx=4)
+        self.card_turmas.rowconfigure(0, weight=1)
+        self.card_turmas.columnconfigure(0, weight=1)
+
+        self.frame_lista_turmas = ttk.Frame(self.card_turmas)
+        self.frame_lista_turmas.grid(row=0, column=0, sticky="nsew")
+        self.frame_lista_turmas.columnconfigure(1, weight=1)
+
+        # Painel C: Fluxo e Performance
+        self.card_fluxo = ttk.LabelFrame(
+            frame_analises, text=" ⏱️ Ritmo de Atendimento & Horários ", padding=12
+        )
+        self.card_fluxo.grid(row=0, column=2, sticky="nsew", padx=(6, 0))
+        self.card_fluxo.rowconfigure(4, weight=1)
+        self.card_fluxo.columnconfigure(0, weight=1)
+
+        self.lbl_pico_horario = ttk.Label(
+            self.card_fluxo,
+            text="🔥 Horário de Pico: --",
+            font=("Segoe UI", 10, "bold"),
+            bootstyle="primary",
+        )
+        self.lbl_pico_horario.grid(row=0, column=0, sticky="w", pady=2)
+
+        self.lbl_velocidade = ttk.Label(
+            self.card_fluxo,
+            text="⚡ Velocidade: -- atendimentos/minuto",
+            font=("Segoe UI", 9),
+        )
+        self.lbl_velocidade.grid(row=1, column=0, sticky="w", pady=2)
+
+        self.lbl_primeiro_consumo = ttk.Label(
+            self.card_fluxo,
+            text="🚩 Início da Fila: --",
+            font=("Segoe UI", 9),
+            bootstyle="secondary",
+        )
+        self.lbl_primeiro_consumo.grid(row=2, column=0, sticky="w", pady=2)
+
+        ttk.Separator(self.card_fluxo, orient=HORIZONTAL).grid(
+            row=3, column=0, sticky="ew", pady=6
+        )
+
+        ttk.Label(
+            self.card_fluxo, text="Faixas de Horário (Intervalos):", font=("Segoe UI", 9, "bold")
+        ).grid(row=4, column=0, sticky="w", pady=(0, 4))
+
+        self.frame_lista_faixas = ttk.Frame(self.card_fluxo)
+        self.frame_lista_faixas.grid(row=5, column=0, sticky="nsew")
+        self.frame_lista_faixas.columnconfigure(1, weight=1)
+
+        # --- Rodapé da Sessão ---
+        frame_rodape = ttk.Frame(self)
+        frame_rodape.grid(row=3, column=0, sticky="ew")
+        frame_rodape.columnconfigure(0, weight=1)
+
+        self.lbl_info_sessao = ttk.Label(
+            frame_rodape,
+            text="Sessão não iniciada",
+            font=("Segoe UI", 9),
+            bootstyle="secondary",
+        )
+        self.lbl_info_sessao.grid(row=0, column=0, sticky="w")
+
+        ttk.Button(
+            frame_rodape,
+            text=" 📥 Exportar Relatório de Sessão (XLSX) ",
+            command=self._exportar_relatorio,
+            bootstyle="secondary-outline",
+            padding=(10, 4),
+        ).grid(row=0, column=1, sticky="e")
 
     def definir_sessao(self, id_sessao: Optional[int]):
         """Atualiza a sessão ativa exibida no dashboard."""
@@ -870,28 +1074,267 @@ class AbaDashboard(ttk.Frame):
         self.atualizar_dados()
 
     def atualizar_dados(self, ultimo_consumo: Optional[Tuple[str, ...]] = None):
-        """Atualiza os contadores e informações no dashboard."""
+        """Calcula e atualiza os contadores, gráficos e distribuições no dashboard."""
         if not self.id_sessao or not self.fachada or not self.fachada.id_sessao_ativa:
             self.lbl_total_consumos.config(text="0")
+            self.lbl_restantes.config(text="0")
+            self.lbl_adesao.config(text="0%")
+            self.progress_adesao.config(value=0)
+            self.lbl_esperados.config(text="Sem Sessão Ativa")
+            self.lbl_reserva_info.config(text="0 / 0")
             self.lbl_ultimo_consumo_nome.config(text="Sem Sessão")
             self.lbl_ultimo_consumo_hora.config(text="")
+            self.lbl_info_sessao.config(text="⚠️ Nenhuma sessão ativa no momento.")
+            self._limpar_paineis_analiticos()
             return
 
         try:
-            consumidos = self.fachada.obter_estudantes_para_sessao(consumido=True)
-            self.lbl_total_consumos.config(text=str(len(consumidos)))
+            stats = None
+            if hasattr(self.fachada, "obter_estatisticas_sessao"):
+                try:
+                    stats = self.fachada.obter_estatisticas_sessao(self.id_sessao)
+                except Exception as ex_stats:
+                    logger.debug("Falha em obter_estatisticas_sessao: %s", ex_stats)
 
-            if ultimo_consumo:
-                nome = ultimo_consumo[1]
-                hora = ultimo_consumo[3]
-                self.lbl_ultimo_consumo_nome.config(text=nome)
-                self.lbl_ultimo_consumo_hora.config(text=f"às {hora}")
+            if not stats:
+                consumidos = self.fachada.obter_estudantes_para_sessao(consumido=True)
+                stats = {
+                    "total_consumidos": len(consumidos),
+                    "total_restantes": 0,
+                    "total_esperado": len(consumidos),
+                    "taxa_adesao": 100.0 if consumidos else 0.0,
+                    "total_com_reserva": len(consumidos),
+                    "total_sem_reserva": 0,
+                    "distribuicao_pratos": {},
+                    "distribuicao_turmas": {},
+                    "distribuicao_horarios": {},
+                    "horario_pico": None,
+                    "primeiro_consumo": None,
+                    "ultimo_consumo": None,
+                    "velocidade_por_minuto": 0.0,
+                }
+
+            # Atualiza KPI Cards
+            tot_cons = stats.get("total_consumidos", 0)
+            tot_rest = stats.get("total_restantes", 0)
+            tot_esp = stats.get("total_esperado", 0)
+            taxa = stats.get("taxa_adesao", 0.0)
+            c_res = stats.get("total_com_reserva", 0)
+            s_res = stats.get("total_sem_reserva", 0)
+
+            self.lbl_total_consumos.config(text=str(tot_cons))
+            self.lbl_restantes.config(text=str(tot_rest))
+            self.lbl_adesao.config(text=f"{taxa:.1f}%")
+            self.progress_adesao.config(value=taxa)
+            self.lbl_esperados.config(text=f"{tot_cons} de {tot_esp} esperados")
+            self.lbl_reserva_info.config(text=f"{c_res} / {s_res}")
+            pct_res = f"{(c_res / tot_cons * 100):.0f}% com reserva" if tot_cons > 0 else "--"
+            self.lbl_reserva_sub.config(text=pct_res)
+
+            # Último consumo
+            if ultimo_consumo and len(ultimo_consumo) >= 4:
+                self.lbl_ultimo_consumo_nome.config(text=str(ultimo_consumo[1]))
+                self.lbl_ultimo_consumo_hora.config(text=f"às {ultimo_consumo[3]}")
+            else:
+                uc = stats.get("ultimo_consumo")
+                if uc:
+                    self.lbl_ultimo_consumo_nome.config(text=str(uc.get("nome", "--")))
+                    self.lbl_ultimo_consumo_hora.config(
+                        text=f"às {uc.get('hora_consumo', '')}"
+                    )
+                else:
+                    self.lbl_ultimo_consumo_nome.config(text="--")
+                    self.lbl_ultimo_consumo_hora.config(text="")
+
+            # Atualiza Distribuição de Pratos
+            self._atualizar_painel_pratos(stats.get("distribuicao_pratos", {}), tot_cons)
+
+            # Atualiza Top Turmas
+            self._atualizar_painel_turmas(stats.get("distribuicao_turmas", {}), tot_cons)
+
+            # Atualiza Ritmo de Atendimento
+            self._atualizar_painel_fluxo(stats)
+
+            # Rodapé informativo da sessão
+            refeicao = str(stats.get("refeicao", "Sessão")).capitalize()
+            data = str(stats.get("data", ""))
+            hora_prev = str(stats.get("hora_prevista", ""))
+            item = str(stats.get("item_servido") or "")
+            item_txt = f" • Item: {item}" if item else ""
+            self.lbl_info_sessao.config(
+                text=f"🍲 {refeicao} ({hora_prev}){item_txt} | 📅 Data: {data} | ID Sessão: {self.id_sessao}"
+            )
+
         except Exception as e:
-            logger.error("Erro ao atualizar dashboard: %s", e)
+            logger.error("Erro ao atualizar dashboard analítico: %s", e)
+
+    def _limpar_paineis_analiticos(self):
+        for widget in self.frame_lista_pratos.winfo_children():
+            widget.destroy()
+        for widget in self.frame_lista_turmas.winfo_children():
+            widget.destroy()
+        for widget in self.frame_lista_faixas.winfo_children():
+            widget.destroy()
+
+    def _atualizar_painel_pratos(self, dist_pratos: Dict[str, int], total: int):
+        for widget in self.frame_lista_pratos.winfo_children():
+            widget.destroy()
+
+        if not dist_pratos:
+            ttk.Label(
+                self.frame_lista_pratos,
+                text="Nenhum prato registrado ainda.",
+                font=("Segoe UI", 9, "italic"),
+                bootstyle="secondary",
+            ).pack(anchor="w", pady=6)
+            return
+
+        for idx, (prato, count) in enumerate(dist_pratos.items()):
+            pct = (count / total * 100) if total > 0 else 0
+            frame_item = ttk.Frame(self.frame_lista_pratos)
+            frame_item.pack(fill=X, pady=3)
+            frame_item.columnconfigure(1, weight=1)
+
+            ttk.Label(
+                frame_item,
+                text=f"{prato}:",
+                font=("Segoe UI", 9, "bold"),
+                width=16,
+                anchor="w",
+            ).grid(row=0, column=0, sticky="w")
+
+            prog = ttk.Progressbar(
+                frame_item, value=pct, maximum=100, bootstyle="info"
+            )
+            prog.grid(row=0, column=1, sticky="ew", padx=6)
+
+            ttk.Label(
+                frame_item,
+                text=f"{count} ({pct:.0f}%)",
+                font=("Segoe UI", 9),
+                width=10,
+                anchor="e",
+            ).grid(row=0, column=2, sticky="e")
+
+    def _atualizar_painel_turmas(self, dist_turmas: Dict[str, int], total: int):
+        for widget in self.frame_lista_turmas.winfo_children():
+            widget.destroy()
+
+        if not dist_turmas:
+            ttk.Label(
+                self.frame_lista_turmas,
+                text="Nenhum atendimento por turma.",
+                font=("Segoe UI", 9, "italic"),
+                bootstyle="secondary",
+            ).pack(anchor="w", pady=6)
+            return
+
+        # Exibe as top 6 turmas com mais consumos
+        top_turmas = list(dist_turmas.items())[:6]
+        max_turma = top_turmas[0][1] if top_turmas else 1
+
+        for idx, (turma, count) in enumerate(top_turmas):
+            pct_bar = (count / max_turma * 100) if max_turma > 0 else 0
+            frame_item = ttk.Frame(self.frame_lista_turmas)
+            frame_item.pack(fill=X, pady=3)
+            frame_item.columnconfigure(1, weight=1)
+
+            ttk.Label(
+                frame_item,
+                text=turma[:18],
+                font=("Segoe UI", 9, "bold"),
+                width=18,
+                anchor="w",
+            ).grid(row=0, column=0, sticky="w")
+
+            prog = ttk.Progressbar(
+                frame_item, value=pct_bar, maximum=100, bootstyle="success"
+            )
+            prog.grid(row=0, column=1, sticky="ew", padx=6)
+
+            ttk.Label(
+                frame_item,
+                text=f"{count}",
+                font=("Segoe UI", 9, "bold"),
+                width=6,
+                anchor="e",
+            ).grid(row=0, column=2, sticky="e")
+
+    def _atualizar_painel_fluxo(self, stats: Dict[str, Any]):
+        pico = stats.get("horario_pico")
+        if pico:
+            self.lbl_pico_horario.config(
+                text=f"🔥 Horário de Pico: {pico[0]} ({pico[1]} refeições)"
+            )
+        else:
+            self.lbl_pico_horario.config(text="🔥 Horário de Pico: Em cálculo...")
+
+        vel = stats.get("velocidade_por_minuto", 0.0)
+        self.lbl_velocidade.config(text=f"⚡ Velocidade Média: {vel:.1f} atendimentos/min")
+
+        pc = stats.get("primeiro_consumo")
+        if pc:
+            self.lbl_primeiro_consumo.config(
+                text=f"🚩 Primeiro Atendimento: às {pc.get('hora_consumo', '')} ({pc.get('nome', '')[:20]})"
+            )
+        else:
+            self.lbl_primeiro_consumo.config(text="🚩 Primeiro Atendimento: --")
+
+        # Faixas de Horário
+        for widget in self.frame_lista_faixas.winfo_children():
+            widget.destroy()
+
+        dist_horarios = stats.get("distribuicao_horarios", {})
+        if not dist_horarios:
+            ttk.Label(
+                self.frame_lista_faixas,
+                text="Sem dados temporais disponíveis.",
+                font=("Segoe UI", 8, "italic"),
+                bootstyle="secondary",
+            ).pack(anchor="w")
+            return
+
+        for faixa, qtd in list(dist_horarios.items())[-5:]:
+            f_row = ttk.Frame(self.frame_lista_faixas)
+            f_row.pack(fill=X, pady=1)
+            f_row.columnconfigure(1, weight=1)
+
+            ttk.Label(
+                f_row, text=faixa, font=("Segoe UI", 8), width=18, anchor="w"
+            ).grid(row=0, column=0, sticky="w")
+            ttk.Label(
+                f_row, text=f"{qtd} atendimentos", font=("Segoe UI", 8, "bold"), anchor="e"
+            ).grid(row=0, column=1, sticky="e")
+
+    def _exportar_relatorio(self):
+        """Exporta os dados de consumo e resumo da sessão para arquivo Excel."""
+        if not self.id_sessao or not self.fachada:
+            Messagebox.show_warning("Aviso", "Nenhuma sessão ativa para exportar.", parent=self)
+            return
+
+        try:
+            caminho = self.fachada.exportar_sessao_para_xlsx(self.id_sessao)
+            Messagebox.show_info(
+                "Exportação Concluída",
+                f"Relatório exportado com sucesso para:\n{caminho}",
+                parent=self,
+            )
+        except Exception as e:
+            logger.exception("Erro ao exportar planilha de sessão: %s", e)
+            Messagebox.show_error("Erro na Exportação", f"Não foi possível exportar:\n{e}", parent=self)
 
 
 class AbaConsumos(ttk.Frame):
-    """Painel com a lista de consumos registrados na sessão."""
+    """
+    Painel de Gestão Completa (CRUD) dos registros de consumo da sessão:
+    - Create: Adicionar novo consumo manual (com ou sem reserva)
+    - Read: Pesquisa em tempo real, visualização tabular ordenada e detalhes
+    - Update: Edição de horário e prato
+    - Delete: Exclusão com confirmação segura e reversão no banco
+    """
+
+    ID_COLUNA_ACAO = "coluna_acao"
+    TEXTO_COLUNA_ACAO = "❌"
 
     def __init__(
         self,
@@ -899,94 +1342,497 @@ class AbaConsumos(ttk.Frame):
         fachada: "FachadaRegistro",
         id_sessao: Optional[int],
         voltar_callback: Optional[Callable[[], None]] = None,
-        abrir_controles_callback: Optional[Callable[[], None]] = None,
+        abrir_controles_callback: Optional[Callable[..., None]] = None,
+        navegar_callback: Optional[Callable[[str], None]] = None,
+        notificar_mudanca_callback: Optional[Callable[[], None]] = None,
     ):
-        super().__init__(master, padding=(12, 12))
+        super().__init__(master, padding=(14, 12))
         self.fachada = fachada
         self.id_sessao = id_sessao
         self.voltar_callback = voltar_callback
         self.abrir_controles_callback = abrir_controles_callback
+        self.navegar_callback = navegar_callback
+        self.notificar_mudanca_callback = notificar_mudanca_callback
+
+        self._consumos_raw: List[Dict[str, Any]] = []
+        self._mapa_iid_para_consumo: Dict[str, Dict[str, Any]] = {}
 
         self.pack_propagate(False)
-        self.rowconfigure(1, weight=1)
+        self.rowconfigure(2, weight=1)
         self.columnconfigure(0, weight=1)
 
-        # Barra Superior de Navegação
+        self._construir_interface()
+        self.carregar_consumos()
+
+    def _construir_interface(self):
+        """Constrói a barra de ferramentas CRUD, campo de busca e a tabela de registros."""
+        # --- Linha 0: Barra Superior de Navegação ---
         frame_topo = ttk.Frame(self)
-        frame_topo.grid(row=0, column=0, sticky="ew", pady=(0, 12))
+        frame_topo.grid(row=0, column=0, sticky="ew", pady=(0, 10))
         frame_topo.columnconfigure(1, weight=1)
+
+        frame_nav_esq = ttk.Frame(frame_topo)
+        frame_nav_esq.grid(row=0, column=0, sticky="w")
 
         if self.voltar_callback:
             ttk.Button(
-                frame_topo,
-                text=" ⬅ Voltar ao Autoatendimento ",
+                frame_nav_esq,
+                text=" ⬅ Voltar ao Totem ",
                 command=self.voltar_callback,
                 bootstyle="primary",
                 padding=(10, 6),
-            ).grid(row=0, column=0, sticky="w")
+            ).pack(side=LEFT, padx=(0, 6))
+
+        if self.navegar_callback:
+            ttk.Button(
+                frame_nav_esq,
+                text=" 📊 Ver Dashboard & Estatísticas ",
+                command=lambda: self.navegar_callback("dashboard"),
+                bootstyle="info-outline",
+                padding=(10, 6),
+            ).pack(side=LEFT)
+
+        frame_titulo = ttk.Frame(frame_topo)
+        frame_titulo.grid(row=0, column=1, sticky="ew")
 
         ttk.Label(
-            frame_topo,
-            text="📋 Registros de Consumo",
+            frame_titulo,
+            text="📋 Gestão de Registros de Consumo",
             font=("Segoe UI", 18, "bold"),
             anchor="center",
-        ).grid(row=0, column=1, sticky="ew")
+        ).pack(side=LEFT, expand=True)
+
+        self.lbl_badge_total = ttk.Label(
+            frame_titulo,
+            text="0 registros",
+            font=("Segoe UI", 9, "bold"),
+            bootstyle="secondary",
+        )
+        self.lbl_badge_total.pack(side=LEFT, padx=(4, 0))
+
+        frame_nav_dir = ttk.Frame(frame_topo)
+        frame_nav_dir.grid(row=0, column=2, sticky="e")
+
+        ttk.Button(
+            frame_nav_dir,
+            text=" 🔄 Atualizar ",
+            command=self.carregar_consumos,
+            bootstyle="secondary-outline",
+            padding=(8, 6),
+        ).pack(side=LEFT, padx=(0, 6))
 
         if self.abrir_controles_callback:
             btn_ctrl = ttk.Button(
-                frame_topo,
+                frame_nav_dir,
                 text=" ⚙️ Controles ",
-                bootstyle="secondary-outline",
+                bootstyle="secondary",
                 padding=(8, 6),
             )
-            btn_ctrl.config(command=lambda b=btn_ctrl: self.abrir_controles_callback(widget=b))
-            btn_ctrl.grid(row=0, column=2, sticky="e")
+            btn_ctrl.config(
+                command=lambda b=btn_ctrl: self.abrir_controles_callback(widget=b)
+            )
+            btn_ctrl.pack(side=LEFT)
 
+        # --- Linha 1: Barra de Ações CRUD e Filtro de Pesquisa ---
+        frame_toolbar = ttk.Frame(self)
+        frame_toolbar.grid(row=1, column=0, sticky="ew", pady=(0, 10))
+        frame_toolbar.columnconfigure(1, weight=1)
+
+        # Botões de Ação CRUD
+        frame_acoes = ttk.Frame(frame_toolbar)
+        frame_acoes.grid(row=0, column=0, sticky="w")
+
+        ttk.Button(
+            frame_acoes,
+            text=" ➕ Novo Registro ",
+            command=self.novo_registro,
+            bootstyle="success",
+            padding=(10, 6),
+        ).pack(side=LEFT, padx=(0, 6))
+
+        ttk.Button(
+            frame_acoes,
+            text=" ✏️ Editar ",
+            command=self.editar_registro,
+            bootstyle="primary-outline",
+            padding=(8, 6),
+        ).pack(side=LEFT, padx=(0, 6))
+
+        ttk.Button(
+            frame_acoes,
+            text=" 🗑️ Excluir ",
+            command=self.excluir_registro,
+            bootstyle="danger-outline",
+            padding=(8, 6),
+        ).pack(side=LEFT, padx=(0, 6))
+
+        ttk.Button(
+            frame_acoes,
+            text=" 🔍 Detalhes ",
+            command=self.exibir_detalhes,
+            bootstyle="info-outline",
+            padding=(8, 6),
+        ).pack(side=LEFT, padx=(0, 6))
+
+        ttk.Button(
+            frame_acoes,
+            text=" 📥 Exportar XLSX ",
+            command=self.exportar_xlsx,
+            bootstyle="secondary-outline",
+            padding=(8, 6),
+        ).pack(side=LEFT)
+
+        # Campo de Pesquisa em Tempo Real
+        frame_busca = ttk.Frame(frame_toolbar)
+        frame_busca.grid(row=0, column=1, sticky="e")
+
+        ttk.Label(frame_busca, text="🔍", font=("Segoe UI", 11)).pack(
+            side=LEFT, padx=(0, 4)
+        )
+        self.var_busca = tk.StringVar()
+        self.var_busca.trace_add("write", lambda *_: self._ao_digitar_busca())
+        self.entry_busca = ttk.Entry(
+            frame_busca,
+            textvariable=self.var_busca,
+            width=28,
+            font=("Segoe UI", 9),
+        )
+        self.entry_busca.pack(side=LEFT, padx=(0, 6))
+
+        self.var_filtro_tipo = tk.StringVar(value="Todos")
+        combo_filtro = ttk.Combobox(
+            frame_busca,
+            textvariable=self.var_filtro_tipo,
+            values=["Todos", "Com Reserva", "Sem Reserva"],
+            state="readonly",
+            width=14,
+            font=("Segoe UI", 9),
+        )
+        combo_filtro.pack(side=LEFT)
+        combo_filtro.bind("<<ComboboxSelected>>", lambda _: self._ao_digitar_busca())
+
+        # --- Linha 2: Tabela de Registros de Consumo (Treeview) ---
         colunas = [
-            {"text": "Prontuário", "iid": "pront", "width": 120},
-            {"text": "Nome", "iid": "nome", "width": 300, "stretch": True},
-            {"text": "Turma", "iid": "turma", "width": 200},
-            {"text": "Hora", "iid": "hora", "width": 100},
-            {"text": "Prato/Item", "iid": "prato", "width": 150},
+            {"text": "🆔 Prontuário", "iid": "pront", "width": 110, "minwidth": 80},
+            {"text": "👤 Nome", "iid": "nome", "width": 280, "stretch": True, "minwidth": 150},
+            {"text": "👥 Turma", "iid": "turma", "width": 170, "minwidth": 100},
+            {"text": "⏱️ Hora", "iid": "hora", "width": 90, "anchor": CENTER, "minwidth": 70},
+            {"text": "🍽️ Prato / Status", "iid": "prato", "width": 140, "minwidth": 90},
+            {
+                "text": self.TEXTO_COLUNA_ACAO,
+                "iid": self.ID_COLUNA_ACAO,
+                "width": 45,
+                "anchor": CENTER,
+                "stretch": False,
+            },
         ]
-        self.tree = TreeviewSimples(self, dados_colunas=colunas, height=20)
-        self.tree.frame.grid(row=1, column=0, sticky="nsew")
+        self.tree = TreeviewSimples(
+            self,
+            dados_colunas=colunas,
+            height=20,
+            enable_hover=True,
+            enable_sorting=True,
+        )
+        self.tree.frame.grid(row=2, column=0, sticky="nsew")
 
-        self.carregar_consumos()
+        # Vinculações de Eventos na Tabela
+        self.tree.view.bind("<Button-1>", self._ao_clicar_tabela)
+        self.tree.view.bind("<Double-1>", self._ao_duplo_clique)
+        self.tree.view.bind("<Delete>", lambda _: self.excluir_registro())
+        self.tree.view.bind("<BackSpace>", lambda _: self.excluir_registro())
+        self.tree.view.bind("<Button-3>", self._ao_menu_contexto)
 
     def definir_sessao(self, id_sessao: Optional[int]):
-        """Atualiza a sessão ativa e recarrega os dados."""
+        """Atualiza a sessão ativa e recarrega a tabela de consumos."""
         self.id_sessao = id_sessao
         self.carregar_consumos()
 
     def carregar_consumos(self):
-        """Carrega a lista de estudantes que consumiram na sessão ativa."""
+        """Carrega a lista completa de estudantes que consumiram na sessão ativa."""
         if not self.id_sessao or not self.fachada or not self.fachada.id_sessao_ativa:
+            self._consumos_raw = []
+            self._mapa_iid_para_consumo.clear()
             self.tree.construir_dados_tabela([])
+            self.lbl_badge_total.config(text="0 registros")
             return
 
         try:
-            consumidos = self.fachada.obter_estudantes_para_sessao(consumido=True)
-            consumidos.sort(key=lambda x: x.get("hora_consumo", ""), reverse=True)
-
-            dados_tabela = [
-                (
-                    c.get("pront"),
-                    c.get("nome"),
-                    c.get("turma"),
-                    c.get("hora_consumo"),
-                    c.get("prato"),
-                )
-                for c in consumidos
-            ]
-            self.tree.construir_dados_tabela(dados_tabela)
+            consumidos = self.fachada.obter_estudantes_para_sessao(
+                consumido=True, pular_grupos=True
+            )
+            consumidos.sort(
+                key=lambda x: str(x.get("hora_consumo", "")), reverse=True
+            )
+            self._consumos_raw = consumidos
+            self._aplicar_filtro_e_renderizar()
         except Exception as e:
-            logger.error("Erro ao carregar consumos: %s", e)
+            logger.error("Erro ao carregar consumos no painel CRUD: %s", e)
+
+    def _aplicar_filtro_e_renderizar(self):
+        """Filtra a lista de consumos em memória e atualiza as linhas da Treeview."""
+        termo = self.var_busca.get().strip().lower()
+        filtro_tipo = self.var_filtro_tipo.get()
+
+        self._mapa_iid_para_consumo.clear()
+        self.tree.deletar_linhas()
+
+        total_filtrados = 0
+        for c in self._consumos_raw:
+            pront = str(c.get("pront", ""))
+            nome = str(c.get("nome", ""))
+            turma = str(c.get("turma", ""))
+            hora = str(c.get("hora_consumo", ""))
+            prato = str(c.get("prato") or "Sem Reserva")
+
+            if filtro_tipo == "Com Reserva" and (
+                prato == "Sem Reserva" or c.get("status") == "Sem Reserva"
+            ):
+                continue
+            if filtro_tipo == "Sem Reserva" and not (
+                prato == "Sem Reserva" or c.get("status") == "Sem Reserva"
+            ):
+                continue
+
+            if termo:
+                if (
+                    termo not in pront.lower()
+                    and termo not in nome.lower()
+                    and termo not in turma.lower()
+                    and termo not in prato.lower()
+                ):
+                    continue
+
+            valores = (pront, nome, turma, hora, prato, self.TEXTO_COLUNA_ACAO)
+            iid = self.tree.view.insert("", "end", values=valores)
+            self._mapa_iid_para_consumo[iid] = c
+            total_filtrados += 1
+
+        self.tree.apply_zebra_striping()
+        total_total = len(self._consumos_raw)
+        if total_filtrados == total_total:
+            self.lbl_badge_total.config(text=f"{total_total} registros")
+        else:
+            self.lbl_badge_total.config(
+                text=f"{total_filtrados} de {total_total} registros"
+            )
+
+    def _ao_digitar_busca(self):
+        self._aplicar_filtro_e_renderizar()
 
     def adicionar_consumo(self, dados_estudante: Tuple[str, ...]):
-        """Adiciona uma nova linha no topo da tabela de consumos."""
-        self.tree.view.insert("", 0, values=dados_estudante)
+        """Adiciona imediatamente uma nova linha no topo da tabela de consumos."""
+        if len(dados_estudante) >= 5:
+            valores = tuple(dados_estudante[:5]) + (self.TEXTO_COLUNA_ACAO,)
+        else:
+            valores = dados_estudante
+        iid = self.tree.view.insert("", 0, values=valores)
         self.tree.apply_zebra_striping()
+
+        # Insere no cache
+        novo_dict = {
+            "pront": dados_estudante[0] if len(dados_estudante) > 0 else "",
+            "nome": dados_estudante[1] if len(dados_estudante) > 1 else "",
+            "turma": dados_estudante[2] if len(dados_estudante) > 2 else "",
+            "hora_consumo": dados_estudante[3] if len(dados_estudante) > 3 else "",
+            "prato": dados_estudante[4] if len(dados_estudante) > 4 else "Almoço",
+        }
+        self._consumos_raw.insert(0, novo_dict)
+        self._mapa_iid_para_consumo[iid] = novo_dict
+        self.lbl_badge_total.config(text=f"{len(self._consumos_raw)} registros")
+
+    # --- Operações CRUD ---
+
+    def novo_registro(self):
+        """[Create] Abre o diálogo para registrar um novo consumo manualmente."""
+        if not self.id_sessao or not self.fachada or not self.fachada.id_sessao_ativa:
+            Messagebox.show_warning(
+                "Aviso", "Inicie ou selecione uma sessão antes de registrar.", parent=self
+            )
+            return
+
+        def _ao_sucesso(_res):
+            self.carregar_consumos()
+            self._notificar_mudanca()
+
+        DialogoNovoConsumo(self, self.fachada, on_sucesso=_ao_sucesso)
+
+    def editar_registro(self, iid: Optional[str] = None):
+        """[Update] Abre o diálogo de edição para o registro selecionado."""
+        alvo_iid = iid or self.tree.obter_iid_selecionado()
+        if not alvo_iid:
+            Messagebox.show_warning(
+                "Atenção", "Selecione um registro na tabela para editar.", parent=self
+            )
+            return
+
+        dados = self._obter_dados_de_iid(alvo_iid)
+        if not dados:
+            return
+
+        id_consumo = dados.get("id_consumo")
+        if not id_consumo:
+            # Tenta localizar o id_consumo pelo prontuario e sessão
+            try:
+                c_db = self.fachada.repo_consumo.por_prontuario_e_sessao(
+                    dados["pront"], self.id_sessao
+                )
+                if c_db:
+                    id_consumo = c_db.id
+            except Exception as e:
+                logger.error("Erro ao buscar id_consumo: %s", e)
+
+        if not id_consumo:
+            Messagebox.show_error(
+                "Erro", "Não foi possível localizar o ID do consumo para edição.", parent=self
+            )
+            return
+
+        def _ao_sucesso(_res):
+            self.carregar_consumos()
+            self._notificar_mudanca()
+
+        DialogoEditarConsumo(
+            self, self.fachada, id_consumo=id_consumo, dados_consumo=dados, on_sucesso=_ao_sucesso
+        )
+
+    def excluir_registro(self, iid: Optional[str] = None):
+        """[Delete] Solicita confirmação e remove o registro de consumo."""
+        alvo_iid = iid or self.tree.obter_iid_selecionado()
+        if not alvo_iid:
+            Messagebox.show_warning(
+                "Atenção", "Selecione um registro na tabela para excluir.", parent=self
+            )
+            return
+
+        dados = self._obter_dados_de_iid(alvo_iid)
+        if not dados:
+            return
+
+        pront = dados.get("pront", "")
+        nome = dados.get("nome", "")
+
+        msg = f"Deseja realmente remover o registro de consumo para:\n{pront} - {nome}?"
+        resp = Messagebox.yesno(
+            "Confirmar Remoção de Consumo", msg, icon="warning", parent=self
+        )
+        if resp == MessageCatalog.translate("Yes"):
+            try:
+                id_consumo = dados.get("id_consumo")
+                if id_consumo:
+                    self.fachada.desfazer_consumo(id_consumo)
+                else:
+                    self.fachada.desfazer_consumo_por_prontuario(pront)
+
+                logger.info("Consumo de %s removido com sucesso.", pront)
+                self.carregar_consumos()
+                self._notificar_mudanca()
+                Messagebox.show_info(
+                    "Removido", f"Registro de {nome} removido com sucesso.", parent=self
+                )
+            except Exception as e:
+                logger.exception("Erro ao excluir consumo: %s", e)
+                Messagebox.show_error(
+                    "Erro ao Excluir", f"Não foi possível remover:\n{e}", parent=self
+                )
+
+    def exibir_detalhes(self, iid: Optional[str] = None):
+        """[Read] Exibe os detalhes completos do atendimento selecionado."""
+        alvo_iid = iid or self.tree.obter_iid_selecionado()
+        if not alvo_iid:
+            Messagebox.show_warning(
+                "Atenção", "Selecione um registro para ver os detalhes.", parent=self
+            )
+            return
+
+        dados = self._obter_dados_de_iid(alvo_iid)
+        if not dados:
+            return
+
+        DialogoDetalhesConsumo(
+            self,
+            dados_consumo=dados,
+            on_editar=lambda: self.editar_registro(alvo_iid),
+            on_excluir=lambda: self.excluir_registro(alvo_iid),
+        )
+
+    def exportar_xlsx(self):
+        """Exporta os registros de consumo atuais para XLSX."""
+        if not self.id_sessao or not self.fachada:
+            Messagebox.show_warning("Aviso", "Nenhuma sessão ativa para exportar.", parent=self)
+            return
+
+        try:
+            caminho = self.fachada.exportar_sessao_para_xlsx(self.id_sessao)
+            Messagebox.show_info(
+                "Exportação Concluída",
+                f"Consumos exportados com sucesso para:\n{caminho}",
+                parent=self,
+            )
+        except Exception as e:
+            logger.exception("Erro ao exportar consumos: %s", e)
+            Messagebox.show_error("Erro na Exportação", f"Falha ao exportar:\n{e}", parent=self)
+
+    # --- Handlers de Eventos ---
+
+    def _obter_dados_de_iid(self, iid: str) -> Optional[Dict[str, Any]]:
+        """Recupera o dicionário de dados associado a um IID da Treeview."""
+        if iid in self._mapa_iid_para_consumo:
+            return dict(self._mapa_iid_para_consumo[iid])
+
+        # Se não estiver no mapa, extrai diretamente dos valores da linha
+        vals = self.tree.obter_valores_linha(iid)
+        if vals and len(vals) >= 5:
+            return {
+                "pront": vals[0],
+                "nome": vals[1],
+                "turma": vals[2],
+                "hora_consumo": vals[3],
+                "prato": vals[4],
+            }
+        return None
+
+    def _ao_clicar_tabela(self, event: tk.Event):
+        """Detecta se a coluna de ação ❌ foi clicada diretamente."""
+        iid, id_col = self.tree.identificar_celula_clicada(event)
+        if iid and id_col == self.ID_COLUNA_ACAO:
+            self.excluir_registro(iid)
+
+    def _ao_duplo_clique(self, event: tk.Event):
+        """Abre os detalhes/edição ao dar duplo clique em uma linha."""
+        iid, id_col = self.tree.identificar_celula_clicada(event)
+        if iid and id_col != self.ID_COLUNA_ACAO:
+            self.exibir_detalhes(iid)
+
+    def _ao_menu_contexto(self, event: tk.Event):
+        """Exibe menu de contexto com clique com o botão direito na linha."""
+        iid = self.tree.view.identify_row(event.y)
+        if not iid:
+            return
+
+        self.tree.view.selection_set(iid)
+        menu = tk.Menu(self, tearoff=False, font=("Segoe UI", 9))
+        menu.add_command(
+            label="🔍  Ver Detalhes do Registro",
+            command=lambda: self.exibir_detalhes(iid),
+        )
+        menu.add_command(
+            label="✏️  Editar Horário / Prato",
+            command=lambda: self.editar_registro(iid),
+        )
+        menu.add_separator()
+        menu.add_command(
+            label="🗑️  Excluir Registro",
+            command=lambda: self.excluir_registro(iid),
+        )
+        menu.tk_popup(event.x_root, event.y_root)
+
+    def _notificar_mudanca(self):
+        """Notifica o App e demais componentes de que houve alteração nos consumos."""
+        if self.notificar_mudanca_callback:
+            try:
+                self.notificar_mudanca_callback()
+            except Exception as e:
+                logger.error("Erro no callback de notificação de mudança: %s", e)
 
 
 class AppSelfService(ttk.Window):
@@ -1212,6 +2058,7 @@ class AppSelfService(ttk.Window):
             self.id_sessao_ativa,
             voltar_callback=lambda: self.show_frame("selfservice"),
             abrir_controles_callback=self.exibir_menu_contexto,
+            navegar_callback=self.show_frame,
         )
         self.frames["consumos"] = AbaConsumos(
             self.content_frame,
@@ -1219,9 +2066,15 @@ class AppSelfService(ttk.Window):
             self.id_sessao_ativa,
             voltar_callback=lambda: self.show_frame("selfservice"),
             abrir_controles_callback=self.exibir_menu_contexto,
+            navegar_callback=self.show_frame,
+            notificar_mudanca_callback=self._ao_alterar_consumo,
         )
 
         self.show_frame("selfservice")
+
+    def _ao_alterar_consumo(self):
+        """Notificação de que registros foram adicionados, editados ou excluídos."""
+        self._atualizar_barra_sessao()
 
     def show_frame(self, nome_pagina: str):
         """Alterna a página em exibição."""

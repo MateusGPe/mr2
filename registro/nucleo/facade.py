@@ -256,6 +256,21 @@ class FachadaRegistro:
         """Desfaz o registro de consumo específico pelo ID."""
         service_logic.desfazer_consumo(self._repo_consumo, id_consumo)
 
+    def atualizar_consumo(
+        self,
+        id_consumo: int,
+        hora_consumo: Optional[str] = None,
+        prato: Optional[str] = None,
+    ) -> bool:
+        """Atualiza horário de consumo e/ou prato associado a um registro existente."""
+        return service_logic.atualizar_consumo(
+            self._repo_consumo,
+            self._repo_reserva,
+            id_consumo=id_consumo,
+            hora_consumo=hora_consumo,
+            prato=prato,
+        )
+
     # --- Gestão de Estudantes ---
 
     def criar_estudante(
@@ -567,5 +582,23 @@ class FachadaRegistro:
             self._repo_reserva,
             self._repo_grupo,
             self._repo_consumo,
+        )
+
+    def obter_estatisticas_sessao(
+        self, id_sessao: Optional[int] = None
+    ) -> Dict[str, Any]:
+        """Retorna estatísticas detalhadas da sessão (ativa ou especificada)."""
+        alvo_id = id_sessao if id_sessao is not None else self.id_sessao_ativa
+        if alvo_id is None:
+            raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
+
+        return service_logic.obter_estatisticas_sessao(
+            repo_sessao=self._repo_sessao,
+            repo_estudante=self._repo_estudante,
+            repo_reserva=self._repo_reserva,
+            repo_consumo=self._repo_consumo,
+            repo_grupo=self._repo_grupo,
+            id_sessao=alvo_id,
+            excessao_grupos=self.excecao_grupos,
         )
 
