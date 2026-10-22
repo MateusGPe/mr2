@@ -1,3 +1,14 @@
+# ----------------------------------------------------------------------------
+# Arquivo: registro/gui/painel/app.py (Aplicação do Painel Administrativo)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
+"""
+Aplicação principal do Painel Administrativo do sistema de registro de refeições.
+Fornece abas de gestão de alunos, reservas, importação de dados e dashboard analítico.
+"""
+
 import traceback
 from typing import Dict
 from ttkbootstrap.dialogs import Messagebox

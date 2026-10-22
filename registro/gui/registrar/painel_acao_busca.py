@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/gui/painel_acao_busca.py (Painel de Ação/Busca)
+# Arquivo: registro/gui/registrar/painel_acao_busca.py (Painel de Ação/Busca)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

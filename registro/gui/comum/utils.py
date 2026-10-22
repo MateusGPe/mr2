@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/gui/utils.py (Utilitários Principais)
+# Arquivo: registro/gui/comum/utils.py (Utilitários Principais)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

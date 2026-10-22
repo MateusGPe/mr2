@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/control/constants.py (Constantes da Aplicação)
+# Arquivo: registro/gui/registrar/constants.py (Constantes do Registro)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

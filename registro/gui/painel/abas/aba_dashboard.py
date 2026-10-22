@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/abas/aba_dashboard.py (Aba de Dashboard)
+# Arquivo: registro/gui/painel/abas/aba_dashboard.py (Aba de Dashboard)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

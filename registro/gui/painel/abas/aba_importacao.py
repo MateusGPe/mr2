@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/abas/aba_importacao.py (Aba de Importação)
+# Arquivo: registro/gui/painel/abas/aba_importacao.py (Aba de Importação)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

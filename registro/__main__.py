@@ -1,11 +1,14 @@
+# ----------------------------------------------------------------------------
+# Arquivo: registro/__main__.py
+# ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
-The main entry point for the meal registration application.
+Ponto de entrada principal da aplicação de registro de refeições.
 
-This script imports and calls the main function from the gui module
-to start the graphical user interface.
+Importa e executa a função principal do módulo de interface gráfica
+para iniciar o sistema de registro.
 """
 
 from registro.gui.registrar.app import main

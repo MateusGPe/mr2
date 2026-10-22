@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/gui/dialogo_filtro_turmas.py (Diálogo de Filtro de Turmas)
+# Arquivo: registro/gui/registrar/dialogo_filtro_turmas.py (Diálogo de Filtro de Turmas)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>

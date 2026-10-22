@@ -1,5 +1,5 @@
 # ----------------------------------------------------------------------------
-# Arquivo: registro/gui/treeview_simples.py (Helper TreeView, Estilo Bootstrap)
+# Arquivo: registro/gui/comum/controles/treeview_simples.py (Helper TreeView, Estilo Bootstrap)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
