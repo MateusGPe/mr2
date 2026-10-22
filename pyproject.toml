@@ -6,7 +6,7 @@ authors = ["Mateus G. Pereira <mateus.pereira@ifsp.edu.br>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "^3.11"
+python = ">=3.11,<3.14"
 peewee = "^3.17.6"
 gspread = "^6.1.2"
 ttkbootstrap = "^1.10.1"
@@ -18,12 +18,20 @@ rich = "^14.2.0"
 questionary = "^2.1.1"
 pytest = "^8.4.2"
 pytest-mock = "^3.15.1"
-customtkinter = "^5.2.2"
+regex = "^2025.11.3"
+opencv-python = "^4.13.0.92"
+pyzbar = "^0.1.9"
+pyinstaller = "^6.19.0"
 
+
+[tool.poetry.group.dev.dependencies]
+qrcode = "^8.2"
 
 [build-system]
 requires = ["poetry-core"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
-registrar = "registro.view.gui:main"
+registrar = "registro.gui.app_registro:main"
+painel = "registro.app_principal:main"
+autoatendimento = "registro.gui.janela_self_service:main"

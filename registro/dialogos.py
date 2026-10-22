@@ -1,4 +1,8 @@
-# gestao_refeitorio/dialogos.py
+# ----------------------------------------------------------------------------
+# Arquivo: registro/dialogos.py (Módulo de Diálogos)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import tkinter as tk
 import traceback
@@ -41,7 +45,6 @@ class StudentDialog(ttk.Toplevel):
         main_frame.pack(expand=True, fill=BOTH)
         main_frame.columnconfigure(0, weight=1)
 
-        # Agrupamento dos campos de entrada
         form_frame = ttk.Frame(main_frame)
         form_frame.grid(row=0, column=0, sticky=EW)
         form_frame.columnconfigure(0, weight=1)
@@ -64,12 +67,10 @@ class StudentDialog(ttk.Toplevel):
         self.grupo_combobox = ttk.Combobox(form_frame, state="readonly")
         self.grupo_combobox.grid(row=5, column=0, sticky=EW, pady=(0, 15))
 
-        # Separador visual
         ttk.Separator(main_frame, orient=tk.HORIZONTAL).grid(
             row=1, column=0, sticky=EW, pady=10
         )
 
-        # Botões
         btn_frame = ttk.Frame(main_frame)
         btn_frame.grid(row=2, column=0, sticky=EW)
         btn_frame.columnconfigure(0, weight=1)
@@ -238,7 +239,6 @@ class ReservaDialog(ttk.Toplevel):
             bootstyle="danger-round-toggle",
         ).grid(row=4, column=0, columnspan=2, sticky=W, pady=10)
 
-        # Separador visual
         ttk.Separator(main_frame, orient=HORIZONTAL).grid(
             row=1, column=0, sticky=EW, pady=10
         )
@@ -271,7 +271,7 @@ class ReservaDialog(ttk.Toplevel):
             self.title(f"Editar Reserva: {reserva.id}")
             aluno_display = f"{reserva.estudante.prontuario} - {reserva.estudante.nome}"
             self.aluno_combobox.set(aluno_display)
-            self.aluno_combobox.config(state="disabled")  # Impedir edição do aluno
+            self.aluno_combobox.config(state="disabled")
 
             self.data_entry.entry.delete(0, END)
             self.data_entry.entry.insert(0, reserva.data)

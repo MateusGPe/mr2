@@ -12,8 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import ttkbootstrap as ttk
 from fuzzywuzzy import fuzz
-from ttkbootstrap.constants import (DANGER, DEFAULT, DISABLED, INFO, LEFT,
-                                    NORMAL, SUCCESS, WARNING, W, X)
+from ttkbootstrap.constants import DISABLED, LEFT, NORMAL, W
 from ttkbootstrap.dialogs import Messagebox
 
 from registro.controles.treeview_simples import TreeviewSimples
@@ -35,6 +34,7 @@ class PainelAcaoBusca(ttk.Frame):
     elegíveis, uma área de pré-visualização do estudante selecionado e botões
     para registrar o consumo.
     """
+
     TERMOS_BUSCA_TODOS: List[str] = ["todos", "---", "***", ".."]
     ATRASO_DEBOUNCE_BUSCA: int = 100
 
@@ -48,12 +48,12 @@ class PainelAcaoBusca(ttk.Frame):
         self._app = app
         self._fachada = fachada_nucleo
 
-        # Atributos de estado
+        
         self._id_after_busca: Optional[str] = None
         self._dados_correspondencias_elegiveis_atuais: List[Dict[str, Any]] = []
         self._dados_elegivel_selecionado: Optional[Dict[str, Any]] = None
 
-        # Atributos de widgets da interface
+        
         self._var_entrada_busca: tk.StringVar = tk.StringVar()
         self._entrada_busca: Optional[ttk.Entry] = None
         self._botao_limpar: Optional[ttk.Button] = None
@@ -69,9 +69,7 @@ class PainelAcaoBusca(ttk.Frame):
         self._criar_widgets()
         self._configurar_vinculos_eventos()
 
-    # --------------------------------------------------------------------------
-    # Propriedades
-    # --------------------------------------------------------------------------
+    
 
     @property
     def id_after_busca(self) -> Optional[str]:
@@ -81,9 +79,9 @@ class PainelAcaoBusca(ttk.Frame):
     def id_after_busca(self, value: Optional[str]):
         self._id_after_busca = value
 
-    # --------------------------------------------------------------------------
-    # Configuração da Interface Gráfica
-    # --------------------------------------------------------------------------
+    
+    
+    
 
     def _configurar_layout(self):
         """Configura o grid layout do painel."""
@@ -105,7 +103,7 @@ class PainelAcaoBusca(ttk.Frame):
         self._entrada_busca = ttk.Entry(
             barra_busca,
             textvariable=self._var_entrada_busca,
-            font=(None, 12),
+            font=("Segoe UI", 12),
             bootstyle="ligth",
         )
         self._entrada_busca.grid(row=0, column=0, sticky="ew")
@@ -130,7 +128,9 @@ class PainelAcaoBusca(ttk.Frame):
 
     def _criar_area_preview(self):
         """Cria a área de pré-visualização do aluno selecionado."""
-        frame_preview = ttk.Frame(self, padding=(0, 1), height=200, bootstyle="secondary")
+        frame_preview = ttk.Frame(
+            self, padding=(0, 1), height=200, bootstyle="secondary"
+        )
         frame_preview.grid(row=1, column=0, sticky="nsew", pady=(0, 5))
 
         self._label_aluno_selecionado = ttk.Label(
@@ -164,10 +164,18 @@ class PainelAcaoBusca(ttk.Frame):
         self._var_entrada_busca.trace_add("write", self._na_mudanca_entrada_busca)
 
         if self._entrada_busca:
-            self._entrada_busca.bind("<Return>", lambda _: self._registrar_elegivel_selecionado())
-            self._entrada_busca.bind("<Down>", lambda _: self._selecionar_proximo_elegivel(1))
-            self._entrada_busca.bind("<Up>", lambda _: self._selecionar_proximo_elegivel(-1))
-            self._entrada_busca.bind("<Escape>", lambda _: self._var_entrada_busca.set(""))
+            self._entrada_busca.bind(
+                "<Return>", lambda _: self._registrar_elegivel_selecionado()
+            )
+            self._entrada_busca.bind(
+                "<Down>", lambda _: self._selecionar_proximo_elegivel(1)
+            )
+            self._entrada_busca.bind(
+                "<Up>", lambda _: self._selecionar_proximo_elegivel(-1)
+            )
+            self._entrada_busca.bind(
+                "<Escape>", lambda _: self._var_entrada_busca.set("")
+            )
 
         if self._tree_estudantes_elegiveis:
             self._tree_estudantes_elegiveis.view.bind(
@@ -177,9 +185,9 @@ class PainelAcaoBusca(ttk.Frame):
                 "<Double-1>", lambda _: self._registrar_elegivel_selecionado()
             )
 
-    # --------------------------------------------------------------------------
-    # Métodos Públicos de Controle da Interface
-    # --------------------------------------------------------------------------
+    
+    
+    
 
     def habilitar_controles(self):
         """Habilita os controles do painel para interação."""
@@ -234,9 +242,9 @@ class PainelAcaoBusca(ttk.Frame):
             self._id_after_busca = None
         self._executar_busca_real()
 
-    # --------------------------------------------------------------------------
-    # Manipuladores de Eventos (Callbacks)
-    # --------------------------------------------------------------------------
+    
+    
+    
 
     def _na_mudanca_entrada_busca(self, *_):
         """
@@ -276,15 +284,21 @@ class PainelAcaoBusca(ttk.Frame):
 
         try:
             dados_estudante = next(
-                (d for d in self._dados_correspondencias_elegiveis_atuais
-                 if d.get("Pront") == iid_selecionado), None
+                (
+                    d
+                    for d in self._dados_correspondencias_elegiveis_atuais
+                    if d.get("Pront") == iid_selecionado
+                ),
+                None,
             )
             if dados_estudante:
                 self._dados_elegivel_selecionado = dados_estudante
                 if self._botao_registrar:
                     self._botao_registrar.config(state=NORMAL)
             else:
-                logger.error("Inconsistência de dados para o prontuário: %s", iid_selecionado)
+                logger.error(
+                    "Inconsistência de dados para o prontuário: %s", iid_selecionado
+                )
                 self._dados_elegivel_selecionado = None
                 if self._botao_registrar:
                     self._botao_registrar.config(state=DISABLED)
@@ -295,10 +309,10 @@ class PainelAcaoBusca(ttk.Frame):
                 self._botao_registrar.config(state=DISABLED)
         finally:
             self._atualizar_label_preview()
-            
-    # --------------------------------------------------------------------------
-    # Lógica de Busca e Registro
-    # --------------------------------------------------------------------------
+
+    
+    
+    
 
     def _executar_busca_real(self):
         """
@@ -316,7 +330,9 @@ class PainelAcaoBusca(ttk.Frame):
         if pular_grupos:
             termo_busca = termo_busca[:-1].strip()
 
-        logger.debug("Executando busca por: '%s' (ignorar grupos: %s)", termo_busca, pular_grupos)
+        logger.debug(
+            "Executando busca por: '%s' (ignorar grupos: %s)", termo_busca, pular_grupos
+        )
 
         try:
             elegiveis = self._fachada.obter_estudantes_para_sessao(
@@ -325,12 +341,14 @@ class PainelAcaoBusca(ttk.Frame):
         except ErroSessaoNaoAtiva:
             logger.error("Nenhuma sessão ativa para realizar a busca.")
             elegiveis = []
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             logger.exception("Erro ao buscar elegíveis da fachada: %s", e)
             elegiveis = None
 
         if elegiveis is None:
-            Messagebox.show_error("Erro", "Falha ao carregar lista de estudantes.", parent=self._app)
+            Messagebox.show_error(
+                "Erro", "Falha ao carregar lista de estudantes.", parent=self._app
+            )
             return
 
         if termo_busca in self.TERMOS_BUSCA_TODOS:
@@ -365,40 +383,48 @@ class PainelAcaoBusca(ttk.Frame):
             resultado = self._fachada.registrar_consumo(pront, pular_grupos=True)
             logger.info("Resultado do registro para %s: %s", pront, resultado)
 
-            tupla_estudante = (
-                str(resultado.get("prontuario", pront)),
-                str(resultado.get("nome", nome)),
-                str(resultado.get("turma", "")),
-                str(resultado.get("hora_consumo", datetime.now().strftime("%H:%M:%S"))),
-                str(resultado.get("prato", "")),
-            )
-            self._app.notificar_sucesso_registro(tupla_estudante)
-            self.limpar_busca()
-
-        except Exception as e:
-            logger.warning("Falha ao registrar %s: %s", pront, e)
-            if "já consumiu" in str(e).lower():
-                Messagebox.show_warning(
-                    "Já Registrado",
-                    f"{nome} ({pront})\nJá consta como registrado nesta sessão.",
-                    parent=self._app,
+            if resultado.get("autorizado"):
+                tupla_estudante = (
+                    str(resultado.get("prontuario", pront)),
+                    str(resultado.get("nome", nome)),
+                    str(resultado.get("turma", "")),
+                    str(resultado.get("hora_consumo", datetime.now().strftime("%H:%M:%S"))),
+                    str(resultado.get("prato", "")),
                 )
+                self._app.notificar_sucesso_registro(tupla_estudante)
                 self.limpar_busca()
             else:
-                Messagebox.show_error(
-                    "Erro no Registro",
-                    f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nErro: {e}",
-                    parent=self._app,
-                )
+                motivo = resultado.get("motivo", "Erro desconhecido")
+                if "já consumiu" in motivo.lower():
+                    Messagebox.show_warning(
+                        "Já Registrado",
+                        f"{nome} ({pront})\n{motivo}",
+                        parent=self._app,
+                    )
+                    self.limpar_busca()
+                else:
+                    Messagebox.show_error(
+                        "Erro no Registro",
+                        f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nMotivo: {motivo}",
+                        parent=self._app,
+                    )
+
+        except Exception as e: # pylint: disable=broad-exception-caught
+            logger.warning("Falha ao registrar %s: %s", pront, e)
+            Messagebox.show_error(
+                "Erro no Registro",
+                f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nErro: {e}",
+                parent=self._app,
+            )
         finally:
             self._dados_elegivel_selecionado = None
             self._atualizar_label_preview()
             if self._botao_registrar:
                 self._botao_registrar.config(state=DISABLED)
-                
-    # --------------------------------------------------------------------------
-    # Métodos Auxiliares
-    # --------------------------------------------------------------------------
+
+    
+    
+    
 
     def _resetar_estado_busca(self):
         """Limpa a lista de resultados e reseta os componentes relacionados."""
@@ -420,19 +446,19 @@ class PainelAcaoBusca(ttk.Frame):
     ) -> List[Dict[str, Any]]:
         """Retorna todos os estudantes elegíveis que ainda não consumiram."""
         logger.debug("Filtrando %d alunos elegíveis.", len(estudantes_elegiveis))
+
         
-        # Renomeia as chaves para corresponder ao que a busca fuzzy espera
         elegiveis_formatados = [
             {
                 "Pront": s.get("pront"),
                 "Nome": s.get("nome"),
                 "Turma": s.get("turma"),
                 "Prato": s.get("prato"),
-                "score": 100,  # Score fixo para ordenação
+                "score": 100,  
             }
             for s in estudantes_elegiveis
         ]
-        
+
         elegiveis_formatados.sort(key=lambda x: x.get("Nome", "").lower())
         return elegiveis_formatados
 
@@ -445,15 +471,19 @@ class PainelAcaoBusca(ttk.Frame):
         """
         termo_lower = termo_busca.lower().strip()
         correspondencias = []
+
         
-        # Determina se a busca é por prontuário ou nome
-        busca_por_pront = bool(re.fullmatch(r"(?:[a-z]{2})?[\dx\s]+", termo_lower, re.IGNORECASE))
-        chave_busca = "pront" if busca_por_pront else "nome"
-        
-        termo_limpo = (
-            REGEX_LIMPEZA_PRONTUARIO.sub("", termo_lower) if busca_por_pront else termo_lower
+        busca_por_pront = bool(
+            re.fullmatch(r"(?:[a-z]{2})?[\dx\s]+", termo_lower, re.IGNORECASE)
         )
-        
+        chave_busca = "pront" if busca_por_pront else "nome"
+
+        termo_limpo = (
+            REGEX_LIMPEZA_PRONTUARIO.sub("", termo_lower)
+            if busca_por_pront
+            else termo_lower
+        )
+
         limite_score = 85 if busca_por_pront else 70
 
         for estudante in estudantes_elegiveis:
@@ -466,7 +496,7 @@ class PainelAcaoBusca(ttk.Frame):
                 if busca_por_pront
                 else valor_campo.lower()
             )
-            
+
             score = fuzz.partial_ratio(termo_limpo, valor_comparar)
 
             if busca_por_pront and termo_limpo == valor_comparar:
@@ -510,10 +540,10 @@ class PainelAcaoBusca(ttk.Frame):
         try:
             view = self._tree_estudantes_elegiveis.view
             for linha in linhas_para_inserir:
-                # O IID (identificador do item) será o prontuário
+                
                 view.insert("", tk.END, iid=linha[1], values=linha)
             self._tree_estudantes_elegiveis.apply_zebra_striping()
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             logger.exception("Erro ao construir tabela de elegíveis: %s", e)
             Messagebox.show_error(
                 "Erro de UI", "Não foi possível exibir os resultados.", parent=self._app
@@ -545,8 +575,10 @@ class PainelAcaoBusca(ttk.Frame):
         Move a seleção na lista de elegíveis para cima ou para baixo.
         `delta` pode ser 1 (para baixo) ou -1 (para cima).
         """
-        if (not self._tree_estudantes_elegiveis or
-                not self._tree_estudantes_elegiveis.obter_iids_filhos()):
+        if (
+            not self._tree_estudantes_elegiveis
+            or not self._tree_estudantes_elegiveis.obter_iids_filhos()
+        ):
             return
 
         lista_iids = self._tree_estudantes_elegiveis.obter_iids_filhos()
@@ -568,12 +600,13 @@ class PainelAcaoBusca(ttk.Frame):
     def _auto_selecionar_primeiro_resultado(self):
         """Seleciona automaticamente o primeiro item da lista de resultados."""
         try:
-            if (self._tree_estudantes_elegiveis and
-                    (iids := self._tree_estudantes_elegiveis.obter_iids_filhos())):
+            if self._tree_estudantes_elegiveis and (
+                iids := self._tree_estudantes_elegiveis.obter_iids_filhos()
+            ):
                 primeiro_iid = iids[0]
                 view = self._tree_estudantes_elegiveis.view
                 view.focus(primeiro_iid)
                 view.selection_set(primeiro_iid)
                 view.see(primeiro_iid)
-        except Exception as e:
+        except Exception as e: # pylint: disable=broad-exception-caught
             logger.error("Erro ao auto-selecionar primeiro item: %s", e)

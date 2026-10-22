@@ -1,8 +1,9 @@
-# --- Arquivo: registro/nucleo/models.py ---
-
+# ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/models.py (Módulo de Modelos)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+
 """
 Define os modelos de dados SQLAlchemy que representam as tabelas do banco de
 dados da aplicação de registro de refeições. Inclui tabelas para Estudantes,
@@ -33,7 +34,6 @@ class Base(DeclarativeBase):
     """Base declarativa para os modelos do SQLAlchemy."""
 
 
-# --- Tabela de Associação Estudante <-> Grupo (Muitos-para-Muitos) ---
 associacao_estudante_grupo = Table(
     "associacao_estudante_grupo",
     Base.metadata,
@@ -51,7 +51,6 @@ associacao_estudante_grupo = Table(
     ),
 )
 
-# --- Tabela de Associação Sessao <-> Grupo (Muitos-para-Muitos) ---
 associacao_sessao_grupo = Table(
     "associacao_sessao_grupo",
     Base.metadata,
@@ -75,7 +74,8 @@ class Grupo(Base):
 
     __tablename__ = "grupos"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     nome: Mapped[str] = mapped_column(
         String(100), unique=True, nullable=False, index=True
     )
@@ -97,7 +97,8 @@ class Estudante(Base):
 
     __tablename__ = "estudantes"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     prontuario: Mapped[str] = mapped_column(
         String(20), unique=True, nullable=False, index=True
     )
@@ -125,13 +126,15 @@ class Reserva(Base):
 
     __tablename__ = "reservas"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     estudante_id: Mapped[int] = mapped_column(
         ForeignKey("estudantes.id", ondelete="RESTRICT"), index=True
     )
     prato: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     data: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
-    cancelada: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    cancelada: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False)
 
     estudante: Mapped["Estudante"] = relationship(
         back_populates="reservas", lazy="joined"
@@ -162,12 +165,14 @@ class Sessao(Base):
 
     __tablename__ = "sessoes"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     refeicao: Mapped[str] = mapped_column(String(50), nullable=False)
     periodo: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
     data: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
     hora: Mapped[str] = mapped_column(String(5), nullable=False)
-    item_servido: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
+    item_servido: Mapped[Optional[str]] = mapped_column(
+        String(255), nullable=True)
 
     grupos: Mapped[List["Grupo"]] = relationship(
         secondary=associacao_sessao_grupo, back_populates="sessoes", lazy="select"
@@ -195,7 +200,8 @@ class Consumo(Base):
 
     __tablename__ = "consumos"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
     estudante_id: Mapped[int] = mapped_column(
         ForeignKey("estudantes.id", ondelete="RESTRICT"), index=True
     )
@@ -210,7 +216,8 @@ class Consumo(Base):
     estudante: Mapped["Estudante"] = relationship(
         back_populates="consumos", lazy="joined"
     )
-    sessao: Mapped["Sessao"] = relationship(back_populates="consumos", lazy="joined")
+    sessao: Mapped["Sessao"] = relationship(
+        back_populates="consumos", lazy="joined")
     reserva: Mapped[Optional["Reserva"]] = relationship(
         back_populates="consumo", lazy="select"
     )
@@ -233,6 +240,29 @@ class Consumo(Base):
         return (
             f"<Consumo(id={self.id}, estudante_id={self.estudante_id}, sessao_id={self.sessao_id}, "
             f"hora='{self.hora_consumo}', {info_reserva})>"
+        )
+
+
+class SyncLog(Base):
+    """Registra os eventos de sincronização com fontes de dados externas."""
+
+    __tablename__ = "sync_logs"
+
+    id: Mapped[int] = mapped_column(
+        Integer, primary_key=True, autoincrement=True)
+    timestamp: Mapped[str] = mapped_column(String, nullable=False)
+    direction: Mapped[str] = mapped_column(
+        String(50), nullable=False)  # 'upload' or 'download'
+    # 'success', 'failure', 'unknown'
+    status: Mapped[str] = mapped_column(String(50), nullable=False)
+    message: Mapped[Optional[str]] = mapped_column(String, nullable=True)
+    records_affected: Mapped[Optional[int]
+                             ] = mapped_column(Integer, nullable=True)
+
+    def __repr__(self) -> str:
+        return (
+            f"<SyncLog(id={self.id}, timestamp='{self.timestamp}', "
+            f"direction='{self.direction}', status='{self.status}')>"
         )
 
 

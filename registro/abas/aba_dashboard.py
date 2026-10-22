@@ -1,5 +1,8 @@
-# gestao_refeitorio/abas/aba_dashboard.py
-
+# ----------------------------------------------------------------------------
+# Arquivo: registro/abas/aba_dashboard.py (Aba de Dashboard)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import HORIZONTAL, NSEW, X
 
@@ -18,13 +21,13 @@ class AbaDashboard(ttk.Frame):
         ttk.Label(
             header_frame,
             text="Bem-vindo ao Sistema de Gestão de Refeitório!",
-            font=("Helvetica", 24, "bold"),
+            font=("Segoe UI", 24, "bold"),
             bootstyle="primary",
         ).pack(pady=(0, 5), anchor="w")
         ttk.Label(
             header_frame,
             text="Gerencie alunos, reservas e consumo com facilidade.",
-            font=("Helvetica", 12),
+            font=("Segoe UI", 12),
             bootstyle="secondary",
         ).pack(pady=0, anchor="w")
 
@@ -52,30 +55,21 @@ class AbaDashboard(ttk.Frame):
         value_label = ttk.Label(
             card,
             text=value,
-            font=("Helvetica", 36, "bold"),
+            font=("Segoe UI", 36, "bold"),
             bootstyle=f"inverse-{style}",
         )
         value_label.grid(row=0, column=0, sticky="nsew")
 
         label_text = ttk.Label(
-            card, text=label, font=("Helvetica", 12), bootstyle=f"inverse-{style}"
+            card, text=label, font=("Segoe UI", 12), bootstyle=f"inverse-{style}"
         )
         label_text.grid(row=1, column=0, sticky="nsew")
 
         return card
 
     def _carregar_estatisticas(self):
-        # TODO: Implementar a lógica real para buscar e exibir estatísticas
         try:
-            # Exemplo de como poderia ser:
-            # num_alunos_ativos = self.fachada_nucleo.contar_alunos_ativos()
-            # num_reservas_hoje = self.fachada_nucleo.contar_reservas_hoje()
-            # num_consumo_ontem = self.fachada_nucleo.contar_consumo_ontem()
-
-            # Atualizar os cards
-            # value_label = self.card_alunos_ativos.winfo_children()[0]
-            # value_label.config(text=str(num_alunos_ativos))
+            # TODO: Implementar a lógica real para buscar e exibir estatísticas
             pass
         except Exception:
-            # Em caso de erro, os placeholders (0) permanecerão visíveis
             pass

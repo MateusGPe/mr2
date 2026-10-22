@@ -1,5 +1,3 @@
-# gestao_refeitorio/app_principal.py
-
 import traceback
 from typing import Dict
 from ttkbootstrap.dialogs import Messagebox
@@ -20,27 +18,27 @@ class App(ttk.Window):
         super().__init__(themename="sandstone", title="Sistema de Gestão de Refeitório")
         self.geometry("1280x800")
 
-        if not self._inicializar_fachadas():
-            self.destroy()
-            return
-
-        self.selected: str
-        self.buttons: Dict[str, ttk.Button] = {}
-        self._criar_widgets()
-        self.protocol("WM_DELETE_WINDOW", self._on_closing)
-
-    def _inicializar_fachadas(self):
         try:
-            self.fachada_nucleo = FachadaRegistro()
-            self.fachada_importacao = FachadaImportacao(self.fachada_nucleo)
-            return True
+            self.fachada_nucleo: FachadaRegistro = FachadaRegistro()
+            self.fachada_importacao: FachadaImportacao = FachadaImportacao(
+                self.fachada_nucleo
+            )
         except Exception:
             Messagebox.show_error(
                 "Erro Fatal",
                 "Não foi possível iniciar o backend. Verifique o console.",
             )
             traceback.print_exc()
-            return False
+            self.destroy()
+            return
+
+        self.fachada_nucleo: FachadaRegistro
+        self.fachada_importacao: FachadaImportacao
+
+        self.selected: str
+        self.buttons: Dict[str, ttk.Button] = {}
+        self._criar_widgets()
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
     def _on_closing(self):
         try:
@@ -86,7 +84,7 @@ class App(ttk.Window):
                 bootstyle="dark",
                 padding=(3, 6),
             )
-            btn.grid(row=i, column=0, sticky=EW, pady=2)
+            btn.grid(row=i, column=0, sticky=EW, pady=0)
             self.buttons[nome] = btn
 
         self.selected = "dashboard"
@@ -121,7 +119,9 @@ class App(ttk.Window):
         frame_ativo.grid(row=0, column=0, sticky=NSEW)
         self.after(10, frame_ativo.focus)
 
-
-if __name__ == "__main__":
+def main():
     app = App()
     app.mainloop()
+
+if __name__ == "__main__":
+    main()

@@ -1,4 +1,8 @@
-# --- Arquivo: registro/nucleo/google_api_service.py ---
+# ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/google_api_service.py (Módulo Google API Service)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Módulo funcional para interagir com as APIs do Google, especificamente
@@ -7,7 +11,7 @@ Google Sheets, para sincronização de dados.
 
 import json
 from pathlib import Path
-from typing import List
+from typing import List, Optional
 
 import gspread
 from google.auth.transport.requests import Request
@@ -15,7 +19,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
 from gspread.utils import ValueInputOption
-
+from requests.exceptions import RequestException
+ 
 from registro.nucleo.exceptions import ErroAPIGoogle
 
 SCOPES = [
@@ -27,6 +32,14 @@ CAMINHO_CONFIG = Path("./config")
 CAMINHO_TOKEN = CAMINHO_CONFIG / "token.json"
 CAMINHO_CREDENCIAS = CAMINHO_CONFIG / "credentials.json"
 CAMINHO_PLANILHA_JSON = CAMINHO_CONFIG / "spreadsheet.json"
+
+
+def _chave_identificadora_linha(linha: List[str]) -> tuple[str, ...]:
+    """Gera uma chave de identidade usando apenas os campos relevantes."""
+    valores = [str(item).strip() for item in linha]
+    if len(valores) < 4:
+        return tuple(valores)
+    return tuple(valores[:2] + valores[-2:])
 
 
 def _obter_credenciais(
@@ -81,7 +94,9 @@ class GoogleSheetsService:
                 f"Falha ao abrir planilha com a chave '{spreadsheet_key}': {e}"
             ) from e
         except Exception as e:
-            raise ErroAPIGoogle(f"Erro inesperado na inicialização do serviço: {e}") from e
+            raise ErroAPIGoogle(
+                f"Erro inesperado na inicialização do serviço: {e}"
+            ) from e
 
     @property
     def planilha(self) -> gspread.Spreadsheet:
@@ -91,24 +106,29 @@ class GoogleSheetsService:
         try:
             aba = self._planilha.worksheet(nome_aba)
             return aba.get_all_values()
-        except (WorksheetNotFound, APIError) as e:
+        except (WorksheetNotFound, APIError, RequestException) as e:
             raise ErroAPIGoogle(f"Falha ao ler dados da aba '{nome_aba}': {e}") from e
 
     def anexar_linhas_unicas(self, nome_aba: str, linhas: List[List[str]]) -> int:
         try:
             aba = self._planilha.worksheet(nome_aba)
-            dados_existentes = set(tuple(row) for row in aba.get_all_values())
-            novas_linhas_set = set(tuple(map(str, row)) for row in linhas)
-            linhas_para_adicionar = [
-                list(row) for row in novas_linhas_set - dados_existentes
-            ]
+            dados_existentes = {
+                _chave_identificadora_linha(row)
+                for row in aba.get_all_values()
+            }
+            linhas_para_adicionar = []
+            for row in linhas:
+                chave = _chave_identificadora_linha(row)
+                if chave not in dados_existentes:
+                    linhas_para_adicionar.append(row)
+                    dados_existentes.add(chave)
             if linhas_para_adicionar:
                 aba.append_rows(
                     linhas_para_adicionar,
                     value_input_option=ValueInputOption.user_entered,
                 )
             return len(linhas_para_adicionar)
-        except (WorksheetNotFound, APIError) as e:
+        except (WorksheetNotFound, APIError, RequestException) as e:
             raise ErroAPIGoogle(f"Falha ao anexar linhas em '{nome_aba}': {e}") from e
 
 
@@ -138,11 +158,14 @@ class _ServicoPadrao:
         return cls._instance
 
 
-def obter_planilha() -> gspread.Spreadsheet:
+def obter_planilha(sheet_key: Optional[str] = None) -> gspread.Spreadsheet:
     """
     Inicializa o cliente gspread e abre a planilha do arquivo de config.
     Retorna o objeto `gspread.Spreadsheet` para compatibilidade com código antigo.
     """
+    if sheet_key:
+        return GoogleSheetsService(sheet_key).planilha
+
     servico = _ServicoPadrao.get_instance()
     return servico.planilha
 
@@ -155,7 +178,7 @@ def buscar_valores_aba(planilha: gspread.Spreadsheet, nome_aba: str) -> List[Lis
     try:
         aba = planilha.worksheet(nome_aba)
         return aba.get_all_values()
-    except (WorksheetNotFound, APIError) as e:
+    except (WorksheetNotFound, APIError, RequestException) as e:
         raise ErroAPIGoogle(f"Falha ao buscar dados da aba '{nome_aba}': {e}") from e
 
 
@@ -164,20 +187,25 @@ def anexar_linhas_unicas(
 ) -> int:
     """
     Adiciona linhas únicas a uma aba a partir de um objeto planilha.
-    Esta função é mantida sem alterações, pois sua lógica é independente.
+    A comparação considera apenas a matrícula, a data, a refeição e a hora.
     """
     try:
         aba = planilha.worksheet(nome_aba)
-        dados_existentes = set(tuple(row) for row in aba.get_all_values())
-        novas_linhas_set = set(tuple(row) for row in linhas)
-        linhas_unicas_para_adicionar = [
-            list(row) for row in novas_linhas_set - dados_existentes
-        ]
+        dados_existentes = {
+            _chave_identificadora_linha(row)
+            for row in aba.get_all_values()
+        }
+        linhas_unicas_para_adicionar = []
+        for row in linhas:
+            chave = _chave_identificadora_linha(row)
+            if chave not in dados_existentes:
+                linhas_unicas_para_adicionar.append(row)
+                dados_existentes.add(chave)
         if linhas_unicas_para_adicionar:
             aba.append_rows(
                 linhas_unicas_para_adicionar,
                 value_input_option=ValueInputOption.user_entered,
             )
         return len(linhas_unicas_para_adicionar)
-    except (WorksheetNotFound, APIError) as e:
+    except (WorksheetNotFound, APIError, RequestException) as e:
         raise ErroAPIGoogle(f"Falha ao adicionar linhas em '{nome_aba}': {e}") from e

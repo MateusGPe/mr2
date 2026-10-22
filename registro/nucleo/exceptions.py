@@ -1,7 +1,10 @@
-# --- Arquivo: registro/nucleo/exceptions.py ---
+# ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/exceptions.py (Módulo de Exceções)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """Exceções customizadas para a camada de serviço."""
-
 
 class ErroNucleoRegistro(Exception):
     """Classe base para exceções neste módulo."""

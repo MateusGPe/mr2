@@ -1,4 +1,8 @@
-# --- Arquivo: registro/nucleo/facade.py ---
+# ----------------------------------------------------------------------------
+# Arquivo: registro/nucleo/facade.py (Fachada de Registro)
+# ----------------------------------------------------------------------------
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Fornece uma Fachada de alto nível para interagir com o subsistema
@@ -9,6 +13,7 @@ FachadaRegistro, que gerencia internamente a sessão do banco de dados,
 os repositórios e a lógica de serviço.
 """
 
+from pathlib import Path
 import re
 from typing import Any, Dict, List, Optional, Sequence, Set
 
@@ -63,7 +68,7 @@ class FachadaRegistro:
         """Permite o uso da Fachada como um gerenciador de contexto."""
         return self
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def __exit__(self, _exc_type, _exc_val, _exc_tb):
         """Garante que a conexão com o banco de dados seja fechada."""
         self.fechar_conexao()
 
@@ -80,6 +85,10 @@ class FachadaRegistro:
     def listar_todas_sessoes(self) -> List[Dict[str, Any]]:
         """Retorna uma lista simplificada de todas as sessões."""
         return service_logic.listar_todas_sessoes(self.repo_sessao)
+
+    def listar_datas_reservas(self) -> List[str]:
+        """Retorna uma lista de datas de reservas."""
+        return list({s.data for s in self.repo_reserva.ler_unicos()})
 
     def listar_todos_os_grupos(self) -> List[Dict[str, Any]]:
         """Retorna uma lista de todos os grupos existentes."""
@@ -134,6 +143,26 @@ class FachadaRegistro:
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
         return service_logic.registrar_consumo(
+            repo_sessao=self.repo_sessao,
+            repo_estudante=self.repo_estudante,
+            repo_reserva=self.repo_reserva,
+            repo_consumo=self.repo_consumo,
+            id_sessao=self.id_sessao_ativa,
+            prontuario=prontuario,
+            excecao_grupos=excecao_grupos or self.excessao_grupos,
+            pular_grupos=pular_grupos,
+        )
+
+    def registrar_consumo_com_reserva(
+        self,
+        prontuario: str,
+        excecao_grupos: Optional[Set[str]] = None,
+        pular_grupos: bool = False,
+    ) -> Dict[str, Any]:
+        """Registra que um estudante consumiu uma refeição, apenas se houver reserva."""
+        if self.id_sessao_ativa is None:
+            raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
+        return service_logic.registrar_consumo_com_reserva(
             repo_sessao=self.repo_sessao,
             repo_estudante=self.repo_estudante,
             repo_reserva=self.repo_reserva,
@@ -233,6 +262,20 @@ class FachadaRegistro:
                 "grupos": [g.nome for g in est.grupos],
             }
             for est in estudantes
+        ]
+
+    def listar_todos_os_estudantes(self) -> List[Dict[str, Any]]:
+        query = self._sessao_db.query(Estudante)
+        estudantes = query.order_by(Estudante.nome).all()
+        return [
+            {
+                "id": e.id,
+                "prontuario": e.prontuario,
+                "nome": e.nome,
+                "ativo": e.ativo,
+                "grupos": [g.nome for g in e.grupos],
+            }
+            for e in estudantes
         ]
 
     def listar_estudantes(
@@ -410,12 +453,24 @@ class FachadaRegistro:
             self.repo_sessao, self.repo_grupo, self.id_sessao_ativa, grupos
         )
 
-    def exportar_sessao_para_xlsx(self) -> str:
+    def exportar_sessao_para_xlsx(
+        self,
+        nome_arquivo: Optional[Path] = None,
+    ) -> str:
         """Exporta os dados de consumo da sessão ativa para um arquivo XLSX."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
         return service_logic.exportar_sessao_para_xlsx(
-            self.repo_sessao, self.repo_consumo, self.id_sessao_ativa
+            self.repo_sessao, self.repo_consumo, self.id_sessao_ativa, nome_arquivo
+        )
+
+    def exportar_consumos_para_xlsx(
+        self,
+        nome_arquivo: Optional[Path] = None,
+    ) -> str:
+        """Exporta os dados de consumo para um arquivo XLSX."""
+        return service_logic.exportar_todos_os_consumos_para_xlsx(
+            self.repo_consumo, nome_arquivo
         )
 
     def sincronizar_do_google_sheets(self):
@@ -430,4 +485,10 @@ class FachadaRegistro:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
         service_logic.sincronizar_para_google_sheets(
             self.repo_sessao, self.repo_consumo, self.id_sessao_ativa
+        )
+
+    def sincronizar_todas_sessoes_para_google_sheets(self):
+        """Envia os dados de consumo de todas as sessões para a planilha do Google Sheets."""
+        service_logic.sincronizar_todas_sessoes_para_google_sheets(
+            self.repo_sessao, self.repo_consumo
         )

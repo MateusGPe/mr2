@@ -3,35 +3,45 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
-
+import datetime as dt
 import json
 import logging
 import sys
+import threading
 import tkinter as tk
 from threading import Thread
 from tkinter import CENTER, TclError
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
 
-import ttkbootstrap as ttk
 from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.localization import MessageCatalog
+from ttkbootstrap.localization.msgcat import MessageCatalog
 
-from registro.gui.constants import CAMINHO_SESSAO
+from registro.gui.constants import CAMINHO_SESSAO, DadosNovaSessao
 from registro.gui.dialogo_filtro_turmas import DialogoFiltroTurmas
 from registro.gui.dialogo_sessao import DialogoSessao
+from registro.gui.janela_self_service import JanelaSelfService
 from registro.gui.painel_acao_busca import PainelAcaoBusca
 from registro.gui.painel_status_registrados import PainelStatusRegistrados
 from registro.gui.utils import capitalizar
+import ttkbootstrap as ttk
 from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
+from registro.nucleo.models import SessaoLocal, SyncLog
+from registro.nucleo.utils import DADOS_SESSAO
 
 logger = logging.getLogger(__name__)
 
-# logging.basicConfig(level=logging.DEBUG)
-
 
 class AppRegistro(tk.Tk):
+    """
+    Classe principal da aplicação de Registro de Refeições.
+
+    Esta classe herda de tk.Tk e gerencia a janela principal, a inicialização
+    dos componentes da UI, a comunicação com a camada de negócio (Fachada)
+    e o ciclo de vida da aplicação.
+    """
+
     def __init__(self, title: str = "Registro de Refeições"):
         super().__init__()
         self.title(title)
@@ -39,12 +49,6 @@ class AppRegistro(tk.Tk):
         self.minsize(1152, 648)
 
         self._fachada: Optional[FachadaRegistro] = None
-        try:
-            self._fachada = FachadaRegistro()
-        except Exception as e:
-            self._tratar_erro_inicializacao("Fachada do Núcleo", e)
-            return
-
         self._barra_superior: Optional[ttk.Frame] = None
         self._janela_principal_dividida: Optional[ttk.Panedwindow] = None
         self._barra_status: Optional[ttk.Frame] = None
@@ -57,58 +61,46 @@ class AppRegistro(tk.Tk):
         self.colors: Optional[Any] = None
 
         try:
+            self._fachada = FachadaRegistro()
             self._configurar_estilo()
             self._configurar_layout_grid()
-            self._criar_barra_superior()
-            self._criar_paineis_principais(self._fachada)
-            self._criar_barra_status()
-        except Exception as e:
-            self._tratar_erro_inicializacao("Construção da UI", e)
+            self._criar_widgets()
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            self._tratar_erro_inicializacao("Inicialização da Aplicação", e)
             return
 
         self._carregar_sessao_inicial()
 
     def get_fachada(self) -> FachadaRegistro:
+        """Retorna a instância da fachada, levantando um erro se não estiver inicializada."""
         if self._fachada is None:
             logger.critical("Tentativa de acessar Fachada não inicializada.")
             raise RuntimeError("FachadaRegistro não foi inicializada.")
         return self._fachada
 
-    def _tratar_erro_inicializacao(self, componente: str, erro: Exception):
-        logger.critical(
-            "Erro Crítico de Inicialização - Componente: %s | Erro: %s",
-            componente,
-            erro,
-            exc_info=True,
-        )
-        try:
-            temp_root = None
-            if not hasattr(tk, "_default_root") or not tk._default_root:  # type: ignore
-                temp_root = tk.Tk()
-                temp_root.withdraw()
-
-            Messagebox.show_error(
-                "Erro de Inicialização",
-                f"Falha: {componente}\n{erro}\n\nAplicação será encerrada.",
-                parent=(self if self.winfo_exists() else None),
-            )
-            if temp_root:
-                temp_root.destroy()
-        except Exception as mb_error:
-            print(f"ERRO CRÍTICO ({componente}): {erro}", file=sys.stderr)
-            print(f"(Erro ao exibir messagebox: {mb_error})", file=sys.stderr)
-
-        if self.winfo_exists():
+    def _logar_sincronizacao(self, direction: str, status: str, message: Optional[str] = None, records_affected: Optional[int] = None):
+        """Registra um evento de sincronização no banco de dados."""
+        logger.info(f"Logando sincronização: direction={direction}, status={status}, records={records_affected}")
+        with SessaoLocal() as session:
             try:
-                self.destroy()
-            except tk.TclError:
-                pass
-        sys.exit(1)
+                log_entry = SyncLog(
+                    timestamp=dt.datetime.now().isoformat(),
+                    direction=direction,
+                    status=status,
+                    message=message,
+                    records_affected=records_affected
+                )
+                session.add(log_entry)
+                session.commit()
+            except Exception as e:
+                logger.error(f"Falha ao logar evento de sincronização no BD: {e}")
+                session.rollback()
 
     def _configurar_estilo(self):
+        """Configura o estilo da aplicação usando ttkbootstrap."""
         try:
             self.style = ttk.Style(theme="sandstone")
-            fonte_padrao = ("Segoe UI", 12)
+            fonte_padrao = ("Segoe UI Emoji", 12)
             fonte_cabecalho = (fonte_padrao[0], 10, "bold")
             fonte_label = (fonte_padrao[0], 11, "bold")
             fonte_pequena = (fonte_padrao[0], 9)
@@ -116,8 +108,10 @@ class AppRegistro(tk.Tk):
             self.style.configure("TLabelframe.Label", font=fonte_label)
             self.style.configure("Status.TLabel", font=fonte_pequena)
             self.style.configure("Feedback.TLabel", font=fonte_pequena)
-            self.style.configure("Preview.TLabel", font=fonte_pequena, justify=LEFT)
-            self.style.configure("Count.TLabel", font=fonte_cabecalho, anchor=CENTER)
+            self.style.configure(
+                "Preview.TLabel", font=fonte_pequena, justify=LEFT)
+            self.style.configure(
+                "Count.TLabel", font=fonte_cabecalho, anchor=CENTER)
             self.colors = self.style.colors
         except (TclError, AttributeError) as e:
             logger.warning("Erro ao configurar estilo ttkbootstrap: %s.", e)
@@ -125,86 +119,91 @@ class AppRegistro(tk.Tk):
             self.colors = getattr(self.style, "colors", {})
 
     def _configurar_layout_grid(self):
+        """Configura o layout de grid da janela principal."""
         self.grid_rowconfigure(0, weight=0)
         self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=0)
         self.grid_columnconfigure(0, weight=1)
 
+    def _criar_widgets(self):
+        """Cria e posiciona os principais widgets da aplicação."""
+        self._criar_barra_superior()
+        self._criar_paineis_principais()
+        self._criar_barra_status()
+
     def _criar_barra_superior(self):
-        self._barra_superior = ttk.Frame(self, padding=(10, 5), bootstyle="dark")  # type: ignore
+        """Cria a barra superior com informações da sessão e botões de ação."""
+        self._barra_superior = ttk.Frame(
+            self, padding=(10, 5), bootstyle="dark")
         self._barra_superior.grid(row=0, column=0, sticky="ew")
 
         self._label_info_sessao = ttk.Label(
             self._barra_superior,
             text="Carregando Sessão...",
             font="-size 14 -weight bold",
-            bootstyle="dark-inverse",  # type: ignore
+            bootstyle="dark-inverse",
         )
         self._label_info_sessao.pack(side=LEFT, padx=(0, 20), anchor="w")
 
-        frame_botoes = ttk.Frame(self._barra_superior, bootstyle="dark")  # type: ignore
+        frame_botoes = ttk.Frame(self._barra_superior, bootstyle="dark")
         frame_botoes.pack(side=RIGHT, anchor="e")
 
-        ttk.Button(
-            frame_botoes,
-            text="💾",
-            command=self.exportar_e_encerrar_sessao,
-            bootstyle="dark",  # type: ignore
-        ).pack(side=RIGHT, padx=(10, 0))
-        ttk.Button(
-            frame_botoes,
-            text="📤",
-            command=self.sincronizar_sessao_com_planilha,
-            bootstyle="dark",  # type: ignore
-        ).pack(side=RIGHT, padx=3)
-        ttk.Button(
-            frame_botoes,
-            text="📥",
-            command=self._sincronizar_dados_mestre,
-            bootstyle="dark",  # type: ignore
-        ).pack(side=RIGHT, padx=3)
+        botoes = [
+            ("QR code", self._abrir_janela_self_service),
+            ("Sessão", self._abrir_dialogo_sessao),
+            ("Filtrar", self._abrir_dialogo_filtro_turmas),
+        ]
+
+        for texto, comando in botoes:
+            ttk.Button(
+                frame_botoes, text=texto, command=comando, bootstyle="dark"
+            ).pack(side=RIGHT, padx=3)
+
         ttk.Separator(frame_botoes, orient=VERTICAL, bootstyle="light").pack(
             side=RIGHT, padx=8, fill="y", pady=3
         )
-        ttk.Button(
-            frame_botoes,
-            text="📊",
-            command=self._abrir_dialogo_filtro_turmas,
-            bootstyle="dark",  # type: ignore
-        ).pack(side=RIGHT, padx=3)
-        ttk.Button(
-            frame_botoes,
-            text="⚙️",
-            command=self._abrir_dialogo_sessao,
-            bootstyle="dark",  # type: ignore
-        ).pack(side=RIGHT, padx=3)
 
-    def _criar_paineis_principais(self, fachada: FachadaRegistro):
+        botoes_sync = [
+            ("Download", self._sincronizar_dados_mestre),
+            ("Upload", self.sincronizar_sessao_com_planilha),
+            ("Salvar e Sair", self.exportar_e_encerrar_sessao),
+        ]
+        for texto, comando in botoes_sync:
+            ttk.Button(
+                frame_botoes, text=texto, command=comando, bootstyle="dark"
+            ).pack(side=RIGHT, padx=3)
+
+    def _criar_paineis_principais(self):
+        """Cria os painéis de ação e de status, divididos por um Panedwindow."""
+        if not self._fachada:
+            return
+
         self._janela_principal_dividida = ttk.Panedwindow(
-            self, orient=HORIZONTAL, bootstyle="light"  # type: ignore
+            self, orient=HORIZONTAL, bootstyle="light"
         )
         self._janela_principal_dividida.grid(
             row=1, column=0, sticky="nsew", padx=10, pady=(5, 0)
         )
+
         self._painel_acao = PainelAcaoBusca(
-            self._janela_principal_dividida, self, fachada
+            self._janela_principal_dividida, self, self._fachada
         )
         self._janela_principal_dividida.add(self._painel_acao, weight=1)
+
         self._painel_status = PainelStatusRegistrados(
-            self._janela_principal_dividida, self, fachada
+            self._janela_principal_dividida, self, self._fachada
         )
         self._janela_principal_dividida.add(self._painel_status, weight=2)
 
     def _criar_barra_status(self):
-        self._barra_status = ttk.Frame(
-            self, padding=(5, 3), bootstyle=LIGHT, name="statusBarFrame"  # type: ignore
-        )
+        """Cria a barra de status na parte inferior da janela."""
+        self._barra_status = ttk.Frame(self, padding=(5, 3), bootstyle=LIGHT)
         self._barra_status.grid(row=2, column=0, sticky="ew")
 
         self._label_barra_status = ttk.Label(
             self._barra_status,
             text="Pronto.",
-            bootstyle="inverse-light",  # type: ignore
+            bootstyle="inverse-light",
             font=("-size 10"),
         )
         self._label_barra_status.pack(side=LEFT, padx=5, anchor="w")
@@ -212,11 +211,21 @@ class AppRegistro(tk.Tk):
         self._barra_progresso = ttk.Progressbar(
             self._barra_status,
             mode="indeterminate",
-            bootstyle="striped-info",  # type: ignore
+            bootstyle="striped-info",
             length=200,
         )
 
+    def _carregar_sessao_inicial(self):
+        """Tenta carregar uma sessão a partir de um arquivo ou abre o diálogo de sessão."""
+        logger.info("Tentando carregar estado inicial da sessão...")
+        info_sessao = self._carregar_arquivo_estado_sessao()
+        if info_sessao:
+            self._configurar_ui_para_sessao_carregada()
+        else:
+            self.after(100, self._abrir_dialogo_sessao)
+
     def _carregar_arquivo_estado_sessao(self) -> Optional[Dict[str, Any]]:
+        """Lê o arquivo session.json e define a sessão ativa na fachada."""
         if not CAMINHO_SESSAO.exists():
             logger.info(
                 "Arquivo de estado da sessão não encontrado: %s", CAMINHO_SESSAO
@@ -226,42 +235,35 @@ class AppRegistro(tk.Tk):
             with open(CAMINHO_SESSAO, "r", encoding="utf-8") as f:
                 dados_sessao = json.load(f)
             logger.info("Estado da sessão carregado: %s", CAMINHO_SESSAO)
-            assert self._fachada is not None
-            self._fachada.definir_sessao_ativa(dados_sessao.get("id_sessao"))
+            if self._fachada:
+                self._fachada.definir_sessao_ativa(
+                    dados_sessao.get("id_sessao"))
             return dados_sessao
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error(
                 "Erro ao carregar estado da sessão de %s: %s", CAMINHO_SESSAO, e
             )
             return None
 
-    def _carregar_sessao_inicial(self):
-        logger.info("Tentando carregar estado inicial da sessão...")
-        info_sessao = self._carregar_arquivo_estado_sessao()
-        if info_sessao:
-            self._configurar_ui_para_sessao_carregada()
-        else:
-            self.after(100, self._abrir_dialogo_sessao)
-
     def tratar_resultado_dialogo_sessao(
-        self, resultado: Union[Dict, int, None]
+        self, resultado: Union[DadosNovaSessao, Dict, int, None]
     ) -> bool:
+        """
+        Callback para tratar o resultado do DialogoSessao (criar ou carregar sessão).
+        Retorna True em caso de sucesso, False caso contrário.
+        """
         if resultado is None:
             logger.info("Diálogo de sessão cancelado.")
-            if not self._fachada or self._fachada.id_sessao_ativa is None:
-                logger.warning("Diálogo cancelado sem sessão ativa.")
             return True
 
-        sucesso = False
-        desc_acao = ""
         if not self._fachada:
             Messagebox.show_error(
-                "Erro Interno",
-                "Fachada não encontrada.",
-                parent=self,
+                "Erro Interno", "Fachada não encontrada.", parent=self
             )
             return False
 
+        sucesso = False
+        desc_acao = ""
         try:
             if isinstance(resultado, int):
                 id_sessao = resultado
@@ -270,22 +272,20 @@ class AppRegistro(tk.Tk):
                 sucesso = True
             elif isinstance(resultado, dict):
                 desc_acao = f"criar nova sessão: {resultado.get('refeicao')}"
-                id_sessao = self._fachada.iniciar_nova_sessao(resultado)  # type: ignore
+                id_sessao = self._fachada.iniciar_nova_sessao(
+                    cast(DADOS_SESSAO, resultado)
+                )
                 if id_sessao is None:
                     raise ErroSessao(
-                        "Não é possível iniciar uma sessão de almoço"
-                        " sem reservas ativas para a data."
+                        "Não é possível iniciar sessão sem reservas ativas."
                     )
-                logger.info("Nova sessão criada com ID: %s", id_sessao)
-                if id_sessao:
-                    if CAMINHO_SESSAO.exists():
-                        CAMINHO_SESSAO.unlink()
-                    CAMINHO_SESSAO.write_text(
-                        f'{{"id_sessao": {id_sessao}}}', encoding="utf-8"
-                    )
-                    sucesso = True
-        except Exception as e:
-            logger.exception("Falha ao %s: %s", desc_acao, e)
+
+                CAMINHO_SESSAO.write_text(
+                    f'{{"id_sessao": {id_sessao}}}', encoding="utf-8"
+                )
+                sucesso = True
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.exception("Falha ao %s", desc_acao)
             Messagebox.show_error(
                 f"Não foi possível {desc_acao}.\nErro: {e}",
                 "Operação Falhou",
@@ -296,99 +296,106 @@ class AppRegistro(tk.Tk):
         if sucesso:
             logger.info("Sucesso ao %s.", desc_acao)
             self._configurar_ui_para_sessao_carregada()
-            return True
-        return False
+        return sucesso
+
+    def exportar_e_encerrar_sessao(self):
+        """Exporta os dados da sessão para Excel e, se bem-sucedido, encerra a sessão."""
+        if not self._fachada or self._fachada.id_sessao_ativa is None:
+            Messagebox.show_warning(
+                "Nenhuma Sessão Ativa", "Não há sessão para encerrar.", parent=self
+            )
+            return
+
+        if Messagebox.yesno(
+            "Confirmar Encerramento",
+            "Deseja exportar os dados e encerrar esta sessão?",
+            icon="warning",
+            parent=self,
+        ) == MessageCatalog.translate("No"):
+            return
+
+        export_ok = self.exportar_sessao_para_excel()
+        if not export_ok:
+            if Messagebox.yesno(
+                "Falha na Exportação",
+                "A exportação falhou. Deseja encerrar mesmo assim?",
+                icon="error",
+                parent=self,
+            ) == MessageCatalog.translate("No"):
+                return
+
+        CAMINHO_SESSAO.unlink(missing_ok=True)
+        self.ao_fechar_app(acionado_por_fim_sessao=True)
 
     def _configurar_ui_para_sessao_carregada(self):
-        logger.debug("Configurando UI para sessão ativa...")
+        """Atualiza a UI com os detalhes da sessão ativa."""
         if not self._fachada:
             return
 
         try:
-            detalhes_sessao = self._fachada.obter_detalhes_sessao_ativa()
+            detalhes = self._fachada.obter_detalhes_sessao_ativa()
+            refeicao = capitalizar(detalhes.get("refeicao", "?"))
+            hora = detalhes.get("hora", "??")
+            data = detalhes.get("data", "")
+            id_sessao = detalhes.get("id")
+
+            titulo = f"Reg: {refeicao} - {data} {hora} [ID:{id_sessao}]"
+            self.title(titulo)
+            if self._label_info_sessao:
+                self._label_info_sessao.config(
+                    text=titulo, bootstyle="inverse-dark")
+
+            if self._painel_acao:
+                self._painel_acao.habilitar_controles()
+                self._painel_acao.atualizar_resultados()
+            if self._painel_status:
+                self._painel_status.carregar_estudantes_registrados()
+
+            self._focar_janela()
+            logger.info("UI configurada para sessão ID: %s", id_sessao)
+            # Sincroniza dados mestre na inicialização
+            self._sincronizar_dados_mestre(automatico=True)
+
         except ErroSessaoNaoAtiva:
             logger.error("Não é possível configurar UI: Nenhuma sessão ativa.")
             self.title("Refeições Reg [Sem Sessão]")
             if self._label_info_sessao:
                 self._label_info_sessao.config(
-                    text="Erro: Nenhuma Sessão Ativa",  # bootstyle="inverse-danger"  # type: ignore
-                )
+                    text="Erro: Nenhuma Sessão Ativa")
             if self._painel_acao:
                 self._painel_acao.desabilitar_controles()
             if self._painel_status:
                 self._painel_status.limpar_tabela()
-            return
-
-        if not all(
-            [
-                detalhes_sessao,
-                self._label_info_sessao,
-                self._painel_acao,
-                self._painel_status,
-            ]
-        ):
-            logger.error("Componentes da UI ou detalhes da sessão ausentes.")
-            return
-
-        try:
-            refeicao_exibicao = capitalizar(detalhes_sessao.get("refeicao", "?"))
-            hora_exibicao = detalhes_sessao.get("hora", "??")
-            data_raw = detalhes_sessao.get("data", "")
-            data_exibicao = data_raw
-            id_sessao = detalhes_sessao.get("id")
-            titulo = (
-                f"Reg: {refeicao_exibicao} - {data_exibicao} {hora_exibicao} "
-                f"[ID:{id_sessao}]"
-            )
-            self.title(titulo)
-            self._label_info_sessao.config(text=titulo, bootstyle="inverse-dark")  # type: ignore
-        except Exception as e:
-            logger.exception("Erro ao formatar detalhes da sessão para UI: %s", e)
-            self.title("RU Registro [Erro na Sessão]")
-            if self._label_info_sessao:
-                self._label_info_sessao.config(
-                    text="Erro ao carregar detalhes", bootstyle="inverse-danger"  # type: ignore
-                )
-            return
-
-        logger.debug("Habilitando painéis e carregando dados...")
-        if self._painel_acao:
-            self._painel_acao.habilitar_controles()
-        if self._painel_status:
-            self._painel_status.carregar_estudantes_registrados()
-        if self._painel_acao:
-            self._painel_acao.atualizar_resultados()
-
-        try:
-            self.deiconify()
-            self.lift()
-            self.focus_force()
-            if self._painel_acao:
-                self._painel_acao.focar_entrada()
-        except tk.TclError as e:
-            logger.warning("Erro Tcl ao focar/levantar janela: %s", e)
-        logger.info("UI configurada para sessão ID: %s", detalhes_sessao.get("id"))
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            logger.exception("Erro ao configurar UI para sessão: %s", e)
 
     def _atualizar_ui_apos_mudanca_dados(self):
+        """Atualiza os painéis após uma alteração nos dados da sessão."""
         logger.info("Atualizando UI após mudança nos dados da sessão...")
         if not self._fachada or self._fachada.id_sessao_ativa is None:
-            logger.warning("Nenhuma sessão ativa para atualizar a UI.")
             return
+
         if self._painel_status:
             self._painel_status.atualizar_contadores()
+            self._painel_status.carregar_estudantes_registrados()
         if self._painel_acao:
             self._painel_acao.atualizar_resultados()
         logger.debug("Refresh da UI concluído.")
 
     def notificar_sucesso_registro(self, dados_estudante: Tuple):
-        logger.debug("Notificação de registro recebida para: %s", dados_estudante[0])
+        """Callback chamado pelo PainelAcaoBusca após um registro bem-sucedido."""
+        logger.debug("Notificação de registro recebida para: %s",
+                     dados_estudante[0])
         if self._painel_status:
             self._painel_status.carregar_estudantes_registrados()
 
     def tratar_delecao_consumo(self, dados_para_logica: Tuple, _iid_para_deletar: str):
+        """Callback chamado pelo PainelStatusRegistrados para desfazer um consumo."""
         pront = dados_para_logica[0] if dados_para_logica else None
         nome = dados_para_logica[1] if len(dados_para_logica) > 1 else "N/A"
-        logger.info("Solicitação para desfazer consumo: %s (%s)", pront or "?", nome)
+        logger.info("Solicitação para desfazer consumo: %s (%s)",
+                    pront or "?", nome)
+
         if pront and self._fachada:
             self._fachada.desfazer_consumo_por_prontuario(pront)
             if self._painel_status:
@@ -396,47 +403,45 @@ class AppRegistro(tk.Tk):
             self._atualizar_ui_apos_mudanca_dados()
 
     def _abrir_dialogo_sessao(self: "AppRegistro"):
+        """Abre o diálogo para criar ou selecionar uma sessão."""
         logger.info("Abrindo diálogo de sessão.")
         DialogoSessao(
             title="Selecionar ou Criar Sessão",
-            callback=self.tratar_resultado_dialogo_sessao,  # type: ignore
+            callback=self.tratar_resultado_dialogo_sessao,
             parente_app=self,
         )
 
     def _abrir_dialogo_filtro_turmas(self):
+        """Abre o diálogo para filtrar turmas na sessão ativa."""
         if not self._fachada or self._fachada.id_sessao_ativa is None:
             Messagebox.show_warning(
-                "Nenhuma Sessão Ativa",
-                "É necessário iniciar uma sessão.",
-                parent=self,
+                "Nenhuma Sessão Ativa", "É necessário iniciar uma sessão.", parent=self
             )
             return
+
         logger.info("Abrindo diálogo de filtro de turmas.")
         DialogoFiltroTurmas(
             parent=self,
             fachada_nucleo=self._fachada,
             callback_aplicar=self.ao_aplicar_filtro_turmas,
-        )  # type: ignore
+        )
 
-    def ao_aplicar_filtro_turmas(self, identificadores_selecionados: List[str]):
-        logger.info("Aplicando filtros de turma: %s", identificadores_selecionados)
+    def ao_aplicar_filtro_turmas(self, identificadores: List[str]):
+        """Callback para aplicar os filtros de turma selecionados no diálogo."""
+        logger.info("Aplicando filtros de turma: %s", identificadores)
         if not self._fachada:
             return
         try:
             grupos_selecionados = [
-                ident
-                for ident in identificadores_selecionados
-                if not ident.startswith("#")
-            ]
-            grupos_excluidos = [
-                ident[1:]
-                for ident in identificadores_selecionados
-                if ident.startswith("#")
-            ]
-            self._fachada.atualizar_grupos_sessao(grupos_selecionados, grupos_excluidos)
+                i for i in identificadores if not i.startswith("#")]
+            grupos_excluidos = [i[1:]
+                                for i in identificadores if i.startswith("#")]
+
+            self._fachada.atualizar_grupos_sessao(
+                grupos_selecionados, grupos_excluidos)
             logger.info("Filtros de turma aplicados com sucesso.")
             self._atualizar_ui_apos_mudanca_dados()
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Falha ao aplicar filtros de turma: %s", e)
             Messagebox.show_error(
                 "Erro ao Filtrar",
@@ -444,17 +449,30 @@ class AppRegistro(tk.Tk):
                 parent=self,
             )
 
+    def _abrir_janela_self_service(self):
+        """Abre a janela de autoatendimento com webcam."""
+        if not self._fachada or self._fachada.id_sessao_ativa is None:
+            Messagebox.show_warning(
+                "Nenhuma Sessão Ativa", "É necessário iniciar uma sessão.", parent=self
+            )
+            return
+
+        logger.info("Abrindo janela de autoatendimento.")
+        JanelaSelfService(
+            parent=self,
+            fachada=self._fachada,
+        )
+
     def mostrar_barra_progresso(self, iniciar: bool, texto: Optional[str] = None):
+        """Controla a visibilidade e o estado da barra de progresso."""
         if not self._barra_progresso or not self._label_barra_status:
             return
         try:
             if iniciar:
-                texto_progresso = texto or "Processando..."
-                self._label_barra_status.config(text=texto_progresso)
+                self._label_barra_status.config(text=texto or "Processando...")
                 if not self._barra_progresso.winfo_ismapped():
                     self._barra_progresso.pack(
-                        side=RIGHT, padx=5, pady=0, fill=X, expand=False
-                    )
+                        side=RIGHT, padx=5, fill=X, expand=False)
                 self._barra_progresso.start(10)
             else:
                 if self._barra_progresso.winfo_ismapped():
@@ -464,90 +482,135 @@ class AppRegistro(tk.Tk):
         except tk.TclError as e:
             logger.error("Erro Tcl ao manipular barra de progresso: %s", e)
 
-    def _sincronizar_dados_mestre(self):
+    def _sincronizar_dados_mestre(self, automatico: bool = False):
+        """Inicia a sincronização dos dados mestre (cadastros)."""
         if not self._fachada:
             return
-        if Messagebox.yesno(
+        if not automatico and Messagebox.yesno(
             "Confirmar Sincronização",
             "Deseja sincronizar os dados mestre?",
             parent=self,
         ) == MessageCatalog.translate("No"):
             return
+
+        if automatico:
+            logger.info("Iniciando sincronização automática de cadastros.")
+
         self.mostrar_barra_progresso(True, "Sincronizando cadastros...")
         self._iniciar_thread_sinc(
-            self._fachada.sincronizar_do_google_sheets, "Sincronização de Cadastros"
+            self._fachada.sincronizar_do_google_sheets, "Sincronização de Cadastros", automatico=automatico
         )
 
-    def sincronizar_sessao_com_planilha(self):
-        if not self._fachada or self._fachada.id_sessao_ativa is None:
-            Messagebox.show_warning(
-                "Nenhuma Sessão Ativa",
-                "É necessário ter uma sessão ativa para sincronizar.",
-                parent=self,
-            )
+    def sincronizar_sessao_com_planilha(self, automatico: bool = False):
+        """Inicia a sincronização dos dados de todas as sessões para a planilha."""
+        if not self._fachada:
             return
-        self.mostrar_barra_progresso(True, "Sincronizando servidos para planilha...")
+
+        if automatico:
+            logger.info("Iniciando sincronização automática de servidos para planilha.")
+
+        self.mostrar_barra_progresso(
+            True, "Sincronizando servidos para planilha..."
+        )
         self._iniciar_thread_sinc(
-            self._fachada.sincronizar_para_google_sheets, "Sincronização de Servidos"
+            self._fachada.sincronizar_todas_sessoes_para_google_sheets,
+            "Sincronização de Servidos",
+            automatico=automatico,
         )
 
-    def _iniciar_thread_sinc(self, funcao_sinc: Callable, nome_tarefa: str):
-        class ThisThread(Thread):
-            def __init__(self, *args, **kwargs):
-                super().__init__(*args, **kwargs)
-                self.error: Optional[Exception] = None
-                self.success: bool = False
-
-        thread: ThisThread
-
-        def acao_sinc():
-            thread.error = None
-            thread.success = False
-            try:
-                funcao_sinc()
-                thread.success = True
-            except Exception as e:
-                thread.error = e
-
-        thread = ThisThread(target=acao_sinc, daemon=True)
-        thread.error = None
-        thread.success = False  # type: ignore
+    def _iniciar_thread_sinc(self, funcao_sinc: Callable, nome_tarefa: str, automatico: bool = False):
+        """Inicia uma função de sincronização em uma thread separada para não bloquear a UI."""
+        thread = Thread(
+            target=self._acao_sinc_wrapper, args=(funcao_sinc,), daemon=True
+        )
         thread.start()
-        self._monitorar_thread_sinc(thread, nome_tarefa)
+        self._monitorar_thread_sinc(thread, nome_tarefa, automatico)
 
-    def _monitorar_thread_sinc(self, thread: Thread, nome_tarefa: str):
+    def _executar_sinc_bloqueante(self, funcao_sinc: Callable, nome_tarefa: str):
+        """Executa uma sincronização de forma bloqueante (para o fechamento do app)."""
+        logger.info("Executando sincronização bloqueante: %s", nome_tarefa)
+        self.mostrar_barra_progresso(True, f"Finalizando: {nome_tarefa}...")
+        thread = Thread(
+            target=self._acao_sinc_wrapper, args=(funcao_sinc,), daemon=False
+        )
+        thread.start()
+        # Enquanto aguarda, processa eventos da UI para evitar congelamento total
+        while thread.is_alive():
+            self.update()
+            thread.join(0.1)
+
+        # Agora que terminou, processa o resultado
+        self._monitorar_thread_sinc(thread, nome_tarefa, automatico=True)
+
+    def _acao_sinc_wrapper(self, funcao_sinc: Callable):
+        """Wrapper que executa a função de sincronização e captura exceções na thread."""
+        thread = threading.current_thread()
+        setattr(thread, "error", None)
+        setattr(thread, "success", False)
+        setattr(thread, "records_affected", 0)
+
+        try:
+            # Assume que funcao_sinc retorna o número de registros afetados
+            records_affected = funcao_sinc()
+            setattr(thread, "success", True)
+            setattr(thread, "records_affected", records_affected or 0)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            setattr(thread, "error", e)
+
+    def _monitorar_thread_sinc(self, thread: Thread, nome_tarefa: str, automatico: bool = False):
+        """Verifica o status da thread de sincronização e exibe o resultado ao final."""
         if thread.is_alive():
-            self.after(150, lambda: self._monitorar_thread_sinc(thread, nome_tarefa))
+            self.after(150, lambda: self._monitorar_thread_sinc(
+                thread, nome_tarefa, automatico))
             return
 
         self.mostrar_barra_progresso(False)
         erro = getattr(thread, "error", None)
         sucesso = getattr(thread, "success", False)
+        records_affected = getattr(thread, "records_affected", 0)
+
+        direction = 'download' if 'Cadastros' in nome_tarefa else 'upload'
 
         if erro:
             logger.error("%s falhou: %s", nome_tarefa, erro)
-            Messagebox.show_error(
-                "Erro na Sincronização",
-                f"{nome_tarefa} falhou:\n{erro}",
-                parent=self,
-            )
+            self._logar_sincronizacao(direction=direction, status='failure', message=str(erro), records_affected=0)
+            if not automatico:
+                Messagebox.show_error(
+                    "Erro na Sincronização", f"{nome_tarefa} falhou:\n{erro}", parent=self
+                )
         elif sucesso:
-            logger.info("%s concluída com sucesso.", nome_tarefa)
-            Messagebox.show_info(
-                "Sincronização Concluída",
-                f"{nome_tarefa} concluída com sucesso.",
-                parent=self,
+            logger.info("%s concluída com sucesso. Registros afetados: %d", nome_tarefa, records_affected)
+            self._logar_sincronizacao(
+                direction=direction,
+                status='success',
+                message=f"{nome_tarefa} concluída com sucesso.",
+                records_affected=records_affected
             )
+            if not automatico:
+                Messagebox.show_info(
+                    "Sincronização Concluída",
+                    f"{nome_tarefa} concluída com sucesso.",
+                    parent=self,
+                )
             self._atualizar_ui_apos_mudanca_dados()
         else:
-            logger.warning("%s finalizada com estado indeterminado.", nome_tarefa)
-            Messagebox.show_warning(
-                "Status Desconhecido",
-                f"{nome_tarefa} finalizada, mas o status é incerto.",
-                parent=self,
+            logger.warning(
+                "%s finalizada com estado indeterminado.", nome_tarefa)
+            self._logar_sincronizacao(
+                direction=direction,
+                status='unknown',
+                message=f"{nome_tarefa} finalizada com estado indeterminado.",
+                records_affected=0
             )
+            if not automatico:
+                Messagebox.show_warning(
+                    "Status Desconhecido",
+                    f"{nome_tarefa} finalizada, mas o status é incerto.",
+                    parent=self,
+                )
 
     def exportar_sessao_para_excel(self) -> bool:
+        """Exporta os dados da sessão atual para um arquivo XLSX."""
         if not self._fachada:
             return False
         try:
@@ -567,62 +630,74 @@ class AppRegistro(tk.Tk):
             )
         except ValueError as ve:
             Messagebox.show_warning("Nada para Exportar", str(ve), parent=self)
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro inesperado durante a exportação.")
             Messagebox.show_error(
-                "Erro na Exportação",
-                f"Ocorreu um erro ao exportar:\n{e}",
-                parent=self,
+                "Erro na Exportação", f"Ocorreu um erro ao exportar:\n{e}", parent=self
             )
         return False
 
-    def exportar_e_encerrar_sessao(self):
-        if not self._fachada or self._fachada.id_sessao_ativa is None:
-            Messagebox.show_warning(
-                "Nenhuma Sessão Ativa",
-                "Não há sessão ativa para encerrar.",
-                parent=self,
+    def _tratar_erro_inicializacao(self, componente: str, erro: Exception):
+        """Exibe uma mensagem de erro crítico e encerra a aplicação."""
+        logger.critical(
+            "Erro Crítico de Inicialização - Componente: %s | Erro: %s",
+            componente,
+            erro,
+            exc_info=True,
+        )
+        try:
+            Messagebox.show_error(
+                "Erro de Inicialização",
+                f"Falha: {componente}\n{erro}\n\nAplicação será encerrada.",
+                parent=(self if self.winfo_exists() else None),
             )
-            return
-        if Messagebox.yesno(
-            "Confirmar Encerramento",
-            "Deseja exportar os dados e encerrar esta sessão?",
-            icon="warning",
-            parent=self,
-        ) == MessageCatalog.translate("No"):
-            return
+        except Exception:  # pylint: disable=broad-exception-caught
+            print(f"ERRO CRÍTICO ({componente}): {erro}", file=sys.stderr)
 
-        exportacao_bem_sucedida = self.exportar_sessao_para_excel()
-        if not exportacao_bem_sucedida:
-            if Messagebox.yesno(
-                "Falha na Exportação",
-                "A exportação falhou. Deseja encerrar mesmo assim?",
-                icon="error",
-                parent=self,
-            ) == MessageCatalog.translate("No"):
-                return
+        if self.winfo_exists():
+            try:
+                self.destroy()
+            except tk.TclError:
+                pass
+        sys.exit(1)
 
-        CAMINHO_SESSAO.unlink(missing_ok=True)
-        self.ao_fechar_app(acionado_por_fim_sessao=True)
+    def _focar_janela(self):
+        """Traz a janela da aplicação para o primeiro plano e foca o campo de busca."""
+        try:
+            self.deiconify()
+            self.lift()
+            self.focus_force()
+            if self._painel_acao:
+                self._painel_acao.focar_entrada()
+        except tk.TclError as e:
+            logger.warning("Erro Tcl ao focar/levantar janela: %s", e)
 
     def ao_fechar_app(self, acionado_por_fim_sessao: bool = False):
+        """Executa a sequência de limpeza ao fechar a aplicação."""
         logger.info("Sequência de fechamento da aplicação iniciada...")
 
         if self._painel_acao and self._painel_acao.id_after_busca is not None:
             try:
-                self._painel_acao.after_cancel(self._painel_acao.id_after_busca)
-            except Exception:
+                self._painel_acao.after_cancel(
+                    self._painel_acao.id_after_busca)
+            except Exception:  # pylint: disable=broad-exception-caught
                 pass
 
         if self._fachada:
             id_sessao = self._fachada.id_sessao_ativa
-            if not acionado_por_fim_sessao and id_sessao:
-                if CAMINHO_SESSAO.exists():
-                    CAMINHO_SESSAO.unlink()
-                CAMINHO_SESSAO.write_text(
-                    f'{{"id_sessao": {id_sessao}}}', encoding="utf-8"
+            if not acionado_por_fim_sessao:
+                # Sincroniza os dados de consumo de todas as sessões antes de fechar
+                self._executar_sinc_bloqueante(
+                    self._fachada.sincronizar_todas_sessoes_para_google_sheets,
+                    "Sincronização de Servidos",
                 )
-                logger.info("Estado da sessão salvo em %s.", str(CAMINHO_SESSAO))
+
+                if id_sessao:
+                    CAMINHO_SESSAO.write_text(
+                        f'{{"id_sessao": {id_sessao}}}', encoding="utf-8"
+                    )
+                    logger.info("Estado da sessão salvo em %s.", CAMINHO_SESSAO)
+
             logger.info("Fechando conexão com DB...")
             self._fachada.fechar_conexao()
 
@@ -634,6 +709,10 @@ class AppRegistro(tk.Tk):
         logger.info("Aplicação finalizada.")
 
 
-if __name__ == "__main__":
+def main():
     app = AppRegistro()
     app.mainloop()
+
+
+if __name__ == "__main__":
+    main()
