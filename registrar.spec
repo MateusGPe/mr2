@@ -9,7 +9,7 @@ datas += collect_data_files('ttkbootstrap')
 binaries = collect_dynamic_libs('pyzbar')
 
 a = Analysis(
-    ['registro/gui/app_registro.py'],
+    ['registro/gui/registrar/app.py'],
     pathex=[],
     binaries=binaries,
     datas=datas,

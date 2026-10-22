@@ -13,12 +13,12 @@ from ttkbootstrap.constants import CENTER, PRIMARY, WARNING
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
 
-from registro.controles.treeview_simples import TreeviewSimples
+from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
-    from registro.gui.app_registro import AppRegistro
+    from registro.gui.registrar.app import AppRegistro
 
 logger = logging.getLogger(__name__)
 

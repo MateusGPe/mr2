@@ -13,13 +13,13 @@ import tkinter as tk
 from unittest.mock import MagicMock, patch
 import pytest
 
-from registro.gui.dialogo_sessao import DialogoSessao
-from registro.gui.dialogo_filtro_turmas import DialogoFiltroTurmas
-from registro.gui.painel_acao_busca import PainelAcaoBusca
-from registro.gui.painel_status_registrados import PainelStatusRegistrados
-from registro.abas.aba_dashboard import AbaDashboard
-from registro.abas.aba_importacao import AbaImportacao
-from registro.abas.aba_reservas import AbaReservas
+from registro.gui.registrar.dialogo_sessao import DialogoSessao
+from registro.gui.registrar.dialogo_filtro_turmas import DialogoFiltroTurmas
+from registro.gui.registrar.painel_acao_busca import PainelAcaoBusca
+from registro.gui.registrar.painel_status_registrados import PainelStatusRegistrados
+from registro.gui.painel.abas.aba_dashboard import AbaDashboard
+from registro.gui.painel.abas.aba_importacao import AbaImportacao
+from registro.gui.painel.abas.aba_reservas import AbaReservas
 
 
 @pytest.fixture(scope="module")

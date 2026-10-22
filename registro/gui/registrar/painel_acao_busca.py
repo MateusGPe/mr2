@@ -15,13 +15,13 @@ from fuzzywuzzy import fuzz
 from ttkbootstrap.constants import DISABLED, LEFT, NORMAL, W
 from ttkbootstrap.dialogs import Messagebox
 
-from registro.controles.treeview_simples import TreeviewSimples
-from registro.gui.constants import REGEX_LIMPEZA_PRONTUARIO
+from registro.gui.comum.controles.treeview_simples import TreeviewSimples
+from registro.gui.comum.constants import REGEX_LIMPEZA_PRONTUARIO
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
-    from registro.gui.app_registro import AppRegistro
+    from registro.gui.registrar.app import AppRegistro
 
 logger = logging.getLogger(__name__)
 

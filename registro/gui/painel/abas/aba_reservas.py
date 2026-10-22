@@ -12,9 +12,9 @@ from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
 
-from registro.controles.rounded_button import RoundedButton
-from registro.dialogos import ReservaDialog
-from registro.controles.treeview_simples import TreeviewSimples
+from registro.gui.comum.controles.rounded_button import RoundedButton
+from registro.gui.painel.dialogos import ReservaDialog
+from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 
 
 class AbaReservas(ttk.Frame):

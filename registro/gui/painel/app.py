@@ -5,10 +5,10 @@ from ttkbootstrap.dialogs import Messagebox
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import EW, NSEW
 
-from registro.abas.aba_alunos import AbaAlunos
-from registro.abas.aba_dashboard import AbaDashboard
-from registro.abas.aba_importacao import AbaImportacao
-from registro.abas.aba_reservas import AbaReservas
+from registro.gui.painel.abas.aba_alunos import AbaAlunos
+from registro.gui.painel.abas.aba_dashboard import AbaDashboard
+from registro.gui.painel.abas.aba_importacao import AbaImportacao
+from registro.gui.painel.abas.aba_reservas import AbaReservas
 from registro.nucleo.facade import FachadaRegistro
 
 

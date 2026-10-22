@@ -16,7 +16,7 @@ from ttkbootstrap import ScrolledFrame
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
-    from registro.gui.app_registro import AppRegistro
+    from registro.gui.registrar.app import AppRegistro
 
 logger = logging.getLogger(__name__)
 

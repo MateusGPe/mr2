@@ -21,8 +21,8 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.widgets import DateEntry
 
-from registro.controles.rounded_button import RoundedButton
-from registro.controles.treeview_simples import TreeviewSimples
+from registro.gui.comum.controles.rounded_button import RoundedButton
+from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.importar.definitions import ItemRevisao, ResumoImportacao

@@ -6,22 +6,19 @@
 
 import logging
 import tkinter as tk
-import traceback
 import re
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
 from fuzzywuzzy import fuzz
 import ttkbootstrap as ttk
 from PIL import Image, ImageTk
-from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.constants import CENTER, LEFT, NSEW, RIGHT, X
 
-from registro.controles.treeview_simples import TreeviewSimples
-from registro.gui.constants import REGEX_LIMPEZA_PRONTUARIO
+from registro.gui.comum.constants import REGEX_LIMPEZA_PRONTUARIO
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
-    from registro.gui.app_registro import AppRegistro
+    from registro.gui.registrar.app import AppRegistro
 
 logger = logging.getLogger(__name__)
 
@@ -48,21 +45,24 @@ except (ImportError, OSError) as e:
     OPENCV_DISPONIVEL = False
 
 
-class FrameSelfService(ttk.Frame):
+class JanelaSelfService(tk.Toplevel):
     """
-    Frame dedicado ao autoatendimento via leitura de QR Code pela webcam.
+    Janela dedicada ao autoatendimento via leitura de QR Code pela webcam.
     """
 
     def __init__(
         self,
-        master: tk.Widget,
+        parent: "AppRegistro",
         fachada: "FachadaRegistro",
-        notification_callback: Callable[[Tuple[str, ...]], None],
     ):
-        super().__init__(master)
+        super().__init__(parent)
+        self.title("📷 Autoatendimento")
+        self.geometry("900x600")
+        self.minsize(800, 500)
 
+        self._parent_app = parent
         self._fachada = fachada
-        self._notification_callback = notification_callback
+        assert self._fachada is self._parent_app.get_fachada()
         assert self._fachada.id_sessao_ativa is not None
         self._cap = None
         self._running = False
@@ -92,11 +92,7 @@ class FrameSelfService(ttk.Frame):
         else:
             self._exibir_erro_dependencia()
 
-    def stop(self):
-        """Libera recursos, como a câmera."""
-        self._running = False
-        if self._cap:
-            self._cap.release()
+        self.protocol("WM_DELETE_WINDOW", self._ao_fechar)
 
     def _criar_interface(self):
         """Cria os widgets da interface."""
@@ -376,7 +372,7 @@ class FrameSelfService(ttk.Frame):
                 str(dados.get("hora_consumo", "")),
                 str(dados.get("prato", "")),
             )
-            self._notification_callback(tupla_estudante)
+            self._parent_app.notificar_sucesso_registro(tupla_estudante)
             self._cooldown_frames = 20
         else:
             self._lbl_mensagem.config(text=msg)
@@ -395,22 +391,18 @@ class FrameSelfService(ttk.Frame):
     @staticmethod
     def formatar_matricula(valor):
         """
-        Padroniza a matrícula para o formato IQ30XXXXX.
-        Tenta extrair os últimos 5 dígitos ou 'X' de um valor de entrada.
+        Padroniza a matrícula para o formato IQ30XXXXX,
+        aceitando 'X' como dígito válido.
         """
         texto = str(valor).upper()
-        # Extrai todos os dígitos e 'X' da string
-        numeros_e_x = re.findall(r'[0-9X]', texto)
-        # Pega os últimos 5 caracteres extraídos
-        sufixo = "".join(numeros_e_x)[-5:]
-        # Garante que o sufixo tenha 5 caracteres, preenchendo com zeros à esquerda
-        sufixo_formatado = sufixo.zfill(5)
-        return f"IQ30{sufixo_formatado}"
+        limpo = re.sub(r'[^0-9X]', '', texto)
+        sufixo = limpo[-5:].zfill(5)
+        return f"IQ30{sufixo}"
 
     def _registrar_entrada(self, texto_entrada: str) -> Tuple[bool, str, Dict[str, Any]]:
         """Processa a entrada e tenta registrar o consumo usando a lógica estrita."""
-        try:  # Tenta primeiro com o código como prontuário
-            prontuario = FrameSelfService.formatar_matricula(texto_entrada)
+        try:
+            prontuario = JanelaSelfService.formatar_matricula(texto_entrada)
             resultado = self._fachada.registrar_consumo(
                 prontuario, excecao_grupos=self._fachada.excessao_grupos
             )
@@ -419,12 +411,10 @@ class FrameSelfService(ttk.Frame):
                 return True, "Sucesso", resultado
 
             motivo = resultado.get("motivo", "Não autorizado")
-            # Se o motivo do erro NÃO for "não encontrado", retorna o erro direto.
             if "não encontrado" not in motivo.lower():
                 return False, motivo, resultado
 
             # Se "Estudante não encontrado", tenta busca por nome
-            # como fallback.
             return self._buscar_por_nome_e_registrar(texto_entrada)
 
         except Exception as e:
@@ -434,7 +424,7 @@ class FrameSelfService(ttk.Frame):
     def _buscar_por_nome_e_registrar(
         self, nome_busca: str
     ) -> Tuple[bool, str, Dict[str, Any]]:
-        """Busca por nome (fuzzy), e se encontrar um match claro, tenta registrar."""
+        """Busca por nome, e se encontrar um match claro, tenta registrar."""
         elegiveis = self._fachada.obter_estudantes_para_sessao(
             consumido=False, pular_grupos=True
         )
@@ -444,8 +434,8 @@ class FrameSelfService(ttk.Frame):
             nome_estudante = estudante.get("nome", "").lower()
             if not nome_estudante:
                 continue
-            score = fuzz.partial_ratio(nome_lower, nome_estudante)
-            if score >= 90:
+            score = fuzz.ratio(nome_lower, nome_estudante)
+            if score >= 85:
                 estudante["score"] = score
                 correspondencias.append(estudante)
 
@@ -456,20 +446,15 @@ class FrameSelfService(ttk.Frame):
         melhor_match = correspondencias[0]
 
         if len(correspondencias) > 1 and (
-            melhor_match["score"] < 98
+            melhor_match["score"] < 95
             or (melhor_match["score"] - correspondencias[1]["score"]) < 10
         ):
             msg = "Múltiplos resultados. Seja mais específico."
             return False, msg, {"nome": nome_busca, "turma": "Busca Ambigua"}
 
         prontuario_encontrado = melhor_match.get("pront")
-        if not prontuario_encontrado:
-            return False, "Prontuário não encontrado para o nome.", {"nome": nome_busca, "turma": "Erro Interno"}
-
-        # Usa registrar_consumo com pular_grupos=True para consistência com a busca
-        # que também ignora grupos.
-        resultado_registro = self._fachada.registrar_consumo(
-            prontuario_encontrado, pular_grupos=True
+        resultado_registro = self._fachada.registrar_consumo_com_reserva(
+            prontuario_encontrado, excecao_grupos=self._fachada.excessao_grupos
         )
         if resultado_registro.get("autorizado"):
             return True, "Sucesso", resultado_registro
@@ -496,7 +481,7 @@ class FrameSelfService(ttk.Frame):
                 if not nome_estudante:
                     continue
 
-                score = fuzz.partial_ratio(nome_lower, nome_estudante)
+                score = fuzz.ratio(nome_lower, nome_estudante)
                 if score >= 75:  # Limiar mais baixo para sugestões
                     estudante["score"] = score
                     correspondencias.append(estudante)
@@ -542,306 +527,13 @@ class FrameSelfService(ttk.Frame):
             dur = 200 if sucesso else 1000
             winsound.Beep(freq, dur)
         except ImportError:
-            # Módulo winsound não disponível em sistemas não-Windows.
-            logger.debug(
-                "Módulo winsound não disponível, sem som de feedback.")
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.warning("Não foi possível tocar som de feedback: %s", e)
+            pass
+        except Exception:  # pylint: disable=broad-exception-caught
+            pass
 
-
-class AbaDashboard(ttk.Frame):
-    """Painel com as métricas da sessão de autoatendimento."""
-
-    def __init__(self, master: tk.Widget, fachada: "FachadaRegistro", id_sessao: int):
-        super().__init__(master, padding=20)
-        self.fachada = fachada
-        self.id_sessao = id_sessao
-
-        self.rowconfigure(1, weight=1)
-        self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
-
-        ttk.Label(self, text="Dashboard da Sessão", font=("Segoe UI", 24, "bold")).grid(
-            row=0, column=0, columnspan=2, sticky="w", pady=(0, 20)
-        )
-
-        card_total = ttk.Frame(self, bootstyle="primary", padding=20)
-        card_total.grid(row=1, column=0, sticky="nsew", padx=(0, 10))
-        ttk.Label(card_total, text="Consumos Registrados", font=(
-            "Segoe UI", 12), bootstyle="@primary").pack()
-        self.lbl_total_consumos = ttk.Label(
-            card_total, text="0", font=("Segoe UI", 48, "bold"), bootstyle="@primary"
-        )
-        self.lbl_total_consumos.pack(expand=True)
-
-        card_ultimo = ttk.Frame(self, bootstyle="info", padding=20)
-        card_ultimo.grid(row=1, column=1, sticky="nsew", padx=(10, 0))
-        ttk.Label(card_ultimo, text="Último Registro", font=(
-            "Segoe UI", 12), bootstyle="@info").pack()
-        self.lbl_ultimo_consumo_nome = ttk.Label(
-            card_ultimo, text="--", font=("Segoe UI", 22, "bold"), bootstyle="@info", wraplength=300
-        )
-        self.lbl_ultimo_consumo_nome.pack(expand=True)
-        self.lbl_ultimo_consumo_hora = ttk.Label(
-            card_ultimo, text="", font=("Segoe UI", 14), bootstyle="@info"
-        )
-        self.lbl_ultimo_consumo_hora.pack()
-
-        self.atualizar_dados()
-
-    def atualizar_dados(self, ultimo_consumo: Optional[Tuple[str, ...]] = None):
-        """Atualiza os contadores e informações no dashboard."""
-        try:
-            consumidos = self.fachada.obter_estudantes_para_sessao(
-                consumido=True)
-            self.lbl_total_consumos.config(text=str(len(consumidos)))
-
-            if ultimo_consumo:
-                # (prontuario, nome, turma, hora, prato)
-                nome = ultimo_consumo[1]
-                hora = ultimo_consumo[3]
-                self.lbl_ultimo_consumo_nome.config(text=nome)
-                self.lbl_ultimo_consumo_hora.config(text=f"às {hora}")
-        except Exception as e:
-            logger.error("Erro ao atualizar dashboard: %s", e)
-
-
-class AbaConsumos(ttk.Frame):
-    """Painel com a lista de consumos registrados na sessão."""
-
-    def __init__(self, master: tk.Widget, fachada: "FachadaRegistro", id_sessao: int):
-        super().__init__(master)
-        self.fachada = fachada
-        self.id_sessao = id_sessao
-
-        self.pack_propagate(False)
-
-        colunas = [
-            {"text": "Prontuário", "iid": "pront", "width": 120},
-            {"text": "Nome", "iid": "nome", "width": 300, "stretch": True},
-            {"text": "Turma", "iid": "turma", "width": 200},
-            {"text": "Hora", "iid": "hora", "width": 100},
-            {"text": "Prato/Item", "iid": "prato", "width": 150},
-        ]
-        self.tree = TreeviewSimples(self, dados_colunas=colunas, height=20)
-        self.tree.pack(fill="both", expand=True)
-
-        self.carregar_consumos()
-
-    def carregar_consumos(self):
-        """Carrega a lista inicial de estudantes que já consumiram."""
-        try:
-            consumidos = self.fachada.obter_estudantes_para_sessao(
-                consumido=True)
-            consumidos.sort(key=lambda x: x.get(
-                "hora_consumo", ""), reverse=True)
-
-            dados_tabela = [
-                (c.get("pront"), c.get("nome"), c.get("turma"),
-                 c.get("hora_consumo"), c.get("prato"))
-                for c in consumidos
-            ]
-            self.tree.construir_dados_tabela(dados_tabela)
-        except Exception as e:
-            logger.error("Erro ao carregar consumos: %s", e)
-
-    def adicionar_consumo(self, dados_estudante: Tuple[str, ...]):
-        """Adiciona uma nova linha no topo da tabela de consumos."""
-        self.tree.view.insert("", 0, values=dados_estudante)
-        self.tree.apply_zebra_striping()
-
-
-class SessionSelectionDialog(tk.Toplevel):
-    """Diálogo para seleção da sessão de trabalho."""
-
-    def __init__(self, parent, sessoes: list[dict[str, Any]]):
-        super().__init__(parent)
-        self.title("Selecionar Sessão")
-        self.geometry("450x350")
-        self.transient(parent)
-        self.grab_set()
-
-        self.selected_id = None
-        self.sessoes = sessoes
-
-        label = ttk.Label(
-            self, text="Selecione uma sessão para iniciar:", font=("Segoe UI", 12))
-        label.pack(pady=10)
-
-        self.listbox = tk.Listbox(self, font=("Segoe UI", 10), height=10)
-        self.listbox.pack(pady=5, padx=10, fill="both", expand=True)
-
-        for sessao in self.sessoes:
-            texto = f"{sessao['refeicao'].capitalize()} - {sessao['data']} {sessao['hora']}"
-            self.listbox.insert(tk.END, texto)
-
-        if self.sessoes:
-            self.listbox.selection_set(len(self.sessoes) - 1)
-
-        btn_frame = ttk.Frame(self)
-        btn_frame.pack(pady=10)
-
-        ok_btn = ttk.Button(btn_frame, text="OK",
-                            command=self._on_ok, bootstyle="success")
-        ok_btn.pack(side="left", padx=5)
-
-        cancel_btn = ttk.Button(
-            btn_frame, text="Cancelar", command=self._on_cancel, bootstyle="secondary")
-        cancel_btn.pack(side="left", padx=5)
-
-        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
-        self.listbox.bind("<Double-1>", self._on_ok)
-
-    def _on_ok(self, _=None):
-        selection = self.listbox.curselection()
-        if selection:
-            self.selected_id = self.sessoes[selection[0]]['id']
+    def _ao_fechar(self):
+        """Limpa recursos ao fechar a janela."""
+        self._running = False
+        if self._cap:
+            self._cap.release()
         self.destroy()
-
-    def _on_cancel(self):
-        self.selected_id = None
-        self.destroy()
-
-
-class AppSelfService(ttk.Window):
-    """Aplicação de autoatendimento."""
-
-    def __init__(self):
-        super().__init__(themename="sandstone", title="📷 Autoatendimento")
-        self.geometry("1280x800")
-        self.minsize(900, 600)
-
-        try:
-            self.fachada_nucleo = FachadaRegistro()
-        except Exception:
-            Messagebox.show_error(
-                "Erro Fatal", "Não foi possível iniciar o backend. Verifique o console.")
-            traceback.print_exc()
-            self.destroy()
-            return
-
-        self.id_sessao_ativa = self._selecionar_sessao()
-        if not self.id_sessao_ativa:
-            self.after(100, self.destroy)
-            return
-
-        self.fachada_nucleo.id_sessao_ativa = self.id_sessao_ativa
-
-        self.selected_frame_name: str = ""
-        self.buttons: Dict[str, ttk.Button] = {}
-        self.frames: Dict[str, ttk.Frame] = {}
-
-        self._criar_widgets()
-        self.protocol("WM_DELETE_WINDOW", self._on_closing)
-
-    def _selecionar_sessao(self) -> Optional[int]:
-        sessoes = self.fachada_nucleo.listar_todas_sessoes()
-        if not sessoes:
-            Messagebox.show_warning(
-                "Nenhuma Sessão", "Nenhuma sessão de refeição foi encontrada no banco de dados.")
-            return None
-
-        dialog = SessionSelectionDialog(self, sessoes)
-        self.wait_window(dialog)
-        return dialog.selected_id
-
-    def _criar_widgets(self):
-        self.rowconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
-
-        navigation_frame = ttk.Frame(
-            self, bootstyle="dark", padding=(5, 5, 5, 5))
-        navigation_frame.grid(row=0, column=0, sticky=NSEW)
-        navigation_frame.rowconfigure(4, weight=1)
-
-        self.content_frame = ttk.Frame(self, padding=0)
-        self.content_frame.grid(row=0, column=1, sticky=NSEW)
-        self.content_frame.rowconfigure(0, weight=1)
-        self.content_frame.columnconfigure(0, weight=1)
-
-        self.frames["selfservice"] = FrameSelfService(
-            self.content_frame, self.fachada_nucleo, self.notificar_sucesso_registro)
-        self.frames["dashboard"] = AbaDashboard(
-            self.content_frame, self.fachada_nucleo, self.id_sessao_ativa)
-        self.frames["consumos"] = AbaConsumos(
-            self.content_frame, self.fachada_nucleo, self.id_sessao_ativa)
-
-        paginas = {
-            "selfservice": ("📷", "Câmera"),
-            "dashboard": ("📊", "Dashboard"),
-            "consumos": ("📋", "Registros"),
-        }
-
-        for i, (nome, (icone, texto)) in enumerate(paginas.items()):
-            btn = ttk.Button(
-                navigation_frame,
-                text=f" {icone} {texto}",
-                command=lambda n=nome: self.show_frame(n),
-                bootstyle="dark",
-                padding=(10, 10),
-            )
-            btn.grid(row=i, column=0, sticky="EW", pady=(0, 5))
-            self.buttons[nome] = btn
-
-        btn_sair = ttk.Button(
-            navigation_frame,
-            text="❌ Sair",
-            command=self._on_closing,
-            bootstyle="dark",
-            padding=(10, 10),
-        )
-        btn_sair.grid(row=5, column=0, sticky="sew")
-
-        self.show_frame("selfservice")
-
-    def show_frame(self, nome_pagina: str):
-        if self.selected_frame_name == nome_pagina:
-            return
-
-        if self.selected_frame_name and self.selected_frame_name in self.frames:
-            self.frames[self.selected_frame_name].grid_remove()
-            self.buttons[self.selected_frame_name].config(bootstyle="dark")
-
-        self.buttons[nome_pagina].config(bootstyle="light")
-        self.selected_frame_name = nome_pagina
-        frame_ativo = self.frames[nome_pagina]
-        frame_ativo.grid(row=0, column=0, sticky=NSEW)
-
-    def notificar_sucesso_registro(self, dados_estudante: Tuple[str, ...]):
-        self.frames["consumos"].adicionar_consumo(dados_estudante)
-        self.frames["dashboard"].atualizar_dados(
-            ultimo_consumo=dados_estudante)
-
-    def _on_closing(self):
-        if "selfservice" in self.frames:
-            self.frames["selfservice"].stop()
-        try:
-            self.fachada_nucleo.fechar_conexao()
-        except Exception as e:
-            logger.warning("Erro ao fechar conexão com DB: %s", e)
-        self.destroy()
-
-
-def main():
-    """Ponto de entrada para a aplicação de autoatendimento."""
-    log_format = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
-    logging.basicConfig(level=logging.INFO, format=log_format)
-    logging.getLogger().setLevel(logging.INFO)
-
-    try:
-        app = AppSelfService()
-        if app.id_sessao_ativa:
-            app.mainloop()
-    except Exception:
-        logger.critical(
-            "Erro fatal ao iniciar a aplicação de autoatendimento.")
-        logger.critical(traceback.format_exc())
-        Messagebox.show_error(
-            "Erro Crítico",
-            "A aplicação encontrou um erro irrecuperável e será fechada. "
-            "Verifique os logs para mais detalhes.",
-        )
-
-
-if __name__ == "__main__":
-    main()

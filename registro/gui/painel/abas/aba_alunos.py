@@ -10,9 +10,9 @@ import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, W, X
 from ttkbootstrap.dialogs import Messagebox
 
-from registro.controles.rounded_button import RoundedButton
-from registro.dialogos import StudentDialog
-from registro.controles.treeview_simples import TreeviewSimples
+from registro.gui.comum.controles.rounded_button import RoundedButton
+from registro.gui.painel.dialogos import StudentDialog
+from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 
 
 class AbaAlunos(ttk.Frame):

@@ -7,3 +7,8 @@ The main entry point for the meal registration application.
 This script imports and calls the main function from the gui module
 to start the graphical user interface.
 """
+
+from registro.gui.registrar.app import main
+
+if __name__ == "__main__":
+    main()

@@ -21,7 +21,7 @@ from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
 
-from registro.gui.constants import (
+from registro.gui.comum.constants import (
     CSIDL_PERSONAL,
     EXCECOES_CAPITALIZACAO,
     MAPA_OFUSCAMENTO_PRONTUARIO,

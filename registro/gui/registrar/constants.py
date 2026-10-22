@@ -35,47 +35,14 @@ from registro.nucleo.constants import (
     URL_BANCO_DADOS,
 )
 
-EXCECOES_CAPITALIZACAO: Set[str] = {
-    "a",
-    "o",
-    "as",
-    "os",
-    "de",
-    "do",
-    "da",
-    "dos",
-    "das",
-    "e",
-    "é",
-    "em",
-    "com",
-    "sem",
-    "ou",
-    "para",
-    "por",
-    "pelo",
-    "pela",
-    "no",
-    "na",
-    "nos",
-    "nas",
-}
-
-TRADUCAO_CHAVE_EXTERNA: Dict[str, str] = {
-    "matrícula iq": "pront",
-    "matrícula": "pront",
-    "prontuário": "pront",
-    "refeição": "dish",
-    "curso": "turma",
-    "situação": "status",
-    "nome completo": "nome",
-}
-
-MAPA_OFUSCAMENTO_PRONTUARIO: Dict[int, int] = str.maketrans(
-    "0123456789Xx", "abcdefghijkk"
+from registro.gui.comum.constants import (
+    CSIDL_PERSONAL,
+    EXCECOES_CAPITALIZACAO,
+    MAPA_OFUSCAMENTO_PRONTUARIO,
+    REGEX_LIMPEZA_PRONTUARIO,
+    SHGFP_TYPE_CURRENT,
+    TRADUCAO_CHAVE_EXTERNA,
 )
-
-REGEX_LIMPEZA_PRONTUARIO: re.Pattern[str] = re.compile(r"^[Ii][Qq]30+")
 
 TURMAS_INTEGRADO: List[str] = [
     "1º A - MAC",
@@ -101,6 +68,3 @@ DadosNovaSessao = TypedDict(
     },
 )
 SESSAO = DadosNovaSessao
-
-CSIDL_PERSONAL: int = 5
-SHGFP_TYPE_CURRENT: int = 0

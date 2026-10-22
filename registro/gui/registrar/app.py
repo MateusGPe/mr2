@@ -24,13 +24,13 @@ from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
 
-from registro.gui.constants import DadosNovaSessao
-from registro.gui.dialogo_filtro_turmas import DialogoFiltroTurmas
-from registro.gui.dialogo_sessao import DialogoSessao
-from registro.gui.janela_self_service import JanelaSelfService
-from registro.gui.painel_acao_busca import PainelAcaoBusca
-from registro.gui.painel_status_registrados import PainelStatusRegistrados
-from registro.gui.utils import capitalizar
+from registro.gui.registrar.constants import DadosNovaSessao
+from registro.gui.registrar.dialogo_filtro_turmas import DialogoFiltroTurmas
+from registro.gui.registrar.dialogo_sessao import DialogoSessao
+from registro.gui.registrar.janela_self_service import JanelaSelfService
+from registro.gui.registrar.painel_acao_busca import PainelAcaoBusca
+from registro.gui.registrar.painel_status_registrados import PainelStatusRegistrados
+from registro.gui.comum.utils import capitalizar
 import ttkbootstrap as ttk
 from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
