@@ -23,15 +23,13 @@ from requests.exceptions import RequestException
  
 from registro.nucleo.exceptions import ErroAPIGoogle
 
-SCOPES = [
-    "https://www.googleapis.com/auth/spreadsheets",
-    "https://www.googleapis.com/auth/drive",
-]
-
-CAMINHO_CONFIG = Path("./config")
-CAMINHO_TOKEN = CAMINHO_CONFIG / "token.json"
-CAMINHO_CREDENCIAS = CAMINHO_CONFIG / "credentials.json"
-CAMINHO_PLANILHA_JSON = CAMINHO_CONFIG / "spreadsheet.json"
+from registro.nucleo.constants import (
+    CAMINHO_CREDENCIAS,
+    CAMINHO_TOKEN,
+    DIRETORIO_CONFIG as CAMINHO_CONFIG,
+    ESCOPOS as SCOPES,
+    JSON_ID_PLANILHA as CAMINHO_PLANILHA_JSON,
+)
 
 
 def _chave_identificadora_linha(linha: List[str]) -> tuple[str, ...]:

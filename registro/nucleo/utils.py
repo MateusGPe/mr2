@@ -11,12 +11,16 @@ processamento de texto e tipos de dados customizados.
 """
 import csv
 import ctypes
+import json
+import logging
 import os
 import platform
 import re
 import sys
 from pathlib import Path
-from typing import Callable, Dict, List, Literal, Optional, Tuple, TypedDict
+from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, TypedDict, Union
+
+logger = logging.getLogger(__name__)
 
 from fuzzywuzzy import fuzz
 
@@ -172,3 +176,59 @@ def ajustar_chaves_e_valores(dicionario_entrada: Dict) -> Dict:
         dicionario_ajustado[nova_chave] = novo_valor
 
     return dicionario_ajustado
+
+
+def carregar_json(nome_arquivo: Union[str, Path]) -> Optional[Any]:
+    """Carrega dados de um arquivo JSON de forma segura."""
+    logger.debug("Carregando JSON de: %s", nome_arquivo)
+    try:
+        with open(nome_arquivo, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        logger.error("Erro ao carregar JSON de %s: %s", nome_arquivo, e)
+        return None
+
+
+def salvar_json(nome_arquivo: Union[str, Path], dados: Union[Dict, List, Any]) -> bool:
+    """Salva dados em um arquivo JSON com formatação legível."""
+    logger.debug("Salvando JSON em: %s", nome_arquivo)
+    try:
+        caminho = Path(nome_arquivo)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        with open(caminho, "w", encoding="utf-8") as f:
+            json.dump(dados, f, indent=2, ensure_ascii=False)
+        return True
+    except Exception as e:
+        logger.error("Erro ao salvar JSON em %s: %s", nome_arquivo, e)
+        return False
+
+
+def carregar_csv_como_dict(nome_arquivo: Union[str, Path]) -> Optional[List[Dict[str, str]]]:
+    """Lê um arquivo CSV e o retorna como uma lista de dicionários."""
+    logger.debug("Carregando CSV como dict de: %s", nome_arquivo)
+    try:
+        with open(nome_arquivo, "r", newline="", encoding="utf-8") as f:
+            return list(csv.DictReader(f))
+    except Exception as e:
+        logger.error("Erro ao ler CSV de %s: %s", nome_arquivo, e)
+        return None
+
+
+def salvar_csv_de_lista(dados: List[List[Any]], nome_arquivo: Union[str, Path], **kwargs) -> bool:
+    """Salva uma lista de listas em um arquivo CSV."""
+    logger.debug("Salvando lista para CSV: %s", nome_arquivo)
+    if not dados:
+        logger.warning("Nenhum dado para salvar em: %s.", nome_arquivo)
+        return True
+    try:
+        caminho = Path(nome_arquivo)
+        caminho.parent.mkdir(parents=True, exist_ok=True)
+        with open(caminho, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, **kwargs)
+            writer.writerows(dados)
+        logger.info("%s linhas salvas no CSV: %s", len(dados), nome_arquivo)
+        return True
+    except Exception as e:
+        logger.error("Erro ao salvar CSV em %s: %s", nome_arquivo, e)
+        return False
+

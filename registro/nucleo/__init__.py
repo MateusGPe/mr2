@@ -8,8 +8,8 @@
 """
 Pacote principal da lógica de negócio para o sistema de registro de refeições.
 
-Este pacote expõe a classe `FachadaRegistro` como a única interface
-pública para interação com o sistema, além dos tipos de dados e exceções
+Este pacote expõe a classe `FachadaRegistro` como a interface pública
+unificada para interação com o sistema, além dos tipos de dados e exceções
 necessários.
 """
 
@@ -22,7 +22,6 @@ from registro.nucleo.exceptions import (
 )
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.utils import DADOS_SESSAO
-from registro.nucleo import service_logic
 
 __all__ = [
     "FachadaRegistro",
@@ -32,5 +31,4 @@ __all__ = [
     "ErroSessaoNaoAtiva",
     "ErroImportacaoDados",
     "ErroAPIGoogle",
-    "service_logic"
 ]

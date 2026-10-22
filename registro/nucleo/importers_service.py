@@ -69,10 +69,12 @@ def importar_estudantes_csv(
             leitor = csv.DictReader(arquivo_csv)
             for i, linha in enumerate(leitor):
                 linha_original = linha.copy()
+                if not any(v and str(v).strip() for v in linha_original.values()):
+                    continue
                 linha = ajustar_chaves_e_valores(linha)
                 pront = linha.get("pront")
                 if not pront:
-                    logger.warning(
+                    logger.debug(
                         "Linha %d do CSV ignorada: 'prontuário' ausente ou vazio. Dados: %s",
                         i + 2,  # +1 para cabeçalho, +1 para índice 0
                         linha_original,
@@ -162,6 +164,8 @@ def importar_reservas_csv(
         with open(caminho_arquivo_csv, "r", encoding="utf-8") as f:
             leitor_datas = csv.DictReader(f)
             for linha in leitor_datas:
+                if not any(v and str(v).strip() for v in linha.values()):
+                    continue
                 linha_ajustada = ajustar_chaves_e_valores(linha)
                 if data := linha_ajustada.get("data"):
                     datas_no_csv.add(data)
@@ -183,6 +187,8 @@ def importar_reservas_csv(
             leitor = csv.DictReader(arquivo_csv)
             for i, linha in enumerate(leitor):
                 linha_original = linha.copy()
+                if not any(v and str(v).strip() for v in linha_original.values()):
+                    continue
                 linha = ajustar_chaves_e_valores(linha)
                 pront = linha.get("pront")
                 data = linha.get("data")

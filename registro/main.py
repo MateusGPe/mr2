@@ -1,4 +1,4 @@
-from registro.app_principal import App
+from registro.gui.painel.app import App
 
 if __name__ == "__main__":
     app = App()
