@@ -16,18 +16,6 @@ from registro.nucleo.repository import (
 )
 
 
-@pytest.fixture
-def repos(db_session: Session):
-    """Agrupa todos os repositórios para facilitar injeção nos serviços."""
-    return {
-        "sessao": RepositorioSessao(db_session),
-        "estudante": RepositorioEstudante(db_session),
-        "grupo": RepositorioGrupo(db_session),
-        "reserva": RepositorioReserva(db_session),
-        "consumo": RepositorioConsumo(db_session),
-    }
-
-
 def test_iniciar_sessao_lanche_sucesso(repos, criar_grupo):
     """Inicia sessão de lanche com grupos associados."""
     g1 = criar_grupo(nome="1º A - MEC")

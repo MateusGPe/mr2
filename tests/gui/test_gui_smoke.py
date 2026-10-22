@@ -281,3 +281,21 @@ def test_dialogos_autoatendimento_smoke(app_root, mock_fachada):
         diag_det.destroy()
 
 
+def test_frame_self_service_totem_smoke(app_root, mock_fachada):
+    """Testa a instanciação do FrameSelfService (totem)."""
+    from registro.gui.autoatendimento.totem import FrameSelfService
+
+    with patch.object(FrameSelfService, "_iniciar_camera"):
+        frame_totem = FrameSelfService(
+            master=app_root,
+            fachada=mock_fachada,
+            notification_callback=lambda dados: None,
+        )
+        assert frame_totem is not None
+        assert frame_totem.formatar_matricula("iq3001234") == "IQ3001234"
+        assert frame_totem.formatar_matricula("1234") == "IQ3001234"
+        frame_totem.stop()
+        frame_totem.destroy()
+
+
+

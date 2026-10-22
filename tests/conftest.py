@@ -55,6 +55,27 @@ def facade(db_session: Session) -> FachadaRegistro:
     return FachadaRegistro(sessao_db=db_session)
 
 
+@pytest.fixture
+def repos(db_session: Session) -> Dict[str, Any]:
+    """Agrupa todos os repositórios para facilitar injeção nos serviços."""
+    from registro.nucleo.repository import (
+        RepositorioConsumo,
+        RepositorioEstudante,
+        RepositorioGrupo,
+        RepositorioReserva,
+        RepositorioSessao,
+    )
+
+    return {
+        "sessao": RepositorioSessao(db_session),
+        "estudante": RepositorioEstudante(db_session),
+        "grupo": RepositorioGrupo(db_session),
+        "reserva": RepositorioReserva(db_session),
+        "consumo": RepositorioConsumo(db_session),
+    }
+
+
+
 # --- Factories para criação de dados de teste ---
 
 
