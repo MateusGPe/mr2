@@ -216,6 +216,9 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
 
 def main() -> None:
     """Ponto de entrada unificado para execução da aplicação."""
+    from registro.nucleo.logging_config import configurar_logging
+
+    configurar_logging("launcher")
     alvo = identificar_alvo_cli(sys.argv[1:])
     if alvo is None:
         alvo = abrir_menu_inicial()

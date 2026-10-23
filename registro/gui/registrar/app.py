@@ -707,6 +707,9 @@ class AppRegistro(tk.Tk):
 
 
 def main():
+    from registro.nucleo.logging_config import configurar_logging
+
+    configurar_logging("registrar")
     app = AppRegistro()
     app.mainloop()
 

@@ -472,9 +472,9 @@ class AppSelfService(ttk.Window):
 
 def main():
     """Ponto de entrada para a aplicação autônoma de autoatendimento."""
-    log_format = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
-    logging.basicConfig(level=logging.INFO, format=log_format)
-    logging.getLogger().setLevel(logging.INFO)
+    from registro.nucleo.logging_config import configurar_logging
+
+    configurar_logging("autoatendimento")
 
     try:
         app = AppSelfService()

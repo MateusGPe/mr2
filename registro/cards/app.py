@@ -519,6 +519,9 @@ class CardsApp(ttk.Window):
 
 def main():
     """Ponto de entrada para a aplicação gráfica de crachás."""
+    from registro.nucleo.logging_config import configurar_logging
+
+    configurar_logging("cards")
     app = CardsApp()
     app.mainloop()
 

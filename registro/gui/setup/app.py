@@ -1164,8 +1164,9 @@ class AppSetup(ttk.Window):
 
 def main():
     """Ponto de entrada para a Central de Configurações & Início Rápido."""
-    log_format = "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
-    logging.basicConfig(level=logging.INFO, format=log_format)
+    from registro.nucleo.logging_config import configurar_logging
+
+    configurar_logging("setup")
     app = AppSetup()
     app.mainloop()
 
