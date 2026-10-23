@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/constants.py (Constantes do Núcleo e Dados)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 """
 Módulo central do núcleo para definição de caminhos, configurações de dados,
 URLs de banco de dados e constantes de persistência.

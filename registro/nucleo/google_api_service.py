@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/google_api_service.py (Módulo Google API Service)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Módulo funcional para interagir com as APIs do Google, especificamente

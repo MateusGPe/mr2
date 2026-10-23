@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/services/consumo_service.py
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Serviço de registro, validação de políticas de consumo e estorno de refeições.

@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/services/stats_service.py
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Serviço de agregação analítica e estatísticas para sessões e dashboards.
@@ -12,6 +12,9 @@ import datetime as dt
 import logging
 from typing import Any, Dict, Optional, Set
 
+from sqlalchemy.orm import selectinload
+
+from registro.nucleo.models import Consumo, Estudante, Grupo, Reserva, Sessao
 from registro.nucleo.repository import (
     RepositorioConsumo,
     RepositorioEstudante,
@@ -33,32 +36,113 @@ def obter_estatisticas_dashboard(
     repo_grupo: RepositorioGrupo,
     repo_consumo: RepositorioConsumo,
 ) -> Dict[str, Any]:
-    """Calcula estatísticas consolidadas para o dashboard geral."""
+    """Calcula estatísticas consolidadas e distribuições para o dashboard geral."""
     hoje_iso = dt.date.today().isoformat()
     hoje_br = dt.date.today().strftime("%d/%m/%Y")
     ontem_iso = (dt.date.today() - dt.timedelta(days=1)).isoformat()
     ontem_br = (dt.date.today() - dt.timedelta(days=1)).strftime("%d/%m/%Y")
 
-    alunos = repo_estudante.ler_todos()
-    grupos = repo_grupo.ler_todos()
+    sessao_db = repo_estudante.obter_sessao()
 
+    # Estudantes
+    alunos = (
+        sessao_db.query(Estudante)
+        .options(selectinload(Estudante.grupos))
+        .all()
+    )
+    alunos_ativos = sum(1 for a in alunos if getattr(a, "ativo", True) is not False)
+    alunos_inativos = len(alunos) - alunos_ativos
+
+    # Grupos / Turmas
+    grupos = (
+        sessao_db.query(Grupo)
+        .options(selectinload(Grupo.estudantes))
+        .all()
+    )
+    grupos_ativos = sum(1 for g in grupos if getattr(g, "ativo", True) is not False)
+
+    # Reservas
+    reservas = (
+        sessao_db.query(Reserva)
+        .options(selectinload(Reserva.estudante).selectinload(Estudante.grupos))
+        .all()
+    )
     reservas_hoje = [
-        r
-        for r in repo_reserva.ler_todos()
-        if not r.cancelada and (r.data == hoje_iso or r.data == hoje_br)
+        r for r in reservas
+        if not r.cancelada and (r.data in (hoje_iso, hoje_br))
+    ]
+
+    # Consumos com carregamento eager de Sessão e Estudante
+    consumos = (
+        sessao_db.query(Consumo)
+        .options(
+            selectinload(Consumo.sessao),
+            selectinload(Consumo.reserva),
+            selectinload(Consumo.estudante).selectinload(Estudante.grupos),
+        )
+        .all()
+    )
+
+    consumos_hoje = [
+        c for c in consumos
+        if c.sessao and (c.sessao.data in (hoje_iso, hoje_br))
     ]
 
     consumos_ontem = [
-        c
-        for c in repo_consumo.ler_todos()
-        if c.data == ontem_iso or c.data == ontem_br
+        c for c in consumos
+        if c.sessao and (c.sessao.data in (ontem_iso, ontem_br))
+    ]
+
+    # Distribuição de Pratos (a partir de reservas e consumos de hoje)
+    dist_pratos: Dict[str, int] = {}
+    for r in reservas_hoje:
+        prato = r.prato.strip() if r.prato else "Padrão"
+        dist_pratos[prato] = dist_pratos.get(prato, 0) + 1
+
+    # Distribuição por Turmas
+    mapa_turmas: Dict[str, Dict[str, int]] = {}
+    for g in grupos:
+        mapa_turmas[g.nome] = {
+            "total_alunos": len(g.estudantes),
+            "reservas_hoje": 0,
+            "consumos_hoje": 0,
+        }
+
+    for r in reservas_hoje:
+        if r.estudante and r.estudante.grupos:
+            for g in r.estudante.grupos:
+                if g.nome in mapa_turmas:
+                    mapa_turmas[g.nome]["reservas_hoje"] += 1
+
+    for c in consumos_hoje:
+        if c.estudante and c.estudante.grupos:
+            for g in c.estudante.grupos:
+                if g.nome in mapa_turmas:
+                    mapa_turmas[g.nome]["consumos_hoje"] += 1
+
+    dist_turmas_lista = [
+        {
+            "turma": nome_t,
+            "total_alunos": dados["total_alunos"],
+            "reservas_hoje": dados["reservas_hoje"],
+            "consumos_hoje": dados["consumos_hoje"],
+        }
+        for nome_t, dados in sorted(mapa_turmas.items(), key=lambda x: x[0])
     ]
 
     return {
-        "alunos_ativos": len(alunos),
-        "reservas_hoje": len(reservas_hoje),
-        "consumo_ontem": len(consumos_ontem),
+        "alunos_total": len(alunos),
+        "alunos_ativos": alunos_ativos,
+        "alunos_inativos": alunos_inativos,
         "grupos_total": len(grupos),
+        "grupos_ativos": grupos_ativos,
+        "reservas_hoje": len(reservas_hoje),
+        "reservas_total": len([r for r in reservas if not r.cancelada]),
+        "consumos_hoje": len(consumos_hoje),
+        "consumo_ontem": len(consumos_ontem),
+        "consumos_total": len(consumos),
+        "distribuicao_pratos": dist_pratos,
+        "distribuicao_turmas": dist_turmas_lista,
     }
 
 

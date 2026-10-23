@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/registrar/constants.py (Constantes do Registro)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 """
 Módulo central para a definição de constantes utilizadas em toda a aplicação.
 

@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/facade.py (Fachada de Registro Unificada)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Fornece uma Fachada de alto nível para interagir com o subsistema
@@ -281,10 +281,37 @@ class FachadaRegistro:
             self._repo_estudante, self._repo_grupo, prontuario, nome, grupos
         )
 
-    def atualizar_estudante(self, id_estudante: int, dados: Dict[str, Any]) -> bool:
-        """Atualiza os dados de um estudante (ex: nome, status 'ativo')."""
+    def atualizar_estudante(
+        self,
+        id_estudante: int,
+        dados: Dict[str, Any],
+        grupos: Optional[List[str]] = None,
+    ) -> bool:
+        """Atualiza os dados de um estudante e seus grupos associados."""
         return service_logic.atualizar_estudante(
-            self._repo_estudante, id_estudante, dados
+            self._repo_estudante,
+            id_estudante,
+            dados,
+            repo_grupo=self._repo_grupo,
+            grupos=grupos,
+        )
+
+    def deletar_estudante(
+        self, id_estudante: int, forcar_desativacao: bool = False
+    ) -> Dict[str, Any]:
+        """Exclusão segura de estudante, com opção de desativação se houver histórico."""
+        return service_logic.deletar_ou_desativar_estudante(
+            self._repo_estudante,
+            self._repo_reserva,
+            self._repo_consumo,
+            id_estudante,
+            forcar_desativacao=forcar_desativacao,
+        )
+
+    def alternar_status_estudante(self, id_estudante: int) -> bool:
+        """Alterna o status de ativo/inativo do estudante."""
+        return service_logic.alternar_status_estudante(
+            self._repo_estudante, id_estudante
         )
 
     def listar_todos_os_estudantes(self) -> List[Dict[str, Any]]:
@@ -292,17 +319,33 @@ class FachadaRegistro:
         return service_logic.listar_todos_os_estudantes(self._repo_estudante)
 
     def listar_estudantes(
-        self, termo_busca: Optional[str] = None
+        self,
+        termo_busca: Optional[str] = None,
+        turma_nome: Optional[str] = None,
+        status_ativo: Optional[bool] = None,
     ) -> List[Dict[str, Any]]:
-        """Lista todos os estudantes, com busca por substring no nome ou prontuário."""
-        return service_logic.listar_estudantes(self._repo_estudante, termo_busca)
+        """Lista estudantes com suporte a filtro textual, por turma e status ativo."""
+        return service_logic.listar_estudantes(
+            self._repo_estudante,
+            termo_busca=termo_busca,
+            turma_nome=turma_nome,
+            status_ativo=status_ativo,
+        )
 
     def listar_estudantes_fuzzy(
-        self, termo_busca: Optional[str] = None, limite: int = 60
+        self,
+        termo_busca: Optional[str] = None,
+        limite: int = 60,
+        turma_nome: Optional[str] = None,
+        status_ativo: Optional[bool] = None,
     ) -> List[Dict[str, Any]]:
-        """Busca estudantes por similaridade aproximada (fuzzy matching)."""
+        """Busca estudantes por similaridade aproximada (fuzzy), respeitando filtros."""
         return service_logic.listar_estudantes_fuzzy(
-            self._repo_estudante, termo_busca, limite
+            self._repo_estudante,
+            termo_busca=termo_busca,
+            limite=limite,
+            turma_nome=turma_nome,
+            status_ativo=status_ativo,
         )
 
     def obter_todos_estudantes_com_grupos(self) -> Sequence[Estudante]:
@@ -563,16 +606,108 @@ class FachadaRegistro:
         """Remove a persistência de sessão e limpa a sessão ativa."""
         return service_logic.limpar_estado_sessao(self)
 
-    def exportar_estudantes_para_csv(self, caminho_arquivo: Union[str, Path]) -> str:
-        """Exporta os dados de estudantes cadastrados para um arquivo CSV."""
-        return service_logic.exportar_estudantes_para_csv(
-            self._repo_estudante, caminho_arquivo
+    # --- Gestão de Turmas / Grupos ---
+
+    def criar_grupo(self, nome: str, ativo: bool = True) -> Dict[str, Any]:
+        """Cria uma nova turma no sistema."""
+        return service_logic.criar_grupo(self._repo_grupo, nome, ativo=ativo)
+
+    def atualizar_grupo(self, id_grupo: int, dados: Dict[str, Any]) -> bool:
+        """Atualiza nome e/ou status de uma turma."""
+        return service_logic.atualizar_grupo(self._repo_grupo, id_grupo, dados)
+
+    def deletar_grupo(self, id_grupo: int, forcar: bool = False) -> Dict[str, Any]:
+        """Exclui uma turma (com validação se possui alunos ou sessões vinculadas)."""
+        return service_logic.deletar_grupo(self._repo_grupo, id_grupo, forcar=forcar)
+
+    def listar_turmas_detalhadas(
+        self, termo_busca: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Lista todas as turmas com quantidade de alunos e status."""
+        return service_logic.listar_turmas_detalhadas(
+            self._repo_grupo, termo_busca=termo_busca
         )
 
-    def exportar_reservas_para_csv(self, caminho_arquivo: Union[str, Path]) -> str:
+    def listar_alunos_por_turma(self, id_grupo: int) -> List[Dict[str, Any]]:
+        """Lista os alunos vinculados a uma turma específica."""
+        return service_logic.listar_alunos_por_turma(self._repo_grupo, id_grupo)
+
+    def vincular_aluno_turma(self, id_grupo: int, id_estudante: int) -> bool:
+        """Vincula um aluno a uma turma."""
+        return service_logic.vincular_aluno_turma(
+            self._repo_grupo, self._repo_estudante, id_grupo, id_estudante
+        )
+
+    def desvincular_aluno_turma(self, id_grupo: int, id_estudante: int) -> bool:
+        """Desvincula um aluno de uma turma."""
+        return service_logic.desvincular_aluno_turma(
+            self._repo_grupo, id_grupo, id_estudante
+        )
+
+    def exportar_estudantes_para_csv(
+        self,
+        caminho_arquivo: Union[str, Path],
+        estudantes_dados: Optional[List[Dict[str, Any]]] = None,
+    ) -> str:
+        """Exporta os dados de estudantes cadastrados para um arquivo CSV."""
+        return service_logic.exportar_estudantes_para_csv(
+            self._repo_estudante, caminho_arquivo, estudantes_dados=estudantes_dados
+        )
+
+    def exportar_estudantes_para_xlsx(
+        self,
+        caminho_arquivo: Union[str, Path],
+        estudantes_dados: Optional[List[Dict[str, Any]]] = None,
+    ) -> str:
+        """Exporta os dados de estudantes cadastrados para um arquivo Excel (.xlsx)."""
+        return service_logic.exportar_estudantes_para_xlsx(
+            self._repo_estudante, caminho_arquivo, estudantes_dados=estudantes_dados
+        )
+
+    def exportar_reservas_para_csv(
+        self,
+        caminho_arquivo: Union[str, Path],
+        reservas_dados: Optional[List[Dict[str, Any]]] = None,
+    ) -> str:
         """Exporta os dados de reservas cadastradas para um arquivo CSV."""
         return service_logic.exportar_reservas_para_csv(
-            self._repo_grupo, self._repo_reserva, caminho_arquivo
+            self._repo_grupo,
+            self._repo_reserva,
+            caminho_arquivo,
+            reservas_dados=reservas_dados,
+        )
+
+    def exportar_reservas_para_xlsx(
+        self,
+        caminho_arquivo: Union[str, Path],
+        reservas_dados: Optional[List[Dict[str, Any]]] = None,
+    ) -> str:
+        """Exporta os dados de reservas cadastradas para um arquivo Excel (.xlsx)."""
+        return service_logic.exportar_reservas_para_xlsx(
+            self._repo_grupo,
+            self._repo_reserva,
+            caminho_arquivo,
+            reservas_dados=reservas_dados,
+        )
+
+    def exportar_turmas_para_csv(
+        self,
+        caminho_arquivo: Union[str, Path],
+        turmas_dados: Optional[List[Dict[str, Any]]] = None,
+    ) -> str:
+        """Exporta turmas para um arquivo CSV."""
+        return service_logic.exportar_turmas_para_csv(
+            self._repo_grupo, caminho_arquivo, turmas_dados=turmas_dados
+        )
+
+    def exportar_turmas_para_xlsx(
+        self,
+        caminho_arquivo: Union[str, Path],
+        turmas_dados: Optional[List[Dict[str, Any]]] = None,
+    ) -> str:
+        """Exporta turmas para um arquivo Excel (.xlsx)."""
+        return service_logic.exportar_turmas_para_xlsx(
+            self._repo_grupo, caminho_arquivo, turmas_dados=turmas_dados
         )
 
     def obter_estatisticas_dashboard(self) -> Dict[str, Any]:

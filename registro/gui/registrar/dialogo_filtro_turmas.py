@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/registrar/dialogo_filtro_turmas.py (Diálogo de Filtro de Turmas)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import logging
 import tkinter as tk

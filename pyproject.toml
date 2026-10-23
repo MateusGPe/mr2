@@ -23,6 +23,7 @@ dependencies = [
     "opencv-python>=4.13.0.92",
     "pyzbar>=0.1.9",
     "pyinstaller>=6.19.0",
+    "openpyxl>=3.1.5",
 ]
 
 [project.scripts]

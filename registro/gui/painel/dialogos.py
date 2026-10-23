@@ -2,14 +2,14 @@
 # Arquivo: registro/gui/painel/dialogos.py (Módulo de Diálogos)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import tkinter as tk
 import traceback
 from datetime import datetime
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, END, EW, LEFT, E, W, X, HORIZONTAL
+from ttkbootstrap.constants import BOTH, END, EW, HORIZONTAL, LEFT, NSEW, RIGHT, E, W, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.widgets import DateEntry
@@ -30,6 +30,7 @@ class StudentDialog(ttk.Toplevel):
         self.fachada = fachada
         self.student_id = student_id
         self.result = False
+        self.var_ativo = tk.BooleanVar(value=True)
 
         self._create_widgets()
         self._load_data()
@@ -67,6 +68,14 @@ class StudentDialog(ttk.Toplevel):
         self.grupo_combobox = ttk.Combobox(form_frame, state="readonly")
         self.grupo_combobox.grid(row=5, column=0, sticky=EW, pady=(0, 15))
 
+        self.chk_ativo = ttk.Checkbutton(
+            form_frame,
+            text="Aluno Ativo no Sistema",
+            variable=self.var_ativo,
+            bootstyle="round-toggle",
+        )
+        self.chk_ativo.grid(row=6, column=0, sticky=W, pady=(0, 10))
+
         ttk.Separator(main_frame, orient=tk.HORIZONTAL).grid(
             row=1, column=0, sticky=EW, pady=10
         )
@@ -88,9 +97,9 @@ class StudentDialog(ttk.Toplevel):
     def _load_data(self):
         try:
             grupos = self.fachada.listar_todos_os_grupos()
-            self.grupo_combobox["values"] = [g["nome"] for g in grupos]
-            if grupos:
-                self.grupo_combobox.set(grupos[0]["nome"])
+            opcoes = ["(Nenhuma)"] + [g["nome"] for g in grupos]
+            self.grupo_combobox["values"] = opcoes
+            self.grupo_combobox.set(opcoes[1] if len(opcoes) > 1 else "(Nenhuma)")
         except Exception:
             Messagebox.show_error(
                 "Não foi possível carregar a lista de turmas.", "Erro"
@@ -113,9 +122,12 @@ class StudentDialog(ttk.Toplevel):
             self.nome_entry.insert(0, student_data.nome)
             self.prontuario_entry.insert(0, student_data.prontuario)
             self.prontuario_entry.config(state="readonly")
+            self.var_ativo.set(bool(student_data.ativo) if student_data.ativo is not None else True)
 
             if student_data.grupos:
                 self.grupo_combobox.set(student_data.grupos[0].nome)
+            else:
+                self.grupo_combobox.set("(Nenhuma)")
         except Exception:
             Messagebox.show_error(
                 "Erro ao carregar dados do aluno. Verifique o console.", "Erro"
@@ -126,6 +138,7 @@ class StudentDialog(ttk.Toplevel):
         nome = self.nome_entry.get().strip()
         prontuario = self.prontuario_entry.get().strip()
         grupo_selecionado = self.grupo_combobox.get()
+        grupos = [grupo_selecionado] if grupo_selecionado and grupo_selecionado != "(Nenhuma)" else []
 
         if not nome or not prontuario:
             Messagebox.show_warning("Nome e prontuário são obrigatórios.", "Validação")
@@ -133,15 +146,16 @@ class StudentDialog(ttk.Toplevel):
 
         try:
             if self.student_id:
-                # TODO: Permitir edição de grupo principal no StudentDialog
-                self.fachada.atualizar_estudante(self.student_id, {"nome": nome})
+                self.fachada.atualizar_estudante(
+                    self.student_id,
+                    {"nome": nome, "ativo": self.var_ativo.get()},
+                    grupos=grupos,
+                )
             else:
                 self.fachada.criar_estudante(
                     prontuario,
                     nome,
-                    grupos=[
-                        grupo_selecionado,
-                    ],
+                    grupos=grupos,
                 )
             self.result = True
             self.destroy()
@@ -149,13 +163,209 @@ class StudentDialog(ttk.Toplevel):
             Messagebox.show_error(str(e), "Erro ao Salvar")
         except Exception:
             Messagebox.show_error(
-                "Ocorreu um erro. Verifique o console.", "Erro Crítico"
+                "Ocorreu um erro ao salvar o aluno. Verifique o console.", "Erro Crítico"
             )
             traceback.print_exc()
 
     def _on_cancel(self):
         self.result = False
         self.destroy()
+
+
+class TurmaDialog(ttk.Toplevel):
+    def __init__(self, parent, fachada: FachadaRegistro, turma_id: int | None = None):
+        title = "Editar Turma" if turma_id else "Adicionar Nova Turma"
+        super().__init__(parent)
+        self.transient(parent)
+        self.grab_set()
+        self.title(title)
+
+        self.fachada = fachada
+        self.turma_id = turma_id
+        self.result = False
+        self.var_ativo = tk.BooleanVar(value=True)
+
+        self._create_widgets()
+        if self.turma_id:
+            self._load_turma_data()
+
+        self.protocol("WM_DELETE_WINDOW", self._on_cancel)
+        self.wait_window(self)
+
+    def _create_widgets(self):
+        main_frame = ttk.Frame(self, padding=20)
+        main_frame.pack(expand=True, fill=BOTH)
+        main_frame.columnconfigure(0, weight=1)
+
+        form_frame = ttk.Frame(main_frame)
+        form_frame.grid(row=0, column=0, sticky=EW)
+        form_frame.columnconfigure(0, weight=1)
+
+        ttk.Label(form_frame, text="Nome da Turma:", anchor=W).grid(
+            row=0, column=0, sticky=EW, pady=(0, 5)
+        )
+        self.nome_entry = ttk.Entry(form_frame, width=35)
+        self.nome_entry.grid(row=1, column=0, sticky=EW, pady=(0, 15))
+
+        self.chk_ativo = ttk.Checkbutton(
+            form_frame,
+            text="Turma Ativa",
+            variable=self.var_ativo,
+            bootstyle="round-toggle",
+        )
+        self.chk_ativo.grid(row=2, column=0, sticky=W, pady=(0, 10))
+
+        ttk.Separator(main_frame, orient=tk.HORIZONTAL).grid(
+            row=1, column=0, sticky=EW, pady=10
+        )
+
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.grid(row=2, column=0, sticky=EW)
+        btn_frame.columnconfigure(0, weight=1)
+        btn_frame.columnconfigure(1, weight=1)
+
+        ttk.Button(
+            btn_frame, text="Cancelar", command=self._on_cancel, bootstyle="outline"
+        ).grid(row=0, column=0, sticky=W)
+        ttk.Button(
+            btn_frame, text="Salvar", command=self._on_save, bootstyle="success"
+        ).grid(row=0, column=1, sticky=E)
+
+        self.nome_entry.focus_set()
+
+    def _load_turma_data(self):
+        try:
+            turmas = self.fachada.listar_turmas_detalhadas()
+            turma = next((t for t in turmas if t["id"] == self.turma_id), None)
+            if not turma:
+                Messagebox.show_error("Turma não encontrada.", "Erro")
+                self.destroy()
+                return
+
+            self.nome_entry.insert(0, turma["nome"])
+            self.var_ativo.set(turma["ativo"])
+        except Exception:
+            traceback.print_exc()
+
+    def _on_save(self):
+        nome = self.nome_entry.get().strip()
+        ativo = self.var_ativo.get()
+
+        if not nome:
+            Messagebox.show_warning("O nome da turma é obrigatório.", "Validação")
+            return
+
+        try:
+            if self.turma_id:
+                self.fachada.atualizar_grupo(self.turma_id, {"nome": nome, "ativo": ativo})
+            else:
+                self.fachada.criar_grupo(nome, ativo=ativo)
+            self.result = True
+            self.destroy()
+        except ValueError as e:
+            Messagebox.show_error(str(e), "Erro ao Salvar")
+        except Exception as e:
+            Messagebox.show_error(f"Erro inesperado: {e}", "Erro")
+
+    def _on_cancel(self):
+        self.result = False
+        self.destroy()
+
+
+class VincularAlunoDialog(ttk.Toplevel):
+    def __init__(self, parent, fachada: FachadaRegistro, turma_id: int, nome_turma: str):
+        super().__init__(parent)
+        self.transient(parent)
+        self.grab_set()
+        self.title(f"Vincular Aluno à Turma: {nome_turma}")
+        self.geometry("600x500")
+
+        self.fachada = fachada
+        self.turma_id = turma_id
+        self.result = False
+
+        self._create_widgets()
+        self._carregar_alunos()
+
+        self.protocol("WM_DELETE_WINDOW", self.destroy)
+        self.wait_window(self)
+
+    def _create_widgets(self):
+        main_frame = ttk.Frame(self, padding=15)
+        main_frame.pack(expand=True, fill=BOTH)
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.rowconfigure(1, weight=1)
+
+        search_frame = ttk.Frame(main_frame)
+        search_frame.grid(row=0, column=0, sticky=EW, pady=(0, 10))
+
+        ttk.Label(search_frame, text="Buscar Aluno:").pack(side=LEFT, padx=(0, 5))
+        self.search_var = tk.StringVar()
+        self.search_var.trace_add("write", lambda *_: self._carregar_alunos())
+        self.entry_search = ttk.Entry(search_frame, textvariable=self.search_var)
+        self.entry_search.pack(side=LEFT, fill=X, expand=True)
+
+        from registro.gui.comum.controles.treeview_simples import TreeviewSimples
+
+        self.table = TreeviewSimples(
+            master=main_frame,
+            dados_colunas=[
+                {"text": "ID", "width": 50},
+                {"text": "Prontuário", "width": 120},
+                {"text": "Nome", "stretch": True},
+                {"text": "Turmas Atuais", "stretch": True},
+            ],
+            height=12,
+            header_bootstyle="primary",
+            select_bootstyle="primary",
+            enable_hover=True,
+        )
+        self.table.grid(row=1, column=0, sticky=NSEW)
+        self.table.view.bind("<Double-1>", lambda *_: self._vincular())
+
+        btn_frame = ttk.Frame(main_frame)
+        btn_frame.grid(row=2, column=0, sticky=EW, pady=(10, 0))
+
+        ttk.Button(btn_frame, text="Fechar", command=self.destroy, bootstyle="outline").pack(
+            side=LEFT
+        )
+        ttk.Button(
+            btn_frame,
+            text="Vincular Aluno Selecionado",
+            command=self._vincular,
+            bootstyle="success",
+        ).pack(side=RIGHT)
+
+    def _carregar_alunos(self):
+        try:
+            termo = self.search_var.get().strip()
+            alunos = self.fachada.listar_estudantes_fuzzy(termo_busca=termo, limite=80)
+            dados = [
+                (
+                    a["id"],
+                    a["prontuario"],
+                    a["nome"],
+                    ", ".join(a.get("grupos", [])),
+                )
+                for a in alunos
+            ]
+            self.table.construir_dados_tabela(dados)
+        except Exception:
+            traceback.print_exc()
+
+    def _vincular(self):
+        sel = self.table.obter_linha_selecionada()
+        if not sel:
+            Messagebox.show_warning("Selecione um aluno na tabela.", "Aviso")
+            return
+        id_aluno = int(sel[0])
+        try:
+            self.fachada.vincular_aluno_turma(self.turma_id, id_aluno)
+            self.result = True
+            Messagebox.show_info("Aluno vinculado com sucesso!", "Sucesso")
+            self.destroy()
+        except Exception as e:
+            Messagebox.show_error(f"Erro ao vincular: {e}", "Erro")
 
 
 class ReservaDialog(ttk.Toplevel):

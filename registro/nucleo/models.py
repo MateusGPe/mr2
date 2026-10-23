@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/models.py (Módulo de Modelos)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Define os modelos de dados SQLAlchemy que representam as tabelas do banco de
