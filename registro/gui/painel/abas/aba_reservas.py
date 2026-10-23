@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/painel/abas/aba_reservas.py (Aba de Reservas)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import tkinter as tk
 from tkinter import filedialog

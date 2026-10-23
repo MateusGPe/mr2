@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/registrar/dialogo_sessao.py (Diálogo de Gerenciamento de Sessão)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import datetime as dt
 import logging

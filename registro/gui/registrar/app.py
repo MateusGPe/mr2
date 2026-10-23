@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/registrar/app.py (Aplicação do Registro)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 import datetime as dt
 import json
 import logging

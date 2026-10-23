@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/services/estudante_service.py
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Serviço de gerenciamento de Estudantes (CRUD, filtros e buscas fuzzy).

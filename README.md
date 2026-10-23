@@ -122,4 +122,4 @@ Este projeto está licenciado sob os termos da [Licença MIT](LICENSE).
 
 **Mateus G. Pereira**  
 E-mail: [mateus.pereira@ifsp.edu.br](mailto:mateus.pereira@ifsp.edu.br)  
-Copyright (c) 2024-2025 Instituto Federal de Educação, Ciência e Tecnologia de São Paulo (IFSP)
+Copyright (c) 2024-2026 Mateus G. Pereira

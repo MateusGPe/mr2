@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/importar/patterns_find.py (Deteção de padrões em strings)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Funções utilitárias para detecção de padrões e tipos de dados em strings.

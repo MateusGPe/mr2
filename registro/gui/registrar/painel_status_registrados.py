@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/registrar/painel_status_registrados.py (Painel de Status)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import logging
 import tkinter as tk

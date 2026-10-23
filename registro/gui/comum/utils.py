@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/comum/utils.py (Utilitários Principais)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Módulo com funções utilitárias para a aplicação, incluindo manipulação de

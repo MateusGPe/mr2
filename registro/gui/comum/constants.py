@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/comum/constants.py (Constantes Comuns de GUI)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 """
 Constantes compartilhadas entre as diferentes interfaces gráficas do sistema.
 """

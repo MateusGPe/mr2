@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/importers_service.py (Importadores de Dados)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Funções para importar dados de estudantes e reservas, encapsulando a

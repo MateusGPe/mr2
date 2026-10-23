@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/painel/abas/aba_importacao.py (Aba de Importação)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 """
 Módulo de interface gráfica para importação de dados.
 Implementa um Wizard de 4 passos: Seleção, Revisão, Preview e Confirmação.

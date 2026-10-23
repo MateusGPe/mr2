@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/service_logic.py (Fachada de Serviços do Núcleo)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Fachada de serviços funcionais do núcleo de registro de refeições.

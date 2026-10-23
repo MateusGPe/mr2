@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/services/stats_service.py
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Serviço de agregação analítica e estatísticas para sessões e dashboards.

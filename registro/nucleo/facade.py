@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/facade.py (Fachada de Registro Unificada)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Fornece uma Fachada de alto nível para interagir com o subsistema

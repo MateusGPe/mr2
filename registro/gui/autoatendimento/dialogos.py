@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/autoatendimento/dialogos.py (Diálogos do Autoatendimento)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Diálogos interativos para operações de CRUD nos registros de consumo do autoatendimento:

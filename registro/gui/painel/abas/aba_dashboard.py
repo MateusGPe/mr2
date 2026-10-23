@@ -2,7 +2,7 @@
 # Arquivo: registro/gui/painel/abas/aba_dashboard.py (Aba de Dashboard)
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import traceback
 import ttkbootstrap as ttk

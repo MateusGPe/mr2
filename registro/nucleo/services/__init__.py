@@ -2,7 +2,7 @@
 # Arquivo: registro/nucleo/services/__init__.py
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
-# Copyright (c) 2024-2025 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+# Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
 Subpacote de serviços da lógica de negócio de registro de refeições.
