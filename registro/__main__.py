@@ -7,11 +7,12 @@
 """
 Ponto de entrada principal da aplicação de registro de refeições.
 
-Importa e executa a função principal do módulo de interface gráfica
-para iniciar o sistema de registro.
+Executa o despachante principal (launcher), que suporta flags de linha
+de comando ou exibe o menu gráfico de seleção entre os módulos.
 """
 
-from registro.gui.registrar.app import main
+from registro.launcher import main
 
 if __name__ == "__main__":
     main()
+

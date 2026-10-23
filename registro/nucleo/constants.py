@@ -8,10 +8,15 @@ Módulo central do núcleo para definição de caminhos, configurações de dado
 URLs de banco de dados e constantes de persistência.
 """
 
+import sys
 from pathlib import Path
 from typing import Dict, List, Set
 
-DIRETORIO_APP: Path = Path(".")
+if getattr(sys, "frozen", False):
+    DIRETORIO_APP: Path = Path(sys.executable).parent
+else:
+    DIRETORIO_APP: Path = Path(".")
+
 DIRETORIO_CONFIG: Path = DIRETORIO_APP / "config"
 DIRETORIO_LOG: Path = DIRETORIO_APP / "logs"
 

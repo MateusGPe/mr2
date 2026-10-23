@@ -1,14 +1,18 @@
 # -*- mode: python ; coding: utf-8 -*-
+from pathlib import Path
 from PyInstaller.utils.hooks import collect_data_files, collect_dynamic_libs
 
 # 1. Coleta de recursos compartilhados (dados e DLLs)
 datas = []
 datas += collect_data_files('ttkbootstrap')
 
+if Path('roboto.ttf').exists():
+    datas.append(('roboto.ttf', '.'))
+
 binaries = []
 binaries += collect_dynamic_libs('pyzbar')
 
-hidden_imports = ['pyzbar', 'cv2']
+hidden_imports = ['pyzbar', 'cv2', 'PIL', 'ttkbootstrap']
 
 # 2. Análise do app 'registrar'
 a_registrar = Analysis(
@@ -34,13 +38,14 @@ exe_registrar = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version='version_info.txt',
 )
 
 # 3. Análise do app 'painel'
@@ -67,13 +72,14 @@ exe_painel = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version='version_info.txt',
 )
 
 # 4. Análise do app 'autoatendimento'
@@ -100,13 +106,14 @@ exe_autoatendimento = EXE(
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,
-    upx=True,
+    upx=False,
     console=False,
     disable_windowed_traceback=False,
     argv_emulation=False,
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version='version_info.txt',
 )
 
 # 5. Agrupamento em um único diretório compartilhado ('dist/registro')
@@ -124,7 +131,7 @@ coll = COLLECT(
     a_autoatendimento.zipfiles,
     a_autoatendimento.datas,
     strip=False,
-    upx=True,
+    upx=False,
     upx_exclude=[],
     name='registro',
 )

@@ -1,6 +1,6 @@
 [project]
 name = "registro"
-version = "1.2.1"
+version = "1.2.2"
 description = "Sistema de registro de refeições com suporte a autoatendimento (totem), painel administrativo e sincronização com Google Sheets."
 readme = "README.md"
 requires-python = ">=3.11,<3.14"
@@ -20,6 +20,7 @@ dependencies = [
 ]
 
 [project.scripts]
+registro = "registro.launcher:main"
 registrar = "registro.gui.registrar.app:main"
 painel = "registro.gui.painel.app:main"
 autoatendimento = "registro.gui.autoatendimento.app:main"
