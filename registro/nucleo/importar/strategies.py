@@ -154,3 +154,38 @@ class CarregarGoogleSheets(EstrategiaCarregamento):
             return dados
         except Exception as e:
             raise ErroImportacaoDados(f"Erro no Google Sheets: {e}") from e
+
+
+class CarregarExcel(EstrategiaCarregamento):
+    """Carrega planilha Excel (.xlsx), lendo a primeira aba e ajustando campos."""
+
+    def carregar(self, fonte: str) -> List[Dict[str, Optional[str]]]:
+        try:
+            import openpyxl
+
+            wb = openpyxl.load_workbook(fonte, data_only=True)
+            sheet = wb.active
+            if not sheet:
+                return []
+
+            rows = list(sheet.iter_rows(values_only=True))
+            if not rows or len(rows) < 2:
+                return []
+
+            # Trata primeira linha como cabeçalho
+            cabecalho = [str(cell).strip() if cell is not None else "" for cell in rows[0]]
+            resultados = []
+            for r in rows[1:]:
+                if not any(r):
+                    continue
+                linha_dict = {}
+                for idx, col_name in enumerate(cabecalho):
+                    if col_name and idx < len(r):
+                        val = r[idx]
+                        linha_dict[col_name] = str(val).strip() if val is not None else ""
+                if linha_dict:
+                    resultados.append(ajustar_chaves_e_valores(linha_dict))
+
+            return resultados
+        except Exception as e:
+            raise ErroImportacaoDados(f"Erro ao ler arquivo Excel (.xlsx): {e}") from e

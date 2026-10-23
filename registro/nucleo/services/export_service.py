@@ -12,7 +12,7 @@ import csv
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import xlsxwriter
 from sqlalchemy.orm import selectinload
@@ -153,25 +153,29 @@ def exportar_sessao_para_xlsx(
 
 
 def exportar_estudantes_para_csv(
-    repo_estudante: RepositorioEstudante, caminho_arquivo: Union[str, Path]
+    repo_estudante: RepositorioEstudante,
+    caminho_arquivo: Union[str, Path],
+    estudantes_dados: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
-    """Exporta todos os estudantes cadastrados para um arquivo CSV."""
+    """Exporta estudantes cadastrados para um arquivo CSV."""
     caminho = Path(caminho_arquivo)
     caminho.parent.mkdir(parents=True, exist_ok=True)
-    estudantes = repo_estudante.ler_todos()
-    dados = []
-    for est in estudantes:
-        dados.append(
+
+    if estudantes_dados is not None:
+        dados = estudantes_dados
+    else:
+        estudantes = repo_estudante.ler_todos()
+        dados = [
             {
                 "id": est.id,
                 "prontuario": est.prontuario,
                 "nome": est.nome,
-                "grupos": ", ".join(g.nome for g in est.grupos)
-                if est.grupos
-                else "",
+                "grupos": ", ".join(g.nome for g in est.grupos) if est.grupos else "",
                 "ativo": "Sim" if getattr(est, "ativo", True) else "Não",
             }
-        )
+            for est in estudantes
+        ]
+
     keys = (
         list(dados[0].keys())
         if dados
@@ -184,18 +188,64 @@ def exportar_estudantes_para_csv(
     return str(caminho)
 
 
+def exportar_estudantes_para_xlsx(
+    repo_estudante: RepositorioEstudante,
+    caminho_arquivo: Union[str, Path],
+    estudantes_dados: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """Exporta estudantes cadastrados para um arquivo Excel (.xlsx)."""
+    caminho = Path(caminho_arquivo)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+
+    if estudantes_dados is not None:
+        dados = estudantes_dados
+    else:
+        estudantes = repo_estudante.ler_todos()
+        dados = [
+            {
+                "id": est.id,
+                "prontuario": est.prontuario,
+                "nome": est.nome,
+                "grupos": ", ".join(g.nome for g in est.grupos) if est.grupos else "",
+                "ativo": "Sim" if getattr(est, "ativo", True) else "Não",
+            }
+            for est in estudantes
+        ]
+
+    with xlsxwriter.Workbook(str(caminho)) as workbook:
+        ws = workbook.add_worksheet("Alunos")
+        cabecalho = ["ID", "Prontuário", "Nome", "Turmas", "Ativo"]
+        ws.write_row(0, 0, cabecalho)
+        for i, row in enumerate(dados):
+            ws.write_row(
+                i + 1,
+                0,
+                [
+                    row.get("id", ""),
+                    row.get("prontuario", ""),
+                    row.get("nome", ""),
+                    row.get("grupos", ""),
+                    row.get("ativo", "Sim"),
+                ],
+            )
+    return str(caminho)
+
+
 def exportar_reservas_para_csv(
     repo_grupo: RepositorioGrupo,
     repo_reserva: RepositorioReserva,
     caminho_arquivo: Union[str, Path],
+    reservas_dados: Optional[List[Dict[str, Any]]] = None,
 ) -> str:
-    """Exporta todas as reservas cadastradas para um arquivo CSV."""
+    """Exporta reservas para um arquivo CSV."""
     caminho = Path(caminho_arquivo)
     caminho.parent.mkdir(parents=True, exist_ok=True)
-    reservas = listar_reservas(repo_grupo, repo_reserva)
-    dados = []
-    for r in reservas:
-        dados.append(
+
+    if reservas_dados is not None:
+        dados = reservas_dados
+    else:
+        reservas = listar_reservas(repo_grupo, repo_reserva)
+        dados = [
             {
                 "id": r.get("id"),
                 "data": r.get("data"),
@@ -204,7 +254,9 @@ def exportar_reservas_para_csv(
                 "prato": r.get("prato"),
                 "cancelada": "Sim" if r.get("cancelada") else "Não",
             }
-        )
+            for r in reservas
+        ]
+
     keys = (
         list(dados[0].keys())
         if dados
@@ -214,4 +266,126 @@ def exportar_reservas_para_csv(
         writer = csv.DictWriter(f, fieldnames=keys)
         writer.writeheader()
         writer.writerows(dados)
+    return str(caminho)
+
+
+def exportar_reservas_para_xlsx(
+    repo_grupo: RepositorioGrupo,
+    repo_reserva: RepositorioReserva,
+    caminho_arquivo: Union[str, Path],
+    reservas_dados: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """Exporta reservas para um arquivo Excel (.xlsx)."""
+    caminho = Path(caminho_arquivo)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+
+    if reservas_dados is not None:
+        dados = reservas_dados
+    else:
+        reservas = listar_reservas(repo_grupo, repo_reserva)
+        dados = [
+            {
+                "id": r.get("id"),
+                "data": r.get("data"),
+                "prontuario": r.get("prontuario_estudante"),
+                "nome": r.get("nome_estudante"),
+                "prato": r.get("prato"),
+                "cancelada": "Sim" if r.get("cancelada") else "Não",
+            }
+            for r in reservas
+        ]
+
+    with xlsxwriter.Workbook(str(caminho)) as workbook:
+        ws = workbook.add_worksheet("Reservas")
+        cabecalho = ["ID", "Data", "Prontuário", "Nome Aluno", "Prato", "Cancelada"]
+        ws.write_row(0, 0, cabecalho)
+        for i, row in enumerate(dados):
+            ws.write_row(
+                i + 1,
+                0,
+                [
+                    row.get("id", ""),
+                    row.get("data", ""),
+                    row.get("prontuario", ""),
+                    row.get("nome", ""),
+                    row.get("prato", ""),
+                    row.get("cancelada", "Não"),
+                ],
+            )
+    return str(caminho)
+
+
+def exportar_turmas_para_csv(
+    repo_grupo: RepositorioGrupo,
+    caminho_arquivo: Union[str, Path],
+    turmas_dados: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """Exporta turmas cadastradas para um arquivo CSV."""
+    caminho = Path(caminho_arquivo)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+
+    if turmas_dados is not None:
+        dados = turmas_dados
+    else:
+        grupos = repo_grupo.ler_todos()
+        dados = [
+            {
+                "id": g.id,
+                "nome": g.nome,
+                "ativo": "Sim" if getattr(g, "ativo", True) else "Não",
+                "total_alunos": len(g.estudantes) if hasattr(g, "estudantes") else 0,
+            }
+            for g in grupos
+        ]
+
+    keys = (
+        list(dados[0].keys())
+        if dados
+        else ["id", "nome", "ativo", "total_alunos"]
+    )
+    with open(caminho, "w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=keys)
+        writer.writeheader()
+        writer.writerows(dados)
+    return str(caminho)
+
+
+def exportar_turmas_para_xlsx(
+    repo_grupo: RepositorioGrupo,
+    caminho_arquivo: Union[str, Path],
+    turmas_dados: Optional[List[Dict[str, Any]]] = None,
+) -> str:
+    """Exporta turmas cadastradas para um arquivo Excel (.xlsx)."""
+    caminho = Path(caminho_arquivo)
+    caminho.parent.mkdir(parents=True, exist_ok=True)
+
+    if turmas_dados is not None:
+        dados = turmas_dados
+    else:
+        grupos = repo_grupo.ler_todos()
+        dados = [
+            {
+                "id": g.id,
+                "nome": g.nome,
+                "ativo": "Sim" if getattr(g, "ativo", True) else "Não",
+                "total_alunos": len(g.estudantes) if hasattr(g, "estudantes") else 0,
+            }
+            for g in grupos
+        ]
+
+    with xlsxwriter.Workbook(str(caminho)) as workbook:
+        ws = workbook.add_worksheet("Turmas")
+        cabecalho = ["ID", "Nome da Turma", "Status Ativo", "Total de Alunos"]
+        ws.write_row(0, 0, cabecalho)
+        for i, row in enumerate(dados):
+            ws.write_row(
+                i + 1,
+                0,
+                [
+                    row.get("id", ""),
+                    row.get("nome", ""),
+                    row.get("ativo", "Sim"),
+                    row.get("total_alunos", 0),
+                ],
+            )
     return str(caminho)

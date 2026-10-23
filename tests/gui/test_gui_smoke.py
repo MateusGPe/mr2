@@ -17,9 +17,11 @@ from registro.gui.registrar.dialogo_sessao import DialogoSessao
 from registro.gui.registrar.dialogo_filtro_turmas import DialogoFiltroTurmas
 from registro.gui.registrar.painel_acao_busca import PainelAcaoBusca
 from registro.gui.registrar.painel_status_registrados import PainelStatusRegistrados
+from registro.gui.painel.abas.aba_alunos import AbaAlunos
 from registro.gui.painel.abas.aba_dashboard import AbaDashboard
 from registro.gui.painel.abas.aba_importacao import AbaImportacao
 from registro.gui.painel.abas.aba_reservas import AbaReservas
+from registro.gui.painel.abas.aba_turmas import AbaTurmas
 
 
 @pytest.fixture(scope="module")
@@ -46,10 +48,27 @@ def mock_fachada():
     fachada.listar_estudantes_fuzzy.return_value = []
     fachada.listar_reservas.return_value = []
     fachada.listar_consumos_por_sessao.return_value = []
+    fachada.listar_todos_os_grupos.return_value = [{"id": 1, "nome": "1INFO"}]
+    fachada.listar_turmas_detalhadas.return_value = [
+        {"id": 1, "nome": "1INFO", "total_alunos": 25, "ativo": True}
+    ]
+    fachada.listar_alunos_por_turma.return_value = []
+    fachada.listar_datas_reservas.return_value = ["22/10/2026"]
     fachada.obter_estatisticas_dashboard.return_value = {
-        "alunos_ativos": 100,
-        "refeicoes_servidas_hoje": 50,
-        "reservas_ativas": 30,
+        "alunos_total": 100,
+        "alunos_ativos": 95,
+        "alunos_inativos": 5,
+        "grupos_total": 4,
+        "grupos_ativos": 4,
+        "reservas_hoje": 30,
+        "reservas_total": 120,
+        "consumos_hoje": 28,
+        "consumo_ontem": 50,
+        "consumos_total": 500,
+        "distribuicao_pratos": {"Almoço": 25, "Vegetariano": 5},
+        "distribuicao_turmas": [
+            {"turma": "1INFO", "total_alunos": 25, "reservas_hoje": 10, "consumos_hoje": 8}
+        ],
     }
     fachada.id_sessao_ativa = 1
     fachada.obter_sessao_ativa.return_value = {
@@ -134,6 +153,20 @@ def test_aba_importacao_inicializacao(app_root, mock_fachada):
 def test_aba_reservas_inicializacao(app_root, mock_fachada):
     """Testa a instanciação da AbaReservas."""
     aba = AbaReservas(parent=app_root, fachada_nucleo=mock_fachada)
+    assert aba is not None
+    aba.destroy()
+
+
+def test_aba_turmas_inicializacao(app_root, mock_fachada):
+    """Testa a instanciação da AbaTurmas."""
+    aba = AbaTurmas(parent=app_root, fachada_nucleo=mock_fachada)
+    assert aba is not None
+    aba.destroy()
+
+
+def test_aba_alunos_inicializacao(app_root, mock_fachada):
+    """Testa a instanciação da AbaAlunos."""
+    aba = AbaAlunos(parent=app_root, fachada_nucleo=mock_fachada)
     assert aba is not None
     aba.destroy()
 

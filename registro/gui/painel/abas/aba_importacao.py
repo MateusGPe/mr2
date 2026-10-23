@@ -248,7 +248,7 @@ class AbaImportacao(ttk.Frame):
 
         ttk.Radiobutton(
             opts_frame,
-            text="Automático (Detectar colunas)",
+            text="Automático (Detectar colunas / extensão)",
             variable=self.import_type_var,
             value="auto",
             command=lambda: mudar_estado(True),
@@ -256,9 +256,9 @@ class AbaImportacao(ttk.Frame):
 
         ttk.Radiobutton(
             opts_frame,
-            text="Lista Simples (Apenas Nomes/Prontuários)",
+            text="Planilha Excel (.xlsx)",
             variable=self.import_type_var,
-            value="simples",
+            value="excel",
             command=lambda: mudar_estado(True),
         ).pack(anchor=W, pady=2)
 
@@ -267,6 +267,14 @@ class AbaImportacao(ttk.Frame):
             text="CSV com Cabeçalho (Padrão)",
             variable=self.import_type_var,
             value="header",
+            command=lambda: mudar_estado(True),
+        ).pack(anchor=W, pady=2)
+
+        ttk.Radiobutton(
+            opts_frame,
+            text="Lista Simples (Apenas Nomes/Prontuários em TXT)",
+            variable=self.import_type_var,
+            value="simples",
             command=lambda: mudar_estado(True),
         ).pack(anchor=W, pady=2)
 
@@ -281,7 +289,12 @@ class AbaImportacao(ttk.Frame):
 
     def _selecionar_arquivo(self):
         path = filedialog.askopenfilename(
-            filetypes=[("Arquivos de Texto", "*.csv *.txt"), ("Todos", "*.*")]
+            filetypes=[
+                ("Planilhas e Arquivos de Texto", "*.xlsx *.csv *.txt"),
+                ("Planilhas Excel", "*.xlsx"),
+                ("Arquivos CSV/TXT", "*.csv *.txt"),
+                ("Todos os Arquivos", "*.*"),
+            ]
         )
         if path:
             self.file_path_var.set(path)
@@ -566,64 +579,92 @@ class AbaImportacao(ttk.Frame):
 
     def _criar_painel_exportacao(self, parent):
         container = ttk.Frame(parent, padding=10, bootstyle="light")
-        container.columnconfigure((0, 1, 2), weight=1)
+        container.columnconfigure((0, 1, 2, 3), weight=1)
 
         ttk.Label(
             container,
-            text="📤 Exportar Dados",
+            text="📤 Exportar Base de Dados",
             font="-weight bold",
             bootstyle="@light",
-        ).grid(row=0, column=0, columnspan=3, sticky=W, pady=(0, 5))
+        ).grid(row=0, column=0, columnspan=4, sticky=W, pady=(0, 8))
 
+        # Menu Alunos
+        btn_exp_alunos = ttk.Menubutton(
+            container, text="Alunos ▾", bootstyle="secondary-outline"
+        )
+        m_al = tk.Menu(btn_exp_alunos, tearoff=0)
+        m_al.add_command(label="Excel (.xlsx)", command=lambda: self._exportar_dados("alunos_xlsx"))
+        m_al.add_command(label="CSV (.csv)", command=lambda: self._exportar_dados("alunos_csv"))
+        btn_exp_alunos["menu"] = m_al
+        btn_exp_alunos.grid(row=1, column=0, sticky=EW, padx=3)
+
+        # Menu Turmas
+        btn_exp_turmas = ttk.Menubutton(
+            container, text="Turmas ▾", bootstyle="secondary-outline"
+        )
+        m_tu = tk.Menu(btn_exp_turmas, tearoff=0)
+        m_tu.add_command(label="Excel (.xlsx)", command=lambda: self._exportar_dados("turmas_xlsx"))
+        m_tu.add_command(label="CSV (.csv)", command=lambda: self._exportar_dados("turmas_csv"))
+        btn_exp_turmas["menu"] = m_tu
+        btn_exp_turmas.grid(row=1, column=1, sticky=EW, padx=3)
+
+        # Menu Reservas
+        btn_exp_res = ttk.Menubutton(
+            container, text="Reservas ▾", bootstyle="secondary-outline"
+        )
+        m_res = tk.Menu(btn_exp_res, tearoff=0)
+        m_res.add_command(label="Excel (.xlsx)", command=lambda: self._exportar_dados("reservas_xlsx"))
+        m_res.add_command(label="CSV (.csv)", command=lambda: self._exportar_dados("reservas_csv"))
+        btn_exp_res["menu"] = m_res
+        btn_exp_res.grid(row=1, column=2, sticky=EW, padx=3)
+
+        # Consumo (XLSX)
         RoundedButton(
             container,
-            text="Alunos (CSV)",
-            bootstyle="secondary-outline",
-            command=lambda: self._exportar_dados("alunos"),
-        ).grid(row=1, column=0, sticky=EW, padx=2)
-
-        RoundedButton(
-            container,
-            text="Reservas (CSV)",
-            bootstyle="secondary-outline",
-            command=lambda: self._exportar_dados("reservas"),
-        ).grid(row=1, column=1, sticky=EW, padx=2)
-
-        RoundedButton(
-            container,
-            text="Consumos (XLSX)",
+            text="Consumos (Excel)",
             bootstyle="success-outline",
-            command=lambda: self._exportar_dados("consumo"),
-        ).grid(row=1, column=2, sticky=EW, padx=2)
+            command=lambda: self._exportar_dados("consumo_xlsx"),
+        ).grid(row=1, column=3, sticky=EW, padx=3)
 
         return container
 
-    def _exportar_dados(self, tipo: Literal["alunos", "reservas", "consumo"]):
+    def _exportar_dados(self, tipo: str):
         try:
-            default_filename = f"export_{tipo}_{datetime.now().strftime('%Y%m%d')}"
-            ext = ".xlsx" if tipo == "consumo" else ".csv"
-            ftypes = [("Excel", "*.xlsx")
-                      ] if tipo == "consumo" else [("CSV", "*.csv")]
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            is_xlsx = "xlsx" in tipo or tipo == "consumo_xlsx"
+            ext = ".xlsx" if is_xlsx else ".csv"
+            ftypes = [("Excel", "*.xlsx")] if is_xlsx else [("CSV", "*.csv")]
 
+            nome_base = tipo.replace("_xlsx", "").replace("_csv", "")
             filepath = filedialog.asksaveasfilename(
-                initialfile=default_filename,
+                initialfile=f"export_{nome_base}_{timestamp}",
                 defaultextension=ext,
                 filetypes=ftypes,
             )
             if not filepath:
                 return
 
-            if tipo == "consumo":
-                self.fachada_nucleo.exportar_consumos_para_xlsx(Path(filepath))
-            elif tipo == "alunos":
-                self.fachada_nucleo.exportar_estudantes_para_csv(Path(filepath))
-            else:
-                self.fachada_nucleo.exportar_reservas_para_csv(Path(filepath))
+            p = Path(filepath)
+            if tipo == "consumo_xlsx":
+                self.fachada_nucleo.exportar_consumos_para_xlsx(p)
+            elif tipo == "alunos_xlsx":
+                self.fachada_nucleo.exportar_estudantes_para_xlsx(p)
+            elif tipo == "alunos_csv":
+                self.fachada_nucleo.exportar_estudantes_para_csv(p)
+            elif tipo == "turmas_xlsx":
+                self.fachada_nucleo.exportar_turmas_para_xlsx(p)
+            elif tipo == "turmas_csv":
+                self.fachada_nucleo.exportar_turmas_para_csv(p)
+            elif tipo == "reservas_xlsx":
+                self.fachada_nucleo.exportar_reservas_para_xlsx(p)
+            elif tipo == "reservas_csv":
+                self.fachada_nucleo.exportar_reservas_para_csv(p)
 
-            Messagebox.show_info(f"Arquivo salvo em:\n{filepath}", "Sucesso")
+            Messagebox.show_info(f"Dados exportados com sucesso em:\n{filepath}", "Sucesso")
 
+        except ValueError as ve:
+            Messagebox.show_warning(str(ve), "Aviso")
         except ErroSessaoNaoAtiva:
-            Messagebox.show_warning(
-                "Nenhuma sessão ativa para exportar consumo.")
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            Messagebox.show_error(f"Falha na exportação: {e}")
+            Messagebox.show_warning("Nenhuma sessão ativa para exportar consumo.", "Aviso")
+        except Exception as e:
+            Messagebox.show_error(f"Falha na exportação: {e}", "Erro")

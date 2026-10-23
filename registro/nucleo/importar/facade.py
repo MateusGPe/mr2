@@ -16,6 +16,7 @@ from registro.nucleo.importar.service import ServicoImportacao
 from registro.nucleo.importar.strategies import (
     CarregarCSVComCabecalho,
     CarregarCSVPosicional,
+    CarregarExcel,
     CarregarGoogleSheets,
     CarregarListaSimples,
 )
@@ -36,9 +37,11 @@ class FachadaImportacao:
 
         Args:
             caminho: Path do arquivo.
-            tipo: 'simples' (txt), 'header' (csv c/ header), 'sheets', ou 'auto'.
+            tipo: 'simples' (txt), 'header' (csv c/ header), 'excel' (.xlsx), 'sheets', ou 'auto'.
         """
-        if tipo == "simples":
+        if caminho.lower().endswith(".xlsx") or tipo == "excel":
+            estrategia = CarregarExcel()
+        elif tipo == "simples":
             estrategia = CarregarListaSimples()
         elif tipo == "header":
             estrategia = CarregarCSVComCabecalho()

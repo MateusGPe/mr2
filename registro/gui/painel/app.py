@@ -20,6 +20,7 @@ from registro.gui.painel.abas.aba_alunos import AbaAlunos
 from registro.gui.painel.abas.aba_dashboard import AbaDashboard
 from registro.gui.painel.abas.aba_importacao import AbaImportacao
 from registro.gui.painel.abas.aba_reservas import AbaReservas
+from registro.gui.painel.abas.aba_turmas import AbaTurmas
 from registro.nucleo.facade import FachadaRegistro
 
 
@@ -62,7 +63,6 @@ class App(ttk.Window):
             padding=(5, 0, 0, 5),
         )
         navigation_frame.grid(row=0, column=0, sticky=NSEW)
-        navigation_frame.rowconfigure(5, weight=1)
         self.content_frame = ttk.Frame(self, padding=20)
         self.content_frame.grid(row=0, column=1, sticky=NSEW)
         self.content_frame.rowconfigure(0, weight=1)
@@ -71,9 +71,12 @@ class App(ttk.Window):
         paginas = {
             "dashboard": (AbaDashboard, "📊"),
             "alunos": (AbaAlunos, "👤"),
+            "turmas": (AbaTurmas, "🏫"),
             "reservas": (AbaReservas, "📅"),
             "importacao": (AbaImportacao, "🔄"),
         }
+        navigation_frame.rowconfigure(len(paginas) + 1, weight=1)
+
         for i, (nome, (FrameClass, texto_botao)) in enumerate(paginas.items()):
             frame = FrameClass(self.content_frame, self.fachada_nucleo)
             self.frames[nome] = frame
@@ -98,7 +101,7 @@ class App(ttk.Window):
             command=self._on_closing,
             bootstyle="dark",
         )
-        btn_sair.grid(row=6, column=0, sticky=EW, pady=10, padx=(0, 5))
+        btn_sair.grid(row=len(paginas) + 2, column=0, sticky=EW, pady=10, padx=(0, 5))
         self.show_frame("dashboard")
 
     def show_frame(self, nome_pagina):
