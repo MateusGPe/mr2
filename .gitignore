@@ -204,3 +204,5 @@ config/**
 untitled folder/
 painel.exe
 registrar.exe
+backups/
+*.zip

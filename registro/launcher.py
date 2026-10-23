@@ -42,6 +42,13 @@ def executar_autoatendimento() -> None:
     app_main()
 
 
+def executar_setup() -> None:
+    """Inicia a Central de Configurações e Início Rápido."""
+    from registro.gui.setup.app import main as app_main
+
+    app_main()
+
+
 def exibir_ajuda() -> None:
     """Exibe mensagem de ajuda no console ou caixa de diálogo gráfica."""
     msg = (
@@ -51,6 +58,7 @@ def exibir_ajuda() -> None:
         "  --reg, /reg, --registrar, /registrar       Abre o Registro de Refeições\n"
         "  --painel, /painel                          Abre o Painel Administrativo\n"
         "  --auto, /auto, --autoatendimento           Abre o Totem de Autoatendimento\n"
+        "  --setup, /setup, --config, /config         Abre as Configurações / Início Rápido\n"
         "  --help, /help, /?                          Exibe esta tela de ajuda\n\n"
         "Sem argumentos: Abre o menu gráfico inicial para seleção."
     )
@@ -89,6 +97,20 @@ def identificar_alvo_cli(args: List[str]) -> Optional[Callable[[], None]]:
             "registrar",
         ):
             return executar_registrar
+        if arg in (
+            "--setup",
+            "/setup",
+            "-setup",
+            "setup",
+            "--config",
+            "/config",
+            "-config",
+            "config",
+            "--quickstart",
+            "/quickstart",
+            "quickstart",
+        ):
+            return executar_setup
         if arg in ("--help", "/help", "-h", "/?", "help"):
             exibir_ajuda()
             sys.exit(0)
@@ -111,8 +133,8 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
         themename="sandstone",
         resizable=(False, False),
     )
-    largura = 500
-    altura = 440
+    largura = 520
+    altura = 530
 
     root.update_idletasks()
     x = max(0, (root.winfo_screenwidth() // 2) - (largura // 2))
@@ -150,7 +172,7 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
         command=lambda: selecionar(executar_registrar),
         cursor="hand2",
     )
-    btn_registrar.pack(fill=X, pady=6, ipady=6)
+    btn_registrar.pack(fill=X, pady=5, ipady=5)
 
     btn_painel = ttk.Button(
         container,
@@ -159,7 +181,7 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
         command=lambda: selecionar(executar_painel),
         cursor="hand2",
     )
-    btn_painel.pack(fill=X, pady=6, ipady=6)
+    btn_painel.pack(fill=X, pady=5, ipady=5)
 
     btn_auto = ttk.Button(
         container,
@@ -168,11 +190,20 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
         command=lambda: selecionar(executar_autoatendimento),
         cursor="hand2",
     )
-    btn_auto.pack(fill=X, pady=6, ipady=6)
+    btn_auto.pack(fill=X, pady=5, ipady=5)
+
+    btn_setup = ttk.Button(
+        container,
+        text="⚙️  Configurações & Início Rápido\nGoogle Cloud, PIN de segurança, backups e atalhos",
+        bootstyle="secondary-outline",
+        command=lambda: selecionar(executar_setup),
+        cursor="hand2",
+    )
+    btn_setup.pack(fill=X, pady=5, ipady=5)
 
     lbl_dica = ttk.Label(
         container,
-        text="Dica: Em atalhos, passe as flags /painel, /auto ou /reg para abrir direto.",
+        text="Dica: Em atalhos, use as flags /painel, /auto, /reg ou /setup para abrir direto.",
         font=("Segoe UI", 8),
         bootstyle="secondary",
         anchor=CENTER,

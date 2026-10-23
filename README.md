@@ -11,8 +11,9 @@ Sistema completo para gestão, controle e registro de presença em refeições d
 
 ## 🚀 Funcionalidades Principais
 
-* **Lançador Unificado (`registro`):** Ponto de entrada central com menu visual moderno para inicialização de qualquer módulo da aplicação com um único clique, além de despachante inteligente de argumentos via linha de comando (`--painel`, `--reg`, `--auto`).
-* **Totem de Autoatendimento (`autoatendimento`):** Interface autônoma otimizada para terminais e totens interativos. Oferece validação em tempo real com leitura de QR Code via webcam (OpenCV e PyZbar), leitor USB de código de barras ou digitação manual com busca incremental de matrículas. Conta com menu de contexto rápido para o operador (`F2` ou clique com botão direito no cabeçalho), dashboard embutido e gestão de consumos.
+* **Lançador Unificado (`registro`):** Ponto de entrada central com menu visual moderno para inicialização de qualquer módulo da aplicação com um único clique, além de despachante inteligente de argumentos via linha de comando (`--painel`, `--reg`, `--auto`, `--setup`).
+* **Central de Início Rápido & Configurações (`setup`):** Hub visual com checklist de integridade em tempo real, links diretos e importador de credenciais do Google Cloud Console, teste de conexão da Google Sheets API, definição de PIN touch-friendly para o Totem, gerenciador completo de backups e restaurações compactadas (`.zip`) e criação de atalhos no Windows.
+* **Totem de Autoatendimento (`autoatendimento`):** Interface autônoma otimizada para terminais e totens interativos. Oferece validação em tempo real com leitura de QR Code via webcam (OpenCV e PyZbar), leitor USB de código de barras ou digitação manual com busca incremental de matrículas. Conta com menu de contexto protegido por PIN para o operador (`F2` ou clique com botão direito no cabeçalho), dashboard embutido e gestão de consumos.
 * **Terminal de Registro do Operador (`registrar`):** Interface desktop para atendentes e operadores. Permite a busca rápida de estudantes por nome ou matrícula, confirmação visual/sonora de atendimento, controle de sessão ativa e filtragem instantânea de turmas autorizadas.
 * **Painel Administrativo (`painel`):** Central de controle com abas dedicadas para:
   * **Alunos:** Consulta, cadastro, edição e exclusão de estudantes e vínculo de turmas.
@@ -96,17 +97,23 @@ Ao executar sem parâmetros, um menu gráfico interativo é exibido, permitindo 
 | `uv run registro --reg` (ou `/reg`) | Abre diretamente o **Registro de Refeições (Operador)** |
 | `uv run registro --painel` (ou `/painel`) | Abre diretamente o **Painel Administrativo** |
 | `uv run registro --auto` (ou `/auto`) | Abre diretamente o **Totem de Autoatendimento** |
+| `uv run registro --setup` (ou `/setup`, `--config`) | Abre a **Central de Configurações & Início Rápido** |
 | `uv run registro --help` (ou `/help`) | Exibe a mensagem de ajuda e opções disponíveis |
 
 ### 2. Comandos Diretos / Atalhos
 
 Se preferir iniciar diretamente um módulo sem passar pelo menu ou pelas flags do lançador:
 
+* **Central de Configurações & Início Rápido:**
+  ```bash
+  uv run setup
+  ```
+
 * **Totem de Autoatendimento:**
   ```bash
   uv run autoatendimento
   ```
-  > **Dica do Operador:** Pressione `F2` ou clique com o botão direito no cabeçalho para acessar o menu de controle do operador (abertura de sessão, filtros de turma, dashboard e CRUD de consumos).
+  > **Dica do Operador:** Pressione `F2` ou clique com o botão direito no cabeçalho para acessar o menu de controle do operador protegido por PIN.
 
 * **Terminal do Operador / Registro:**
   ```bash

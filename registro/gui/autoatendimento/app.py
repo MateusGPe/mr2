@@ -23,8 +23,10 @@ from ttkbootstrap.dialogs import Messagebox
 from registro.gui.autoatendimento.consumos import AbaConsumos
 from registro.gui.autoatendimento.dashboard import AbaDashboard
 from registro.gui.autoatendimento.totem import FrameSelfService
+from registro.gui.comum.dialogo_pin import solicitar_pin
 from registro.gui.registrar.dialogo_filtro_turmas import DialogoFiltroTurmas
 from registro.gui.registrar.dialogo_sessao import DialogoSessao
+from registro.nucleo.config_service import obter_config_totem, tem_pin_configurado
 from registro.nucleo.facade import FachadaRegistro
 
 logger = logging.getLogger(__name__)
@@ -69,7 +71,9 @@ class AppSelfService(ttk.Window):
 
         self._criar_widgets()
         self._configurar_atalhos_teclado()
-        self.protocol("WM_DELETE_WINDOW", self._on_closing)
+        self.totem_cfg = obter_config_totem()
+        if self.totem_cfg.get("fullscreen", False):
+            self.after(100, lambda: self._definir_fullscreen(True))
 
         # Se após a inicialização não houver sessão ativa, abre o diálogo de sessão
         if not self.id_sessao_ativa:
@@ -126,7 +130,20 @@ class AppSelfService(ttk.Window):
         self._definir_fullscreen(not self._fullscreen)
 
     def _definir_fullscreen(self, ativo: bool):
-        """Define o estado de tela cheia."""
+        """Define o estado de tela cheia com proteção por PIN caso configurado."""
+        if (
+            not ativo
+            and self._fullscreen
+            and self.totem_cfg.get("require_pin_to_exit", True)
+            and tem_pin_configurado()
+        ):
+            if not solicitar_pin(
+                parent=self,
+                titulo="🔒 Modo Janela",
+                mensagem="Digite o PIN de operador para sair da tela cheia:",
+            ):
+                return
+
         self._fullscreen = ativo
         self.attributes("-fullscreen", self._fullscreen)
 
@@ -166,7 +183,15 @@ class AppSelfService(ttk.Window):
         event: Optional[Any] = None,
         **kwargs,
     ):
-        """Exibe o menu de contexto nativo com os controles do operador."""
+        """Exibe o menu de contexto nativo com os controles do operador protegido por PIN."""
+        if tem_pin_configurado():
+            if not solicitar_pin(
+                parent=self,
+                titulo="🔒 Autenticação do Operador",
+                mensagem="Digite o PIN de operador para acessar as opções do Totem:",
+            ):
+                return
+
         if args:
             if isinstance(args[0], tk.Event):
                 event = args[0]
@@ -423,7 +448,18 @@ class AppSelfService(ttk.Window):
             self.frames["dashboard"].atualizar_dados(ultimo_consumo=dados_estudante)
 
     def _on_closing(self):
-        """Encerramento seguro de recursos."""
+        """Encerramento seguro de recursos com proteção por PIN."""
+        if (
+            self.totem_cfg.get("require_pin_to_exit", True)
+            and tem_pin_configurado()
+        ):
+            if not solicitar_pin(
+                parent=self,
+                titulo="🔒 Sair do Totem",
+                mensagem="Digite o PIN de operador para encerrar o Totem:",
+            ):
+                return
+
         logger.info("Encerrando aplicação de autoatendimento...")
         if "selfservice" in self.frames:
             self.frames["selfservice"].stop()

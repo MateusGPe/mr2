@@ -12,6 +12,7 @@ from registro.launcher import (
     executar_autoatendimento,
     executar_painel,
     executar_registrar,
+    executar_setup,
     identificar_alvo_cli,
     main,
 )
@@ -48,6 +49,12 @@ def test_identificar_alvo_cli_vazio():
     assert identificar_alvo_cli(["--flag-desconhecida"]) is None
 
 
+def test_identificar_alvo_cli_setup():
+    for flag in ["--setup", "/setup", "-setup", "setup", "--config", "/config", "--quickstart", "/quickstart", "/SETUP"]:
+        alvo = identificar_alvo_cli([flag])
+        assert alvo == executar_setup
+
+
 def test_executar_modulos():
     with patch("registro.gui.registrar.app.main") as mock_registrar:
         executar_registrar()
@@ -60,6 +67,10 @@ def test_executar_modulos():
     with patch("registro.gui.autoatendimento.app.main") as mock_auto:
         executar_autoatendimento()
         mock_auto.assert_called_once()
+
+    with patch("registro.gui.setup.app.main") as mock_setup:
+        executar_setup()
+        mock_setup.assert_called_once()
 
 
 def test_main_com_argumentos():

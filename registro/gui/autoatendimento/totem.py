@@ -22,6 +22,8 @@ from PIL import Image, ImageTk
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, CENTER, EW, NSEW, X
 
+from registro.nucleo.config_service import obter_config_totem
+
 if TYPE_CHECKING:
     from registro.nucleo.facade import FachadaRegistro
 
@@ -98,8 +100,16 @@ class FrameSelfService(ttk.Frame):
         self._criar_interface()
         self.recarregar_sessao()
 
-        if OPENCV_DISPONIVEL:
+        self._totem_cfg = obter_config_totem()
+        self._feedback_frames = max(5, int(self._totem_cfg.get("feedback_delay_ms", 1500) / 100))
+
+        if OPENCV_DISPONIVEL and self._totem_cfg.get("camera_on_start", True):
             self._iniciar_camera()
+        elif OPENCV_DISPONIVEL:
+            self._lbl_video.config(
+                text="📷 Câmera desativada nas configurações.\nO leitor USB e a busca manual estão prontos.",
+                bootstyle="secondary",
+            )
         else:
             self._exibir_erro_dependencia()
 
@@ -594,7 +604,7 @@ class FrameSelfService(ttk.Frame):
                 str(dados.get("prato", "")),
             )
             self._notification_callback(tupla_estudante)
-            self._cooldown_frames = 20
+            self._cooldown_frames = self._feedback_frames
         else:
             self._lbl_mensagem.config(text=msg)
             self._lbl_nome.config(text=dados.get("nome", "--"))

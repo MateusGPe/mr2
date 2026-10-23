@@ -16,6 +16,7 @@ from typing import List, Optional
 import gspread
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
+from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
 from gspread.utils import ValueInputOption
@@ -45,12 +46,27 @@ def _obter_credenciais(
     caminho_credenciais: Path = CAMINHO_CREDENCIAS,
 ) -> Credentials:
     """
-    Gerencia o fluxo de autenticação OAuth2 e retorna credenciais válidas.
-    (Lógica interna, não destinada ao uso externo).
+    Gerencia o fluxo de autenticação OAuth2 / Service Account e retorna credenciais válidas.
     """
+    # 1. Verifica se as credenciais são do tipo Service Account (Conta de Serviço)
+    if caminho_credenciais.exists():
+        try:
+            with open(caminho_credenciais, "r", encoding="utf-8") as f:
+                conteudo = json.load(f)
+                if conteudo.get("type") == "service_account":
+                    return ServiceAccountCredentials.from_service_account_file(  # type: ignore
+                        str(caminho_credenciais), scopes=SCOPES
+                    )
+        except Exception:
+            pass
+
+    # 2. Fluxo OAuth2 Desktop com token existente
     credenciais = None
     if caminho_token.exists():
-        credenciais = Credentials.from_authorized_user_file(str(caminho_token), SCOPES)
+        try:
+            credenciais = Credentials.from_authorized_user_file(str(caminho_token), SCOPES)
+        except Exception:
+            credenciais = None
 
     if credenciais and credenciais.valid:
         return credenciais
@@ -61,15 +77,17 @@ def _obter_credenciais(
         except Exception as e:
             raise ErroAPIGoogle(f"Falha ao atualizar token de acesso: {e}") from e
     else:
+        if not caminho_credenciais.exists():
+            raise ErroAPIGoogle(
+                f"Arquivo de credenciais não encontrado em: {caminho_credenciais}"
+            )
         try:
             flow = InstalledAppFlow.from_client_secrets_file(
                 str(caminho_credenciais), SCOPES
             )
             credenciais = flow.run_local_server(port=0)
-        except FileNotFoundError as e:
-            raise ErroAPIGoogle(
-                f"Arquivo de credenciais não encontrado em: {caminho_credenciais}"
-            ) from e
+        except Exception as e:
+            raise ErroAPIGoogle(f"Falha na autenticação OAuth: {e}") from e
 
     caminho_token.parent.mkdir(parents=True, exist_ok=True)
     with open(caminho_token, "w", encoding="utf-8") as token:
@@ -138,7 +156,10 @@ def obter_servico_planilha_padrao() -> GoogleSheetsService:
     try:
         with open(CAMINHO_PLANILHA_JSON, "r", encoding="utf-8") as f:
             config = json.load(f)
-        return GoogleSheetsService(config["key"])
+        key = config.get("key") or config.get("spreadsheet_id")
+        if not key:
+            raise KeyError("Chave 'key' ou 'spreadsheet_id' não encontrada no arquivo.")
+        return GoogleSheetsService(str(key).strip())
     except (FileNotFoundError, json.JSONDecodeError, KeyError) as e:
         raise ErroAPIGoogle(
             f"Falha ao ler config 'spreadsheet.json'. Verifique o arquivo. Erro: {e}"
