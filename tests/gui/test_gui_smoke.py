@@ -24,19 +24,6 @@ from registro.gui.painel.abas.aba_reservas import AbaReservas
 from registro.gui.painel.abas.aba_turmas import AbaTurmas
 
 
-@pytest.fixture(scope="module")
-def app_root():
-    """Cria uma raiz Tk ocultada para permitir a instanciação de widgets nos testes."""
-    try:
-        root = tk.Tk()
-        root.withdraw()
-        yield root
-        try:
-            root.destroy()
-        except Exception:
-            pass
-    except tk.TclError:
-        pytest.skip("Ambiente sem display Tkinter disponível")
 
 
 @pytest.fixture

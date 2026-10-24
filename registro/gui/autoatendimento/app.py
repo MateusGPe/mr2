@@ -12,12 +12,15 @@ e ciclo de vida da aplicação.
 
 import datetime as dt
 import logging
+import threading
+import time
 import traceback
 import tkinter as tk
-from typing import Any, Dict, List, Optional, Tuple, Union
+from threading import Thread
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import NSEW
+from ttkbootstrap.constants import LEFT, NSEW, X
 from ttkbootstrap.dialogs import Messagebox
 
 from registro.gui.autoatendimento.consumos import AbaConsumos
@@ -50,6 +53,7 @@ class AppSelfService(ttk.Window):
         super().__init__(themename="sandstone", title="🍽️ Totem de Autoatendimento")
         self.geometry("1280x800")
         self.minsize(960, 620)
+        self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
         try:
             self.fachada_nucleo = FachadaRegistro()
@@ -79,13 +83,227 @@ class AppSelfService(ttk.Window):
         if not self.id_sessao_ativa:
             self.after(300, self._abrir_dialogo_sessao)
 
+        # Sincronização automática em segundo plano na inicialização (resiliente/offline)
+        self.after(500, lambda: self._sincronizar_dados_mestre(automatico=True))
+
     def get_fachada(self) -> FachadaRegistro:
         """Compatibilidade para componentes que requisitam a fachada."""
         return self.fachada_nucleo
 
     def mostrar_barra_progresso(self, iniciar: bool, texto: Optional[str] = None):
-        """Suporte a diálogos que notificam progresso."""
-        pass
+        """Exibe ou oculta barra de progresso discreta no rodapé."""
+        if not hasattr(self, "_frame_progresso") or not hasattr(self, "_barra_progresso"):
+            return
+
+        def _atualizar():
+            if iniciar:
+                if texto and hasattr(self, "_label_progresso"):
+                    self._label_progresso.config(text=f"🔄 {texto}")
+                self._frame_progresso.grid(row=1, column=0, sticky="ew")
+                self._barra_progresso.start(10)
+            else:
+                self._barra_progresso.stop()
+                self._frame_progresso.grid_remove()
+
+        if threading.current_thread() is threading.main_thread():
+            _atualizar()
+        else:
+            self.after(0, _atualizar)
+
+    def _logar_sincronizacao(
+        self,
+        direction: str,
+        status: str,
+        message: Optional[str] = None,
+        records_affected: Optional[int] = None,
+    ):
+        """Registra um evento de sincronização no banco de dados através da fachada."""
+        logger.info(
+            "Logando sincronização: direction=%s, status=%s, records=%s",
+            direction,
+            status,
+            records_affected,
+        )
+        if self.fachada_nucleo:
+            try:
+                self.fachada_nucleo.registrar_log_sincronizacao(
+                    direction=direction,
+                    status=status,
+                    message=message,
+                    records_affected=records_affected,
+                )
+            except Exception as e:
+                logger.warning("Erro ao gravar log de sincronização no BD: %s", e)
+
+    def _sincronizar_dados_mestre(self, automatico: bool = False):
+        """Inicia a sincronização dos dados mestre (cadastros e reservas)."""
+        if not automatico:
+            if not Messagebox.yesno(
+                "Deseja sincronizar os dados mestre do Google Sheets?\nIsso pode levar alguns segundos.",
+                "Confirmar Sincronização",
+                parent=self,
+            ):
+                return
+            logger.info("Iniciando sincronização manual de cadastros.")
+        else:
+            logger.info("Iniciando sincronização automática de cadastros ao entrar.")
+
+        self.mostrar_barra_progresso(True, "Sincronizando cadastros...")
+        self._iniciar_thread_sinc(
+            self.fachada_nucleo.sincronizar_do_google_sheets,
+            "Sincronização de Cadastros",
+            automatico=automatico,
+        )
+
+    def sincronizar_sessao_com_planilha(self, automatico: bool = False):
+        """Inicia a sincronização dos dados de todas as sessões para a planilha."""
+        if not automatico:
+            if not Messagebox.yesno(
+                "Deseja enviar os registros de consumo para a planilha?\nIsso pode levar alguns segundos.",
+                "Confirmar Sincronização",
+                parent=self,
+            ):
+                return
+            logger.info("Iniciando sincronização manual de consumos para planilha.")
+        else:
+            logger.info("Iniciando sincronização automática de consumos para planilha.")
+
+        self.mostrar_barra_progresso(
+            True, "Sincronizando servidos para planilha..."
+        )
+        self._iniciar_thread_sinc(
+            self.fachada_nucleo.sincronizar_todas_sessoes_para_google_sheets,
+            "Sincronização de Servidos",
+            automatico=automatico,
+        )
+
+    def _iniciar_thread_sinc(
+        self,
+        funcao_sinc: Callable,
+        nome_tarefa: str,
+        automatico: bool = False,
+    ):
+        """Inicia uma função de sincronização em uma thread separada para não bloquear a UI."""
+        thread = Thread(
+            target=self._acao_sinc_wrapper, args=(funcao_sinc,), daemon=True
+        )
+        thread.start()
+        self._monitorar_thread_sinc(thread, nome_tarefa, automatico)
+
+    def _executar_sinc_bloqueante(
+        self,
+        funcao_sinc: Callable,
+        nome_tarefa: str,
+        timeout: float = 8.0,
+    ):
+        """Executa sincronização no encerramento, bombeando eventos da UI e com timeout."""
+        logger.info("Executando sincronização de fechamento: %s", nome_tarefa)
+        self.mostrar_barra_progresso(True, f"Enviando dados: {nome_tarefa}...")
+        thread = Thread(
+            target=self._acao_sinc_wrapper, args=(funcao_sinc,), daemon=False
+        )
+        thread.start()
+
+        inicio = time.time()
+        while thread.is_alive():
+            try:
+                self.update()
+            except Exception:
+                pass
+            thread.join(0.1)
+            if time.time() - inicio > timeout:
+                logger.warning(
+                    "Tempo limite atingido para %s no fechamento (%.1fs). Continuando encerramento.",
+                    nome_tarefa,
+                    timeout,
+                )
+                break
+
+        self._monitorar_thread_sinc(thread, nome_tarefa, automatico=True)
+
+    def _acao_sinc_wrapper(self, funcao_sinc: Callable):
+        """Wrapper que executa a função de sincronização e captura exceções na thread."""
+        thread = threading.current_thread()
+        setattr(thread, "error", None)
+        setattr(thread, "success", False)
+        setattr(thread, "records_affected", 0)
+
+        try:
+            records_affected = funcao_sinc()
+            setattr(thread, "success", True)
+            setattr(thread, "records_affected", records_affected or 0)
+        except Exception as e:  # pylint: disable=broad-exception-caught
+            setattr(thread, "error", e)
+
+    def _monitorar_thread_sinc(
+        self, thread: Thread, nome_tarefa: str, automatico: bool = False
+    ):
+        """Verifica o status da thread de sincronização e exibe o resultado ao final."""
+        if thread.is_alive():
+            self.after(
+                150,
+                lambda: self._monitorar_thread_sinc(
+                    thread, nome_tarefa, automatico
+                ),
+            )
+            return
+
+        self.mostrar_barra_progresso(False)
+        erro = getattr(thread, "error", None)
+        sucesso = getattr(thread, "success", False)
+        records_affected = getattr(thread, "records_affected", 0)
+
+        direction = "download" if "Cadastros" in nome_tarefa else "upload"
+
+        if erro:
+            logger.error("%s falhou: %s", nome_tarefa, erro)
+            self._logar_sincronizacao(
+                direction=direction,
+                status="failure",
+                message=str(erro),
+                records_affected=0,
+            )
+            if not automatico:
+                Messagebox.show_error(
+                    f"{nome_tarefa} falhou:\n{erro}",
+                    "Erro na Sincronização",
+                    parent=self,
+                )
+        elif sucesso:
+            logger.info(
+                "%s concluída com sucesso. Registros afetados: %s",
+                nome_tarefa,
+                records_affected,
+            )
+            self._logar_sincronizacao(
+                direction=direction,
+                status="success",
+                message=f"{nome_tarefa} concluída com sucesso.",
+                records_affected=records_affected,
+            )
+            if not automatico:
+                Messagebox.show_info(
+                    f"{nome_tarefa} concluída com sucesso.",
+                    "Sincronização Concluída",
+                    parent=self,
+                )
+            self._atualizar_barra_sessao()
+        else:
+            logger.warning(
+                "%s finalizada com estado indeterminado.", nome_tarefa
+            )
+            self._logar_sincronizacao(
+                direction=direction,
+                status="unknown",
+                message=f"{nome_tarefa} finalizada com estado indeterminado.",
+                records_affected=0,
+            )
+            if not automatico:
+                Messagebox.show_warning(
+                    f"{nome_tarefa} finalizada sem confirmação explícita de sucesso ou erro.",
+                    "Sincronização Indeterminada",
+                    parent=self,
+                )
 
     def _configurar_atalhos_teclado(self):
         """Configura atalhos de tela cheia, menu de contexto e captura inteligente de teclas."""
@@ -107,8 +325,40 @@ class AppSelfService(ttk.Window):
         Redireciona digitações para o campo do scanner caso o usuário tenha clicado fora.
         Evita que scanners USB de código de barras ou RFID percam a leitura.
         """
-        widget = event.widget
-        if isinstance(widget, (ttk.Entry, tk.Entry, ttk.Combobox, tk.Text)):
+        # Se a página atual não for selfservice, não redireciona
+        if getattr(self, "selected_frame_name", "") != "selfservice":
+            return
+
+        # Se houver diálogo Toplevel aberto e visível, não interfere nas digitações do usuário
+        try:
+            for w in self.winfo_children():
+                if isinstance(w, tk.Toplevel) and w.winfo_exists() and w.winfo_viewable():
+                    return
+        except Exception:
+            pass
+
+        widget = getattr(event, "widget", None)
+        try:
+            if widget and widget.winfo_toplevel() != self:
+                return
+        except Exception:
+            pass
+
+        if isinstance(
+            widget,
+            (
+                ttk.Entry,
+                tk.Entry,
+                ttk.Combobox,
+                tk.Text,
+                ttk.Checkbutton,
+                tk.Checkbutton,
+                ttk.Radiobutton,
+                tk.Radiobutton,
+                ttk.Treeview,
+                tk.Listbox,
+            ),
+        ):
             return
 
         # Teclas de controle (F1-F12, Escape, Alt, Tab, etc.) não são redirecionadas
@@ -226,6 +476,17 @@ class AppSelfService(ttk.Window):
         )
         menu.add_separator()
 
+        # Sincronização com Google Sheets
+        menu.add_command(
+            label="📥  Sincronizar Cadastros (Download)",
+            command=lambda: self._sincronizar_dados_mestre(automatico=False),
+        )
+        menu.add_command(
+            label="📤  Enviar Registros para Planilha (Upload)",
+            command=lambda: self.sincronizar_sessao_com_planilha(automatico=False),
+        )
+        menu.add_separator()
+
         # Sistema
         label_fs = (
             "🗗  Janela Normal" if self._fullscreen else "⛶  Tela Cheia (F11)"
@@ -266,12 +527,30 @@ class AppSelfService(ttk.Window):
     def _criar_widgets(self):
         """Constrói a interface limpa sem barras laterais, com tela cheia para o totem e controles via menu de contexto."""
         self.rowconfigure(0, weight=1)
+        self.rowconfigure(1, weight=0)
         self.columnconfigure(0, weight=1)
 
         self.content_frame = ttk.Frame(self, padding=0)
         self.content_frame.grid(row=0, column=0, sticky=NSEW)
         self.content_frame.rowconfigure(0, weight=1)
         self.content_frame.columnconfigure(0, weight=1)
+
+        # Barra inferior discreta para feedback de sincronização / operações em segundo plano
+        self._frame_progresso = ttk.Frame(self, padding=(12, 4), bootstyle="secondary")
+        self._label_progresso = ttk.Label(
+            self._frame_progresso,
+            text="",
+            font=("Segoe UI", 9, "bold"),
+            bootstyle="secondary",
+        )
+        self._label_progresso.pack(side=LEFT, padx=(0, 10))
+        self._barra_progresso = ttk.Progressbar(
+            self._frame_progresso,
+            mode="indeterminate",
+            bootstyle="info-striped",
+            length=180,
+        )
+        self._barra_progresso.pack(side=LEFT, fill=X, expand=True)
 
         # Criação das Abas
         self.frames["selfservice"] = FrameSelfService(
@@ -334,6 +613,8 @@ class AppSelfService(ttk.Window):
         """Trata a escolha de carregar ou criar sessão vinda do DialogoSessao."""
         if resultado is None:
             logger.info("Diálogo de sessão fechado sem alteração.")
+            if getattr(self, "selected_frame_name", "") == "selfservice" and "selfservice" in self.frames:
+                self.after(100, self.frames["selfservice"].focar_entrada)
             return True
 
         sucesso = False
@@ -448,7 +729,7 @@ class AppSelfService(ttk.Window):
             self.frames["dashboard"].atualizar_dados(ultimo_consumo=dados_estudante)
 
     def _on_closing(self):
-        """Encerramento seguro de recursos com proteção por PIN."""
+        """Encerramento seguro de recursos com proteção por PIN e sincronização final."""
         if (
             self.totem_cfg.get("require_pin_to_exit", True)
             and tem_pin_configurado()
@@ -463,11 +744,34 @@ class AppSelfService(ttk.Window):
         logger.info("Encerrando aplicação de autoatendimento...")
         if "selfservice" in self.frames:
             self.frames["selfservice"].stop()
+
+        if self.fachada_nucleo:
+            try:
+                # Sincroniza servidos de todas as sessões para a planilha antes de fechar
+                self._executar_sinc_bloqueante(
+                    self.fachada_nucleo.sincronizar_todas_sessoes_para_google_sheets,
+                    "Sincronização de Servidos",
+                    timeout=8.0,
+                )
+            except Exception as e:
+                logger.warning("Falha ao sincronizar antes de fechar: %s", e)
+
+            if self.id_sessao_ativa:
+                try:
+                    self.fachada_nucleo.salvar_estado_sessao(self.id_sessao_ativa)
+                except Exception as e:
+                    logger.warning("Erro ao salvar estado da sessão: %s", e)
+
+            try:
+                self.fachada_nucleo.fechar_conexao()
+            except Exception as e:
+                logger.warning("Erro ao fechar conexão com DB: %s", e)
+
         try:
-            self.fachada_nucleo.fechar_conexao()
-        except Exception as e:
-            logger.warning("Erro ao fechar conexão com DB: %s", e)
-        self.destroy()
+            self.destroy()
+        except tk.TclError:
+            pass
+        logger.info("Aplicação de autoatendimento finalizada.")
 
 
 def main():

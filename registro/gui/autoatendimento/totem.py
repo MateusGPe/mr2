@@ -122,17 +122,43 @@ class FrameSelfService(ttk.Frame):
             except Exception as e:
                 logger.warning("Erro ao liberar câmera: %s", e)
 
+    def _pode_processar_leitura(self) -> bool:
+        """Verifica se o totem está ativo na tela e sem diálogos modais bloqueando."""
+        try:
+            if not self.winfo_exists() or not self.winfo_ismapped():
+                return False
+            topo = self.winfo_toplevel()
+            # Se houver diálogo Toplevel aberto e visível, o totem está em segundo plano
+            for w in topo.winfo_children():
+                if isinstance(w, tk.Toplevel) and w.winfo_exists() and w.winfo_viewable():
+                    return False
+            return True
+        except Exception:
+            return False
+
     def focar_entrada(self):
         """Garante o foco contínuo no campo de entrada para scanners USB e digitação."""
         try:
+            if not self._pode_processar_leitura():
+                return
             if self._entrada_manual and self._entrada_manual.winfo_exists():
                 self._entrada_manual.focus_set()
         except Exception:
             pass
 
     def _ao_clicar_qualquer_lugar(self, event):
-        """Mantém o foco no leitor USB se o clique foi em labels ou planos de fundo."""
-        widget = event.widget
+        """Mantém o foco no leitor USB se o clique foi em labels ou planos de fundo do totem."""
+        if not self._pode_processar_leitura():
+            return
+        widget = getattr(event, "widget", None)
+        if not widget:
+            return
+        # Apenas processa se o clique foi dentro da própria árvore do FrameSelfService
+        try:
+            if not str(widget).startswith(str(self)):
+                return
+        except Exception:
+            return
         if not isinstance(
             widget,
             (
@@ -142,6 +168,12 @@ class FrameSelfService(ttk.Frame):
                 tk.Text,
                 ttk.Button,
                 tk.Button,
+                ttk.Checkbutton,
+                tk.Checkbutton,
+                ttk.Radiobutton,
+                tk.Radiobutton,
+                ttk.Treeview,
+                tk.Listbox,
             ),
         ):
             self.after(50, self.focar_entrada)
@@ -485,7 +517,7 @@ class FrameSelfService(ttk.Frame):
                 )
                 if self._cooldown_frames == 0:
                     self._definir_feedback_visual("padrao")
-            else:
+            elif self._pode_processar_leitura():
                 self._detectar_qr_code(frame)
 
             self._exibir_frame_no_label(frame)
