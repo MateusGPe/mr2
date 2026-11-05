@@ -143,14 +143,17 @@ def encontrar_melhor_par_correspondente(
 
 
 def capitalizar_com_excecoes(texto: str) -> str:
-    """Capitaliza uma string, com exceções para certas palavras (preposições, artigos)."""
-    texto = texto.strip()
-    if not texto:
+    """Capitaliza uma string (palavra única ou frase), respeitando preposições e artigos."""
+    if not texto or not isinstance(texto, str):
         return ""
-    texto_minusc = texto.lower()
-    if texto_minusc in EXCECOES_CAPITALIZACAO:
-        return texto_minusc
-    return texto.capitalize()
+
+    def _fmt(palavra: str) -> str:
+        palavra_minusc = palavra.lower()
+        if palavra_minusc in EXCECOES_CAPITALIZACAO:
+            return palavra_minusc
+        return palavra.capitalize()
+
+    return " ".join(_fmt(p) for p in texto.split() if p)
 
 
 def ajustar_chaves_e_valores(dicionario_entrada: Dict) -> Dict:
@@ -167,9 +170,7 @@ def ajustar_chaves_e_valores(dicionario_entrada: Dict) -> Dict:
         if isinstance(valor, str):
             novo_valor = valor.strip()
             if nova_chave in ["nome", "prato"]:
-                novo_valor = " ".join(
-                    capitalizar_com_excecoes(p) for p in novo_valor.split()
-                )
+                novo_valor = capitalizar_com_excecoes(novo_valor)
             elif nova_chave == "pront":
                 novo_valor = re.sub(r"IQ\d{2}", "IQ30", novo_valor.upper())
 

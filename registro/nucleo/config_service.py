@@ -293,14 +293,18 @@ def obter_status_sistema() -> Dict[str, Any]:
     total_consumos = 0
     if db_existe:
         try:
-            from registro.nucleo.facade import FachadaRegistro
+            from sqlalchemy import func
+            from registro.nucleo.models import Consumo, Estudante, SessaoLocal
 
-            fachada = FachadaRegistro()
-            total_alunos = len(fachada.obter_todos_estudantes())
-            # Consulta contagem simples se disponível
-            total_consumos = len(fachada.obter_todos_consumos())
-        except Exception:
-            pass
+            with SessaoLocal() as sessao:
+                total_alunos = int(
+                    sessao.query(func.count(Estudante.id)).scalar() or 0
+                )
+                total_consumos = int(
+                    sessao.query(func.count(Consumo.id)).scalar() or 0
+                )
+        except Exception as e:
+            logger.debug("Falha ao consultar contagens de diagnóstico do BD: %s", e)
 
     credenciais_existem = CAMINHO_CREDENCIAS.exists()
     token_existe = CAMINHO_TOKEN.exists()

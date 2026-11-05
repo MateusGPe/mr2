@@ -122,6 +122,9 @@ def importar_estudantes_csv(
             mapa_grupos = _obter_ou_criar_grupos(
                 repo_grupo.obter_sessao(), todos_nomes_grupos
             )
+            mapa_grupos_obj = {
+                g.id: g for g in repo_grupo.por_nomes(todos_nomes_grupos)
+            }
 
             prontuarios_envolvidos = {
                 rel["prontuario"] for rel in relacoes_estudante_grupo
@@ -138,7 +141,7 @@ def importar_estudantes_csv(
                 if estudante and id_grupo:
                     ids_grupos_atuais = {g.id for g in estudante.grupos}
                     if id_grupo not in ids_grupos_atuais:
-                        grupo = repo_grupo.ler_um(id_grupo)
+                        grupo = mapa_grupos_obj.get(id_grupo) or repo_grupo.ler_um(id_grupo)
                         if grupo:
                             estudante.grupos.append(grupo)
 

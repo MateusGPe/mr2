@@ -19,6 +19,7 @@ from registro.nucleo.importar.strategies import (
     CarregarExcel,
     CarregarGoogleSheets,
     CarregarListaSimples,
+    criar_estrategia_carregamento,
 )
 from registro.nucleo.facade import FachadaRegistro
 
@@ -39,17 +40,7 @@ class FachadaImportacao:
             caminho: Path do arquivo.
             tipo: 'simples' (txt), 'header' (csv c/ header), 'excel' (.xlsx), 'sheets', ou 'auto'.
         """
-        if caminho.lower().endswith(".xlsx") or tipo == "excel":
-            estrategia = CarregarExcel()
-        elif tipo == "simples":
-            estrategia = CarregarListaSimples()
-        elif tipo == "header":
-            estrategia = CarregarCSVComCabecalho()
-        elif tipo == "sheets":
-            estrategia = CarregarGoogleSheets()
-        else:
-            estrategia = CarregarCSVPosicional()
-
+        estrategia = criar_estrategia_carregamento(caminho, tipo=tipo)
         return self._servico.preparar_importacao(estrategia, caminho)
 
     def simular_importacao(

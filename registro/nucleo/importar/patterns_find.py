@@ -13,28 +13,10 @@ import re
 from datetime import datetime
 from typing import Any, Dict, Optional, Sequence
 
-EXCECOES_CAPITALIZACAO = {
-    "a",
-    "o",
-    "as",
-    "os",
-    "de",
-    "dos",
-    "das",
-    "do",
-    "da",
-    "e",
-    "é",
-    "com",
-    "sem",
-    "ou",
-    "para",
-    "por",
-    "no",
-    "na",
-    "nos",
-    "nas",
-}
+from registro.nucleo.utils import (
+    EXCECOES_CAPITALIZACAO,
+    capitalizar_com_excecoes,
+)
 
 MAPEAMENTO_CHAVES = {
     "matrícula iq": "prontuario",
@@ -50,20 +32,6 @@ MAPEAMENTO_CHAVES = {
     "dia da semana": "dia_semana",
     "refeição": "prato",
 }
-
-
-def capitalizar_com_excecoes(texto: str) -> str:
-    """Capitaliza texto respeitando preposições."""
-
-    def fmt(palavra):
-        palavra = palavra.strip()
-        if not palavra:
-            return ""
-        if palavra.lower() in EXCECOES_CAPITALIZACAO:
-            return palavra.lower()
-        return palavra.capitalize()
-
-    return " ".join(fmt(p) for p in texto.split())
 
 
 def checar_prontuario(texto: Any) -> Optional[str]:

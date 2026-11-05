@@ -12,6 +12,7 @@ import datetime as dt
 import logging
 from typing import Any, Dict, Optional, Set
 
+from sqlalchemy import func
 from sqlalchemy.orm import selectinload
 
 from registro.nucleo.models import Consumo, Estudante, Grupo, Reserva, Sessao
@@ -44,14 +45,15 @@ def obter_estatisticas_dashboard(
 
     sessao_db = repo_estudante.obter_sessao()
 
-    # Estudantes
-    alunos = (
-        sessao_db.query(Estudante)
-        .options(selectinload(Estudante.grupos))
-        .all()
+    # Contagens agregadas via SQL (evita full-table scan de todo o histórico em memória)
+    alunos_total = int(sessao_db.query(func.count(Estudante.id)).scalar() or 0)
+    alunos_inativos = int(
+        sessao_db.query(func.count(Estudante.id))
+        .filter(Estudante.ativo.is_(False))
+        .scalar()
+        or 0
     )
-    alunos_ativos = sum(1 for a in alunos if getattr(a, "ativo", True) is not False)
-    alunos_inativos = len(alunos) - alunos_ativos
+    alunos_ativos = alunos_total - alunos_inativos
 
     # Grupos / Turmas
     grupos = (
@@ -61,39 +63,45 @@ def obter_estatisticas_dashboard(
     )
     grupos_ativos = sum(1 for g in grupos if getattr(g, "ativo", True) is not False)
 
-    # Reservas
-    reservas = (
+    # Reservas: total ativo via SQL e carregamento detalhado apenas para hoje
+    reservas_total = int(
+        sessao_db.query(func.count(Reserva.id))
+        .filter(Reserva.cancelada.is_(False))
+        .scalar()
+        or 0
+    )
+    reservas_hoje = (
         sessao_db.query(Reserva)
         .options(selectinload(Reserva.estudante).selectinload(Estudante.grupos))
+        .filter(
+            Reserva.cancelada.is_(False),
+            Reserva.data.in_((hoje_iso, hoje_br)),
+        )
         .all()
     )
-    reservas_hoje = [
-        r for r in reservas
-        if not r.cancelada and (r.data in (hoje_iso, hoje_br))
-    ]
 
-    # Consumos com carregamento eager de Sessão e Estudante
-    consumos = (
+    # Consumos: contagens históricas/ontem via SQL e objetos detalhados apenas de hoje
+    consumos_total = int(sessao_db.query(func.count(Consumo.id)).scalar() or 0)
+    consumos_ontem_qtd = int(
+        sessao_db.query(func.count(Consumo.id))
+        .join(Consumo.sessao)
+        .filter(Sessao.data.in_((ontem_iso, ontem_br)))
+        .scalar()
+        or 0
+    )
+    consumos_hoje = (
         sessao_db.query(Consumo)
+        .join(Consumo.sessao)
         .options(
             selectinload(Consumo.sessao),
             selectinload(Consumo.reserva),
             selectinload(Consumo.estudante).selectinload(Estudante.grupos),
         )
+        .filter(Sessao.data.in_((hoje_iso, hoje_br)))
         .all()
     )
 
-    consumos_hoje = [
-        c for c in consumos
-        if c.sessao and (c.sessao.data in (hoje_iso, hoje_br))
-    ]
-
-    consumos_ontem = [
-        c for c in consumos
-        if c.sessao and (c.sessao.data in (ontem_iso, ontem_br))
-    ]
-
-    # Distribuição de Pratos (a partir de reservas e consumos de hoje)
+    # Distribuição de Pratos (a partir de reservas de hoje)
     dist_pratos: Dict[str, int] = {}
     for r in reservas_hoje:
         prato = r.prato.strip() if r.prato else "Padrão"
@@ -131,16 +139,16 @@ def obter_estatisticas_dashboard(
     ]
 
     return {
-        "alunos_total": len(alunos),
+        "alunos_total": alunos_total,
         "alunos_ativos": alunos_ativos,
         "alunos_inativos": alunos_inativos,
         "grupos_total": len(grupos),
         "grupos_ativos": grupos_ativos,
         "reservas_hoje": len(reservas_hoje),
-        "reservas_total": len([r for r in reservas if not r.cancelada]),
+        "reservas_total": reservas_total,
         "consumos_hoje": len(consumos_hoje),
-        "consumo_ontem": len(consumos_ontem),
-        "consumos_total": len(consumos),
+        "consumo_ontem": consumos_ontem_qtd,
+        "consumos_total": consumos_total,
         "distribuicao_pratos": dist_pratos,
         "distribuicao_turmas": dist_turmas_lista,
     }

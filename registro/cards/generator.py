@@ -165,20 +165,23 @@ def load_students_from_file(filepath: Union[Path, str]) -> List[Dict[str, str]]:
 
     if path.suffix.lower() in (".xlsx", ".xls"):
         wb = openpyxl.load_workbook(path, data_only=True)
-        sheet = wb.active
-        linhas = list(sheet.iter_rows(values_only=True))
-        if not linhas:
-            return []
+        try:
+            sheet = wb.active
+            linhas = list(sheet.iter_rows(values_only=True))
+            if not linhas:
+                return []
 
-        cabecalho = [str(c or "").strip() for c in linhas[0]]
-        for row in linhas[1:]:
-            dicionario = {}
-            for col_idx, valor in enumerate(row):
-                chave = cabecalho[col_idx] if col_idx < len(cabecalho) and cabecalho[col_idx] else f"col_{col_idx}"
-                dicionario[chave] = str(valor or "").strip()
-            item = _normalizar_linha(dicionario)
-            if item:
-                estudantes.append(item)
+            cabecalho = [str(c or "").strip() for c in linhas[0]]
+            for row in linhas[1:]:
+                dicionario = {}
+                for col_idx, valor in enumerate(row):
+                    chave = cabecalho[col_idx] if col_idx < len(cabecalho) and cabecalho[col_idx] else f"col_{col_idx}"
+                    dicionario[chave] = str(valor or "").strip()
+                item = _normalizar_linha(dicionario)
+                if item:
+                    estudantes.append(item)
+        finally:
+            wb.close()
     else:
         conteudo = ""
         for encoding in ("utf-8-sig", "utf-8", "latin-1", "cp1252"):
@@ -531,6 +534,8 @@ def generate_cards_html(
 </head>
 <body>
 """
+    import html
+
     cards_html = ""
     page_num = 1
     total = len(students)
@@ -544,11 +549,17 @@ def generate_cards_html(
                 f'<div class="page-indicator">P.{page_num}</div>' if options.show_page_number else ""
             )
             header_html = (
-                f'<div class="inst-header">{options.header_text}</div>' if options.header_text else ""
+                f'<div class="inst-header">{html.escape(str(options.header_text))}</div>'
+                if options.header_text
+                else ""
             )
             turma_html = (
-                f'<div class="turma">{row["turma"]}</div>' if row.get("turma") else ""
+                f'<div class="turma">{html.escape(str(row["turma"]))}</div>'
+                if row.get("turma")
+                else ""
             )
+            reg_safe = html.escape(str(row.get("register", "")))
+            name_safe = html.escape(str(row.get("name", "")))
 
             cards_html += f"""
             <div class="cell">
@@ -558,8 +569,8 @@ def generate_cards_html(
                 </div>
                 <div class="content-footer">
                     {header_html}
-                    <div class="reg">{row.get('register', '')}</div>
-                    <div class="name">{row.get('name', '')}</div>
+                    <div class="reg">{reg_safe}</div>
+                    <div class="name">{name_safe}</div>
                     {turma_html}
                 </div>
             </div>"""

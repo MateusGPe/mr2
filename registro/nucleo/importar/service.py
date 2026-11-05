@@ -70,21 +70,19 @@ class ServicoImportacao:
         
         novos = []
         reservas = []
+        prontuarios_vistos = set()
 
         for linha in lista_consolidada:
             id_banco = linha.get("_id_banco")
             pront = linha.get("prontuario")
             data = linha.get("data")
 
-            
             if not data:
                 continue
 
-            
             if not id_banco and pront:
-                
-                exists = any(n["prontuario"] == pront for n in novos)
-                if not exists:
+                if pront not in prontuarios_vistos:
+                    prontuarios_vistos.add(pront)
                     novos.append(
                         {
                             "prontuario": pront,
@@ -162,74 +160,8 @@ class ServicoImportacao:
         if hasattr(self._fachada, "salvar_importacao_dados"):
             return self._fachada.salvar_importacao_dados(dados)
 
-        novos_estudantes = []
-        reservas_para_criar = []
+        from registro.nucleo.services.reserva_service import salvar_importacao_dados
 
-        
-        for linha in dados:
-            id_banco = linha.get("_id_banco")
-            pront = linha.get("prontuario")
-
-            
-            if not (data := linha.get("data")):
-                continue
-
-            
-            if not id_banco and pront:
-                novos_estudantes.append(
-                    {
-                        "prontuario": pront,
-                        "nome": linha.get("nome", "Desconhecido"),
-                        "ativo": True,
-                    }
-                )
-
-            # Prepara payload da reserva com chave de resolução
-            reservas_para_criar.append(
-                {
-                    "payload": {
-                        "prato": linha.get("prato"),
-                        "data": data,
-                        "cancelada": False,
-                    },
-                    "chave": id_banco if id_banco else pront,
-                }
-            )
-
-        
-        if novos_estudantes:
-            unicos = {e["prontuario"]: e for e in novos_estudantes}.values()
-            self._fachada.repo_estudante.criar_em_massa(list(unicos))
-
-        
-        mapa_ids = {}
-        if novos_estudantes:
-            pronts = {e["prontuario"] for e in novos_estudantes}
-            objs = self._fachada.repo_estudante.por_prontuarios(pronts)
-            mapa_ids = {e.prontuario: e.id for e in objs}
-
-        
-        reservas_finais = []
-        for item in reservas_para_criar:
-            chave = item["chave"]
-            id_final = None
-
-            if isinstance(chave, int):
-                id_final = chave
-            elif isinstance(chave, str):
-                id_final = mapa_ids.get(chave)
-
-            if id_final:
-                payload = item["payload"]
-                payload["estudante_id"] = id_final
-                reservas_finais.append(payload)
-
-        if reservas_finais:
-            self._fachada.repo_reserva.criar_em_massa(reservas_finais)
-
-        self._fachada.repo_estudante.obter_sessao().commit()
-
-        return {
-            "estudantes_criados": len(novos_estudantes),
-            "reservas_criadas": len(reservas_finais),
-        }
+        return salvar_importacao_dados(
+            self._fachada.repo_estudante, self._fachada.repo_reserva, dados
+        )

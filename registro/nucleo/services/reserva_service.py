@@ -75,11 +75,22 @@ def deletar_reserva(
 
 def listar_datas_reservas(repo_reserva: RepositorioReserva) -> List[str]:
     """Retorna uma lista única e cronologicamente ordenada de datas de reservas existentes."""
+    from sqlalchemy import select
     from registro.nucleo.importar.patterns_find import obter_data
+    from registro.nucleo.models import Reserva
 
     def _chave_data(texto: str) -> int:
         obj = obter_data(texto)
         return int(obj.timestamp()) if obj else 0
+
+    sessao = repo_reserva.obter_sessao()
+    if hasattr(sessao, "scalars"):
+        try:
+            valores = sessao.scalars(select(Reserva.data).distinct()).all()
+            datas = {d for d in valores if isinstance(d, str) and d}
+            return sorted(datas, reverse=True, key=_chave_data)
+        except Exception:
+            pass
 
     datas = {s.data for s in repo_reserva.ler_unicos() if s.data}
     return sorted(datas, reverse=True, key=_chave_data)
@@ -93,9 +104,11 @@ def listar_reservas(
     """Lista reservas com base nos filtros fornecidos."""
     filtros = filtros or {}
     if "grupos" in filtros or "grupo" in filtros:
-        grupos = set(filtros.get("grupos", [])) or set(
-            filtros.get("grupo", ""),
-        )
+        raw_grupos = filtros.get("grupos") or filtros.get("grupo") or []
+        if isinstance(raw_grupos, str):
+            grupos = {raw_grupos} if raw_grupos.strip() else set()
+        else:
+            grupos = set(raw_grupos)
         grupos_ids = [g.id for g in repo_grupo.por_nomes(grupos)]
         reservas = repo_reserva.por_data_e_grupos(
             grupos_ids=grupos_ids, data_formatada=filtros.get("data")
@@ -164,13 +177,17 @@ def salvar_importacao_dados(
             }
         )
 
-    if novos_estudantes:
-        unicos = {e["prontuario"]: e for e in novos_estudantes}.values()
-        repo_estudante.criar_em_massa(list(unicos))
+    unicos = (
+        list({e["prontuario"]: e for e in novos_estudantes}.values())
+        if novos_estudantes
+        else []
+    )
+    if unicos:
+        repo_estudante.criar_em_massa(unicos)
 
     mapa_ids = {}
-    if novos_estudantes:
-        pronts = {e["prontuario"] for e in novos_estudantes}
+    if unicos:
+        pronts = {e["prontuario"] for e in unicos}
         objs = repo_estudante.por_prontuarios(pronts)
         mapa_ids = {e.prontuario: e.id for e in objs}
 
@@ -195,6 +212,6 @@ def salvar_importacao_dados(
     repo_estudante.obter_sessao().commit()
 
     return {
-        "estudantes_criados": len(novos_estudantes),
+        "estudantes_criados": len(unicos),
         "reservas_criadas": len(reservas_finais),
     }

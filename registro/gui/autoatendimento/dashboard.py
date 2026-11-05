@@ -631,7 +631,7 @@ class AbaDashboard(ttk.Frame):
             return
 
         try:
-            caminho = self.fachada.exportar_sessao_para_xlsx(self.id_sessao)
+            caminho = self.fachada.exportar_sessao_para_xlsx()
             Messagebox.show_info(
                 "Exportação Concluída",
                 f"Relatório exportado com sucesso para:\n{caminho}",

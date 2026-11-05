@@ -681,8 +681,9 @@ class AppSelfService(ttk.Window):
                 ident.lstrip("#") for ident in identificadores if ident.startswith("#")
             }
 
-            self.fachada_nucleo.atualizar_grupos_sessao_ativa(grupos_normais)
-            self.fachada_nucleo.excecao_grupos = grupos_excecao
+            self.fachada_nucleo.atualizar_grupos_sessao(
+                grupos_normais, excecao_grupos=grupos_excecao
+            )
 
             self._atualizar_barra_sessao()
             if "dashboard" in self.frames:

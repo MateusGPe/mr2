@@ -473,3 +473,38 @@ def test_facade_listar_datas_reservas_ordenadas(facade: FachadaRegistro):
     idx_jun = datas.index("05/06/2026")
     idx_jan = datas.index("10/01/2026")
     assert idx_dez < idx_jun < idx_jan
+
+
+def test_facade_importacao_excel_e_exportacao_por_id_sessao(
+    facade: FachadaRegistro, tmp_path
+):
+    """Valida importação de planilha .xlsx via FachadaRegistro e exportação XLSX passando id_sessao."""
+    import openpyxl
+
+    xlsx_path = tmp_path / "import_excel.xlsx"
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["prontuario", "nome", "prato", "data"])
+    ws.append(["IQ3005555", "Estudante Excel", "Almoço", "2026-10-28"])
+    wb.save(xlsx_path)
+    wb.close()
+
+    res = facade.analisar_arquivo(str(xlsx_path), tipo="auto")
+    assert res["resumo"]["total_linhas"] == 1
+
+    facade.criar_estudante("IQ3005556", "Aluno Sessao Export", grupos=["1º A - MEC"])
+    id_sessao = facade.iniciar_nova_sessao({
+        "refeicao": "lanche",
+        "periodo": "Manhã",
+        "data": "2026-10-28",
+        "hora": "09:30",
+        "item_servido": "Fruta",
+        "grupos": ["1º A - MEC"],
+    })
+    facade.atualizar_grupos_sessao_ativa(["1º A - MEC"], excecao_grupos=["2º B - MEC"])
+    assert "2º B - MEC" in facade.excecao_grupos
+
+    # Deve aceitar id_sessao (int) como primeiro argumento sem lançar TypeError
+    caminho_xlsx = facade.exportar_sessao_para_xlsx(id_sessao)
+    assert Path(caminho_xlsx).exists()
+    Path(caminho_xlsx).unlink(missing_ok=True)

@@ -187,3 +187,23 @@ def test_generate_cards_pdf_with_multiline_names(tmp_path: Path):
     assert out_pdf.exists()
     assert out_pdf.stat().st_size > 1000
 
+
+def test_generate_cards_html_escapes_xss(tmp_path: Path):
+    """Garante que generate_cards_html escape tags HTML/JS maliciosas (prevenção de XSS)."""
+    estudantes = [
+        {
+            "register": "SP<script>alert(1)</script>",
+            "name": "Aluno <img src=x onerror=alert(2)>",
+            "turma": "1A & <2B>",
+        }
+    ]
+    out_html = tmp_path / "cartoes_xss.html"
+    opts = CardOptions(header_text="<b>IFSP</b>")
+    generate_cards_html(estudantes, out_html, opts)
+    content = out_html.read_text(encoding="utf-8")
+
+    assert "<script>" not in content
+    assert "&lt;script&gt;alert(1)&lt;/script&gt;" in content
+    assert "&lt;img src=x onerror=alert(2)&gt;" in content
+    assert "&lt;b&gt;IFSP&lt;/b&gt;" in content
+

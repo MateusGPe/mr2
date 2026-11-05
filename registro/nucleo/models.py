@@ -266,8 +266,12 @@ class SyncLog(Base):
         )
 
 
-URL_BANCO_DE_DADOS = "sqlite:///./config/registro.db"
-motor = create_engine(URL_BANCO_DE_DADOS)
+from registro.nucleo.constants import URL_BANCO_DADOS as URL_BANCO_DE_DADOS
+
+motor = create_engine(
+    URL_BANCO_DE_DADOS,
+    connect_args={"check_same_thread": False},
+)
 SessaoLocal = sessionmaker(autocommit=False, autoflush=False, bind=motor)
 
 

@@ -31,6 +31,25 @@ from registro.nucleo.utils import obter_caminho_documentos
 
 logger = logging.getLogger(__name__)
 
+_PREFIXOS_FORMULA_PERIGOSOS = ("=", "+", "-", "@", "\t", "\r")
+_OPCOES_XLSX_SEGURO = {"strings_to_formulas": False, "strings_to_urls": False}
+
+
+def _sanitizar_celula_planilha(valor: Any) -> Any:
+    """Previne CSV/Formula Injection (OWASP) escapando células iniciadas por operadores de fórmula."""
+    if isinstance(valor, str) and valor.startswith(_PREFIXOS_FORMULA_PERIGOSOS):
+        if valor != "-":
+            return f"'{valor}"
+    return valor
+
+
+def _sanitizar_linhas_csv(dados: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Aplica sanitização contra Formula Injection em dicionários de exportação CSV."""
+    return [
+        {k: _sanitizar_celula_planilha(v) for k, v in linha.items()}
+        for linha in dados
+    ]
+
 
 def _escrever_consumos_em_planilha(
     workbook: xlsxwriter.Workbook,
@@ -101,7 +120,7 @@ def exportar_todos_os_consumos_para_xlsx(
         nome_arquivo = f"exportacao_total_consumos_{timestamp}.xlsx"
         caminho_arquivo = obter_caminho_documentos() / nome_arquivo
 
-    with xlsxwriter.Workbook(str(caminho_arquivo)) as workbook:
+    with xlsxwriter.Workbook(str(caminho_arquivo), _OPCOES_XLSX_SEGURO) as workbook:
         _escrever_consumos_em_planilha(
             workbook=workbook,
             worksheet_name="Todos os Consumos",
@@ -142,7 +161,7 @@ def exportar_sessao_para_xlsx(
         )
         caminho_arquivo = obter_caminho_documentos() / nome_arquivo
 
-    with xlsxwriter.Workbook(str(caminho_arquivo)) as workbook:
+    with xlsxwriter.Workbook(str(caminho_arquivo), _OPCOES_XLSX_SEGURO) as workbook:
         _escrever_consumos_em_planilha(
             workbook=workbook,
             worksheet_name=nome_arquivo[:31],
@@ -184,7 +203,7 @@ def exportar_estudantes_para_csv(
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
         writer.writeheader()
-        writer.writerows(dados)
+        writer.writerows(_sanitizar_linhas_csv(dados))
     return str(caminho)
 
 
@@ -212,7 +231,7 @@ def exportar_estudantes_para_xlsx(
             for est in estudantes
         ]
 
-    with xlsxwriter.Workbook(str(caminho)) as workbook:
+    with xlsxwriter.Workbook(str(caminho), _OPCOES_XLSX_SEGURO) as workbook:
         ws = workbook.add_worksheet("Alunos")
         cabecalho = ["ID", "Prontuário", "Nome", "Turmas", "Ativo"]
         ws.write_row(0, 0, cabecalho)
@@ -222,9 +241,9 @@ def exportar_estudantes_para_xlsx(
                 0,
                 [
                     row.get("id", ""),
-                    row.get("prontuario", ""),
-                    row.get("nome", ""),
-                    row.get("grupos", ""),
+                    _sanitizar_celula_planilha(row.get("prontuario", "")),
+                    _sanitizar_celula_planilha(row.get("nome", "")),
+                    _sanitizar_celula_planilha(row.get("grupos", "")),
                     row.get("ativo", "Sim"),
                 ],
             )
@@ -265,7 +284,7 @@ def exportar_reservas_para_csv(
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
         writer.writeheader()
-        writer.writerows(dados)
+        writer.writerows(_sanitizar_linhas_csv(dados))
     return str(caminho)
 
 
@@ -295,7 +314,7 @@ def exportar_reservas_para_xlsx(
             for r in reservas
         ]
 
-    with xlsxwriter.Workbook(str(caminho)) as workbook:
+    with xlsxwriter.Workbook(str(caminho), _OPCOES_XLSX_SEGURO) as workbook:
         ws = workbook.add_worksheet("Reservas")
         cabecalho = ["ID", "Data", "Prontuário", "Nome Aluno", "Prato", "Cancelada"]
         ws.write_row(0, 0, cabecalho)
@@ -305,10 +324,10 @@ def exportar_reservas_para_xlsx(
                 0,
                 [
                     row.get("id", ""),
-                    row.get("data", ""),
-                    row.get("prontuario", ""),
-                    row.get("nome", ""),
-                    row.get("prato", ""),
+                    _sanitizar_celula_planilha(row.get("data", "")),
+                    _sanitizar_celula_planilha(row.get("prontuario", "")),
+                    _sanitizar_celula_planilha(row.get("nome", "")),
+                    _sanitizar_celula_planilha(row.get("prato", "")),
                     row.get("cancelada", "Não"),
                 ],
             )
@@ -346,7 +365,7 @@ def exportar_turmas_para_csv(
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
         writer.writeheader()
-        writer.writerows(dados)
+        writer.writerows(_sanitizar_linhas_csv(dados))
     return str(caminho)
 
 
@@ -373,7 +392,7 @@ def exportar_turmas_para_xlsx(
             for g in grupos
         ]
 
-    with xlsxwriter.Workbook(str(caminho)) as workbook:
+    with xlsxwriter.Workbook(str(caminho), _OPCOES_XLSX_SEGURO) as workbook:
         ws = workbook.add_worksheet("Turmas")
         cabecalho = ["ID", "Nome da Turma", "Status Ativo", "Total de Alunos"]
         ws.write_row(0, 0, cabecalho)
@@ -383,7 +402,7 @@ def exportar_turmas_para_xlsx(
                 0,
                 [
                     row.get("id", ""),
-                    row.get("nome", ""),
+                    _sanitizar_celula_planilha(row.get("nome", "")),
                     row.get("ativo", "Sim"),
                     row.get("total_alunos", 0),
                 ],

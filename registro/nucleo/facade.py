@@ -193,6 +193,19 @@ class FachadaRegistro:
             self._repo_sessao, self._repo_grupo, self.id_sessao_ativa, grupos
         )
 
+    def atualizar_grupos_sessao_ativa(
+        self,
+        grupos: List[str],
+        excecao_grupos: Optional[Sequence[str]] = None,
+        excessao_grupos: Optional[Sequence[str]] = None,
+    ):
+        """Alias para atualizar_grupos_sessao (mantém compatibilidade com chamadas da GUI)."""
+        self.atualizar_grupos_sessao(
+            grupos,
+            excecao_grupos=excecao_grupos,
+            excessao_grupos=excessao_grupos,
+        )
+
     # --- Registro e Cancelamento de Consumo ---
 
     def registrar_consumo(
@@ -457,13 +470,20 @@ class FachadaRegistro:
 
     def exportar_sessao_para_xlsx(
         self,
-        nome_arquivo: Optional[Path] = None,
+        nome_arquivo: Optional[Any] = None,
     ) -> str:
         """Exporta os dados de consumo da sessão ativa para um arquivo XLSX."""
-        if self.id_sessao_ativa is None:
+        if isinstance(nome_arquivo, int):
+            id_sessao_alvo: Optional[int] = nome_arquivo
+            caminho_destino: Optional[Path] = None
+        else:
+            id_sessao_alvo = self.id_sessao_ativa
+            caminho_destino = Path(nome_arquivo) if nome_arquivo else None
+
+        if id_sessao_alvo is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
         return service_logic.exportar_sessao_para_xlsx(
-            self._repo_sessao, self._repo_consumo, self.id_sessao_ativa, nome_arquivo
+            self._repo_sessao, self._repo_consumo, id_sessao_alvo, caminho_destino
         )
 
     def exportar_consumos_para_xlsx(
@@ -476,8 +496,17 @@ class FachadaRegistro:
         )
 
     def sincronizar_do_google_sheets(self):
-        """Sincroniza a base de dados local a partir do Google Sheets."""
-        service_logic.sincronizar_do_google_sheets(
+        """Sincroniza a base de dados local a partir do Google Sheets (com isolamento thread-safe)."""
+        import threading
+
+        if threading.current_thread() is not threading.main_thread() and self._deve_fechar_sessao:
+            with FachadaRegistro() as fachada_worker:
+                return service_logic.sincronizar_do_google_sheets(
+                    fachada_worker._repo_estudante,
+                    fachada_worker._repo_reserva,
+                    fachada_worker._repo_grupo,
+                )
+        return service_logic.sincronizar_do_google_sheets(
             self._repo_estudante, self._repo_reserva, self._repo_grupo
         )
 
@@ -485,13 +514,30 @@ class FachadaRegistro:
         """Envia os dados de consumo da sessão ativa para a planilha do Google Sheets."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
-        service_logic.sincronizar_para_google_sheets(
+        import threading
+
+        if threading.current_thread() is not threading.main_thread() and self._deve_fechar_sessao:
+            with FachadaRegistro() as fachada_worker:
+                return service_logic.sincronizar_para_google_sheets(
+                    fachada_worker._repo_sessao,
+                    fachada_worker._repo_consumo,
+                    self.id_sessao_ativa,
+                )
+        return service_logic.sincronizar_para_google_sheets(
             self._repo_sessao, self._repo_consumo, self.id_sessao_ativa
         )
 
     def sincronizar_todas_sessoes_para_google_sheets(self):
         """Envia os dados de consumo de todas as sessões para o Google Sheets."""
-        service_logic.sincronizar_todas_sessoes_para_google_sheets(
+        import threading
+
+        if threading.current_thread() is not threading.main_thread() and self._deve_fechar_sessao:
+            with FachadaRegistro() as fachada_worker:
+                return service_logic.sincronizar_todas_sessoes_para_google_sheets(
+                    fachada_worker._repo_sessao,
+                    fachada_worker._repo_consumo,
+                )
+        return service_logic.sincronizar_todas_sessoes_para_google_sheets(
             self._repo_sessao, self._repo_consumo
         )
 
@@ -550,24 +596,11 @@ class FachadaRegistro:
 
         Args:
             caminho: Caminho do arquivo ou identificador da fonte.
-            tipo: 'simples' (txt), 'header' (csv c/ cabeçalho), 'sheets', ou 'auto'.
+            tipo: 'simples' (txt), 'header' (csv c/ cabeçalho), 'excel' (.xlsx), 'sheets', ou 'auto'.
         """
-        from registro.nucleo.importar.strategies import (
-            CarregarCSVComCabecalho,
-            CarregarCSVPosicional,
-            CarregarGoogleSheets,
-            CarregarListaSimples,
-        )
+        from registro.nucleo.importar.strategies import criar_estrategia_carregamento
 
-        if tipo == "simples":
-            estrategia = CarregarListaSimples()
-        elif tipo == "header":
-            estrategia = CarregarCSVComCabecalho()
-        elif tipo == "sheets":
-            estrategia = CarregarGoogleSheets()
-        else:
-            estrategia = CarregarCSVPosicional()
-
+        estrategia = criar_estrategia_carregamento(caminho, tipo=tipo)
         return self._obter_servico_importacao().preparar_importacao(
             estrategia, caminho
         )

@@ -121,3 +121,27 @@ def test_testar_conexao_google_sheets_sem_arquivos(temp_config_dir):
     sucesso, msg = config_service.testar_conexao_google_sheets()
     assert sucesso is False
     assert "spreadsheet.json" in msg
+
+
+def test_obter_status_sistema_com_contagem_sql(temp_config_dir, monkeypatch):
+    """Garante que obter_status_sistema consulte contagens reais via SQL sem lançar AttributeError."""
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    import registro.nucleo.models as models_mod
+
+    db_path = temp_config_dir / "registro.db"
+    engine_tmp = create_engine(f"sqlite:///{db_path}")
+    models_mod.Base.metadata.create_all(bind=engine_tmp)
+    SessaoTmp = sessionmaker(bind=engine_tmp)
+
+    with SessaoTmp() as s:
+        s.add(models_mod.Estudante(prontuario="IQ1001", nome="Teste Status"))
+        s.commit()
+
+    monkeypatch.setattr(models_mod, "SessaoLocal", SessaoTmp)
+
+    status = config_service.obter_status_sistema()
+    assert status["banco_dados"]["existe"] is True
+    assert status["banco_dados"]["total_alunos"] == 1
+    assert status["banco_dados"]["total_consumos"] == 0
+    engine_tmp.dispose()
