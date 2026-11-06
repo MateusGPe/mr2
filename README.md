@@ -184,6 +184,14 @@ uv run pyinstaller registro_onedir.spec
 
 ---
 
+## 📚 Documentação e Manual do Usuário
+
+O sistema conta com um **Manual do Usuário Completo**, com passo a passo ilustrado de todas as janelas, diálogos, tabelas de atalhos e rotinas diárias:
+
+* 📖 **[Manual Completo do Usuário (com Capturas de Tela)](docs/MANUAL_DO_USUARIO.md)**
+
+---
+
 ## 🧪 Testes Automatizados
 
 O projeto conta com uma ampla suíte de testes unitários e de integração, garantindo a integridade dos serviços, fachada, regras de negócio e interfaces:

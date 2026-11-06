@@ -56,9 +56,11 @@ class FachadaRegistro:
         """
         if sessao_db is not None:
             self._sessao_db = sessao_db
+            self._deve_fechar_sessao = False
         else:
             criar_banco_de_dados_e_tabelas()
             self._sessao_db = SessaoLocal()
+            self._deve_fechar_sessao = True
 
         self._repo_estudante = RepositorioEstudante(self._sessao_db)
         self._repo_reserva = RepositorioReserva(self._sessao_db)

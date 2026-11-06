@@ -254,7 +254,7 @@ class FrameSelfService(ttk.Frame):
     def _criar_interface(self):
         """Cria os widgets da interface moderna com 50/50 e painel direito ocupando 100% da altura."""
         self.columnconfigure(0, weight=1)
-        self.columnconfigure(1, weight=1)
+        self.columnconfigure(1, weight=1, minsize=400)
         self.rowconfigure(0, weight=0)
         self.rowconfigure(1, weight=1)
 
@@ -280,6 +280,7 @@ class FrameSelfService(ttk.Frame):
             font=("Segoe UI", 10, "bold"),
             bootstyle="@dark",
             anchor="e",
+            wraplength=400
         )
         self._lbl_sessao_topo.grid(row=0, column=1, sticky="ew")
 
@@ -337,6 +338,7 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg=self.COR_TEXTO,
             anchor="center",
+            wraplength=400
         )
         self._lbl_titulo_cabecalho.pack(fill=X)
 
@@ -362,6 +364,7 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg=self.COR_TEXTO,
             anchor="center",
+            wraplength=400
         )
         self._lbl_status.pack(fill=X, pady=(5, 18))
 
@@ -377,7 +380,7 @@ class FrameSelfService(ttk.Frame):
             font=("Segoe UI", 28, "bold"),
             bg=self.COR_FUNDO_PADRAO,
             fg=self.COR_TEXTO,
-            wraplength=520,
+            wraplength=400,
             justify="center",
             anchor="center",
         )
@@ -390,6 +393,7 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg="#E5E7EB",
             anchor="center",
+            wraplength=400
         )
         self._lbl_turma.pack(fill=X, pady=2)
 
@@ -400,6 +404,7 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg="#93C5FD",
             anchor="center",
+            wraplength=400
         )
         self._lbl_prato.pack(fill=X, pady=3)
 
@@ -423,6 +428,7 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg="#9CA3AF",
             anchor="center",
+            wraplength=400
         )
         self._lbl_contador_sessao.pack(fill=X, pady=(0, 12))
 

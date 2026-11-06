@@ -4,6 +4,7 @@ Testes unitários e de regressão para a classe FachadaRegistro em registro.nucl
 
 import datetime as dt
 from pathlib import Path
+from unittest.mock import patch
 import pytest
 from sqlalchemy.orm import Session
 
@@ -273,6 +274,94 @@ def test_facade_operacoes_sessao_e_delegacoes(facade: FachadaRegistro, tmp_path)
         })
         facade.sincronizar_para_google_sheets()
         m_sync_para.assert_called_once()
+
+
+def test_facade_deve_fechar_sessao_flag(db_session: Session):
+    """Verifica se _deve_fechar_sessao é definido corretamente com base na injeção de sessão."""
+    facade_injetada = FachadaRegistro(sessao_db=db_session)
+    assert hasattr(facade_injetada, "_deve_fechar_sessao")
+    assert facade_injetada._deve_fechar_sessao is False
+
+    with patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"), \
+         patch("registro.nucleo.facade.SessaoLocal") as mock_sessao_local:
+        mock_sessao = mock_sessao_local.return_value
+        facade_padrao = FachadaRegistro()
+        assert hasattr(facade_padrao, "_deve_fechar_sessao")
+        assert facade_padrao._deve_fechar_sessao is True
+        facade_padrao.fechar_conexao()
+        mock_sessao.close.assert_called_once()
+
+
+def test_facade_sincronizacao_em_worker_thread(facade: FachadaRegistro):
+    """Garante que a sincronização executada em worker thread não lança erro por falta de _deve_fechar_sessao."""
+    import threading
+
+    facade.iniciar_nova_sessao({
+        "refeicao": "lanche", "periodo": "Manhã", "data": "2026-10-21",
+        "hora": "09:00", "grupos": [],
+    })
+
+    erros = []
+
+    def executar_sync_em_thread():
+        try:
+            with patch("registro.nucleo.service_logic.sincronizar_do_google_sheets") as m_sync_do, \
+                 patch("registro.nucleo.service_logic.sincronizar_para_google_sheets") as m_sync_para, \
+                 patch("registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets") as m_sync_todas:
+
+                facade.sincronizar_do_google_sheets()
+                m_sync_do.assert_called_once()
+
+                facade.sincronizar_para_google_sheets()
+                m_sync_para.assert_called_once()
+
+                facade.sincronizar_todas_sessoes_para_google_sheets()
+                m_sync_todas.assert_called_once()
+        except Exception as e:
+            erros.append(e)
+
+    thread = threading.Thread(target=executar_sync_em_thread)
+    thread.start()
+    thread.join()
+
+    assert not erros, f"Exceção levantada durante sincronização em worker thread: {erros[0]}"
+
+
+def test_facade_sincronizacao_em_worker_thread_com_nova_fachada():
+    """Garante isolamento de sessão em worker thread quando _deve_fechar_sessao é True."""
+    import threading
+
+    with patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"), \
+         patch("registro.nucleo.facade.SessaoLocal"):
+        facade = FachadaRegistro()
+        facade.id_sessao_ativa = 42
+
+    erros = []
+
+    def executar_sync():
+        try:
+            with patch("registro.nucleo.service_logic.sincronizar_do_google_sheets") as m_sync_do, \
+                 patch("registro.nucleo.service_logic.sincronizar_para_google_sheets") as m_sync_para, \
+                 patch("registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets") as m_sync_todas, \
+                 patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"), \
+                 patch("registro.nucleo.facade.SessaoLocal"):
+
+                facade.sincronizar_do_google_sheets()
+                assert m_sync_do.called
+
+                facade.sincronizar_para_google_sheets()
+                assert m_sync_para.called
+
+                facade.sincronizar_todas_sessoes_para_google_sheets()
+                assert m_sync_todas.called
+        except Exception as e:
+            erros.append(e)
+
+    thread = threading.Thread(target=executar_sync)
+    thread.start()
+    thread.join()
+
+    assert not erros, f"Exceção levantada durante sincronização isolada: {erros[0]}"
 
 
 def test_facade_repositorio_encapsulamento_e_propriedades(facade: FachadaRegistro):
