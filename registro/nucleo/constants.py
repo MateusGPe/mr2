@@ -49,5 +49,27 @@ CABECALHO_EXPORTACAO: List[str] = [
     "Hora",
 ]
 
+CABECALHO_DISCENTES: List[str] = [
+    "Matrícula",
+    "Nome",
+    "Turma",
+]
+
+CABECALHO_RESERVAS: List[str] = [
+    "DATA",
+    "MATRÍCULA",
+    "NOME",
+    "TURMA",
+    "REFEIÇÃO",
+    "DIA DA SEMANA",
+]
+
+ESTRUTURA_ABAS_PADRAO: Dict[str, List[str]] = {
+    NOME_ABA_ESTUDANTES: CABECALHO_DISCENTES,
+    NOME_ABA_RESERVAS: CABECALHO_RESERVAS,
+    "Almoço": CABECALHO_EXPORTACAO,
+    "Lanche": CABECALHO_EXPORTACAO,
+}
+
 NOME_LANCHE_PADRAO: str = "Lanche Padrão"
 NOME_PRATO_SEM_RESERVA: str = "Não Especificado"

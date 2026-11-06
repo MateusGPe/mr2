@@ -11,7 +11,7 @@ Google Sheets, para sincronização de dados.
 
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import gspread
 from google.auth.transport.requests import Request
@@ -29,6 +29,7 @@ from registro.nucleo.constants import (
     CAMINHO_TOKEN,
     DIRETORIO_CONFIG as CAMINHO_CONFIG,
     ESCOPOS as SCOPES,
+    ESTRUTURA_ABAS_PADRAO,
     JSON_ID_PLANILHA as CAMINHO_PLANILHA_JSON,
 )
 
@@ -147,6 +148,80 @@ class GoogleSheetsService:
         except (WorksheetNotFound, APIError, RequestException) as e:
             raise ErroAPIGoogle(f"Falha ao anexar linhas em '{nome_aba}': {e}") from e
 
+    def criar_abas_necessarias(
+        self,
+        estrutura: Optional[Dict[str, List[str]]] = None,
+    ) -> Dict[str, List[str]]:
+        """
+        Garante que as abas essenciais existam na planilha com cabeçalhos padronizados.
+        - Não sobrescreve abas existentes com dados.
+        - Se uma aba já existir mas estiver vazia, insere o cabeçalho padronizado.
+        - Congela a primeira linha (cabeçalho) e aplica estilo negrito.
+
+        Retorna dicionário com listas:
+            {"criadas": [...], "atualizadas_vazias": [...], "mantidas": [...]}
+        """
+        estrutura_alvo = estrutura if estrutura is not None else ESTRUTURA_ABAS_PADRAO
+        criadas: List[str] = []
+        atualizadas_vazias: List[str] = []
+        mantidas: List[str] = []
+
+        try:
+            worksheets_existentes = {ws.title: ws for ws in self._planilha.worksheets()}
+
+            for nome_aba, cabecalho in estrutura_alvo.items():
+                if nome_aba not in worksheets_existentes:
+                    aba = self._planilha.add_worksheet(
+                        title=nome_aba,
+                        rows=100,
+                        cols=max(len(cabecalho), 10),
+                    )
+                    aba.append_row(
+                        cabecalho,
+                        value_input_option=ValueInputOption.user_entered,
+                    )
+                    try:
+                        aba.freeze(rows=1)
+                    except Exception:
+                        pass
+                    try:
+                        aba.format("1:1", {"textFormat": {"bold": True}})
+                    except Exception:
+                        pass
+                    criadas.append(nome_aba)
+                else:
+                    aba = worksheets_existentes[nome_aba]
+                    valores = aba.get_all_values()
+                    esta_vazia = not valores or not any(
+                        any(str(cel).strip() for cel in linha) for linha in valores
+                    )
+                    if esta_vazia:
+                        aba.append_row(
+                            cabecalho,
+                            value_input_option=ValueInputOption.user_entered,
+                        )
+                        try:
+                            aba.freeze(rows=1)
+                        except Exception:
+                            pass
+                        try:
+                            aba.format("1:1", {"textFormat": {"bold": True}})
+                        except Exception:
+                            pass
+                        atualizadas_vazias.append(nome_aba)
+                    else:
+                        mantidas.append(nome_aba)
+
+            return {
+                "criadas": criadas,
+                "atualizadas_vazias": atualizadas_vazias,
+                "mantidas": mantidas,
+            }
+        except (APIError, RequestException) as e:
+            raise ErroAPIGoogle(f"Falha ao criar/verificar abas na planilha: {e}") from e
+        except Exception as e:
+            raise ErroAPIGoogle(f"Erro inesperado ao inicializar abas: {e}") from e
+
 
 def obter_servico_planilha_padrao() -> GoogleSheetsService:
     """
@@ -228,3 +303,24 @@ def anexar_linhas_unicas(
         return len(linhas_unicas_para_adicionar)
     except (WorksheetNotFound, APIError, RequestException) as e:
         raise ErroAPIGoogle(f"Falha ao adicionar linhas em '{nome_aba}': {e}") from e
+
+
+def criar_abas_necessarias(
+    planilha: Optional[gspread.Spreadsheet] = None,
+    estrutura: Optional[Dict[str, List[str]]] = None,
+) -> Dict[str, List[str]]:
+    """
+    Garante a existência das abas essenciais na planilha do Google Sheets.
+    Se nenhuma planilha for especificada, usa a planilha padrão configurada.
+    """
+    if planilha is None:
+        servico = _ServicoPadrao.get_instance()
+        return servico.criar_abas_necessarias(estrutura)
+
+    class _WrapperServico:
+        def __init__(self, pl: gspread.Spreadsheet):
+            self._planilha = pl
+
+    wrapper = _WrapperServico(planilha)
+    return GoogleSheetsService.criar_abas_necessarias(wrapper, estrutura)  # type: ignore
+

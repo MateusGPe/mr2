@@ -352,6 +352,15 @@ class AppSetup(ttk.Window):
         )
         self.btn_testar_conexao.pack(side=LEFT, padx=(0, 10))
 
+        self.btn_criar_abas = ttk.Button(
+            frame_teste,
+            text="📑 Criar Estrutura de Abas",
+            bootstyle="primary",
+            command=self._criar_abas_em_thread,
+            cursor="hand2",
+        )
+        self.btn_criar_abas.pack(side=LEFT, padx=(0, 10))
+
         self.lbl_teste_resultado = ttk.Label(
             frame_teste, text="", font=("Segoe UI", 9, "bold")
         )
@@ -414,6 +423,7 @@ class AppSetup(ttk.Window):
 
     def _testar_conexao_em_thread(self):
         self.btn_testar_conexao.config(state=DISABLED)
+        self.btn_criar_abas.config(state=DISABLED)
         self.lbl_teste_resultado.config(
             text="⏳ Testando conexão e autenticação...", bootstyle="info"
         )
@@ -426,6 +436,7 @@ class AppSetup(ttk.Window):
 
     def _finalizar_teste_conexao(self, sucesso: bool, msg: str):
         self.btn_testar_conexao.config(state=NORMAL)
+        self.btn_criar_abas.config(state=NORMAL)
         if sucesso:
             self.lbl_teste_resultado.config(text="✅ " + msg, bootstyle="success")
         else:
@@ -434,6 +445,43 @@ class AppSetup(ttk.Window):
             )
             Messagebox.show_error(
                 "Diagnóstico de Conexão", msg, parent=self
+            )
+
+    def _criar_abas_em_thread(self):
+        self.btn_criar_abas.config(state=DISABLED)
+        self.btn_testar_conexao.config(state=DISABLED)
+        self.lbl_teste_resultado.config(
+            text="⏳ Verificando e estruturando abas na planilha...", bootstyle="info"
+        )
+
+        def _rodar():
+            sucesso, msg, detalhes = config_service.inicializar_estrutura_planilha()
+            self.after(
+                0, lambda: self._finalizar_criacao_abas(sucesso, msg, detalhes)
+            )
+
+        threading.Thread(target=_rodar, daemon=True).start()
+
+    def _finalizar_criacao_abas(
+        self, sucesso: bool, msg: str, detalhes: Dict[str, List[str]]
+    ):
+        self.btn_criar_abas.config(state=NORMAL)
+        self.btn_testar_conexao.config(state=NORMAL)
+        if sucesso:
+            self.lbl_teste_resultado.config(
+                text="✅ Estrutura de abas concluída com sucesso!", bootstyle="success"
+            )
+            Messagebox.show_info(
+                title="Estrutura de Abas",
+                message=f"Processamento concluído com sucesso:\n\n{msg}",
+                parent=self,
+            )
+        else:
+            self.lbl_teste_resultado.config(
+                text="❌ Falha ao criar abas na planilha.", bootstyle="danger"
+            )
+            Messagebox.show_error(
+                "Erro ao Criar Abas", msg, parent=self
             )
 
     # ------------------------------------------------------------------------

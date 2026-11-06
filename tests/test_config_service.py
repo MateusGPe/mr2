@@ -123,6 +123,43 @@ def test_testar_conexao_google_sheets_sem_arquivos(temp_config_dir):
     assert "spreadsheet.json" in msg
 
 
+def test_inicializar_estrutura_planilha(temp_config_dir):
+    # Sem credentials.json
+    sucesso, msg, detalhes = config_service.inicializar_estrutura_planilha()
+    assert sucesso is False
+    assert "credentials.json" in msg
+
+    # Cria credentials mas sem spreadsheet.json
+    config_service.CAMINHO_CREDENCIAS.write_text("{}", encoding="utf-8")
+    sucesso, msg, detalhes = config_service.inicializar_estrutura_planilha()
+    assert sucesso is False
+    assert "spreadsheet.json" in msg
+
+    # Com spreadsheet.json e mock do serviço
+    config_service.salvar_id_planilha("dummy_sheet_id")
+    with patch("registro.nucleo.google_api_service.GoogleSheetsService") as mock_gss:
+        mock_inst = MagicMock()
+        mock_gss.return_value = mock_inst
+        mock_inst.criar_abas_necessarias.return_value = {
+            "criadas": ["Almoço"],
+            "atualizadas_vazias": ["DB"],
+            "mantidas": ["Discentes"],
+        }
+        sucesso, msg, detalhes = config_service.inicializar_estrutura_planilha()
+        assert sucesso is True
+        assert "Almoço" in msg
+        assert "DB" in msg
+        assert "Discentes" in msg
+        assert detalhes["criadas"] == ["Almoço"]
+
+    # Com exceção durante a chamada
+    with patch("registro.nucleo.google_api_service.GoogleSheetsService", side_effect=RuntimeError("Erro simulado")):
+        sucesso, msg, detalhes = config_service.inicializar_estrutura_planilha()
+        assert sucesso is False
+        assert "Erro simulado" in msg
+
+
+
 def test_obter_status_sistema_com_contagem_sql(temp_config_dir, monkeypatch):
     """Garante que obter_status_sistema consulte contagens reais via SQL sem lançar AttributeError."""
     from sqlalchemy import create_engine

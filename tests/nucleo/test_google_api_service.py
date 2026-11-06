@@ -244,3 +244,68 @@ def test_buscar_valores_aba_e_anexar_linhas_unicas_funcoes():
     mock_aba.append_rows.side_effect = RequestException("Falha conexao")
     with pytest.raises(ErroAPIGoogle, match="Falha ao adicionar linhas"):
         gas.anexar_linhas_unicas(mock_planilha, [["1", "2", "3", "4"]], "Aba1")
+
+
+def test_criar_abas_necessarias_servico():
+    """Testa o método criar_abas_necessarias da classe GoogleSheetsService."""
+    with patch.object(gas, "_obter_credenciais"):
+        with patch.object(gas.gspread, "authorize") as mock_auth:
+            mock_client = MagicMock()
+            mock_planilha = MagicMock()
+            mock_auth.return_value = mock_client
+            mock_client.open_by_key.return_value = mock_planilha
+
+            ws_existente_com_dados = MagicMock()
+            ws_existente_com_dados.title = "Discentes"
+            ws_existente_com_dados.get_all_values.return_value = [["Matrícula", "Nome", "Turma"], ["1", "Ana", "A"]]
+
+            ws_existente_vazia = MagicMock()
+            ws_existente_vazia.title = "DB"
+            ws_existente_vazia.get_all_values.return_value = [["   ", ""]]
+
+            mock_planilha.worksheets.return_value = [ws_existente_com_dados, ws_existente_vazia]
+
+            ws_nova = MagicMock()
+            mock_planilha.add_worksheet.return_value = ws_nova
+
+            servico = gas.GoogleSheetsService("dummy_key")
+            estrutura = {
+                "Discentes": ["Matrícula", "Nome", "Turma"],
+                "DB": ["DATA", "MATRÍCULA"],
+                "Almoço": ["Matrícula", "Data"],
+            }
+            res = servico.criar_abas_necessarias(estrutura)
+
+            assert res["mantidas"] == ["Discentes"]
+            assert res["atualizadas_vazias"] == ["DB"]
+            assert res["criadas"] == ["Almoço"]
+
+            # Verifica chamadas na aba nova
+            mock_planilha.add_worksheet.assert_called_once_with(title="Almoço", rows=100, cols=10)
+            ws_nova.append_row.assert_called_once()
+            ws_nova.freeze.assert_called_once_with(rows=1)
+            ws_nova.format.assert_called_once_with("1:1", {"textFormat": {"bold": True}})
+
+            # Verifica chamada na aba vazia
+            ws_existente_vazia.append_row.assert_called_once()
+            ws_existente_vazia.freeze.assert_called_once_with(rows=1)
+            ws_existente_vazia.format.assert_called_once_with("1:1", {"textFormat": {"bold": True}})
+
+            # Aba mantida não deve ter append_row
+            ws_existente_com_dados.append_row.assert_not_called()
+
+
+def test_criar_abas_necessarias_funcao_modulo():
+    """Testa a função de módulo criar_abas_necessarias com planilha passada."""
+    mock_planilha = MagicMock()
+    mock_planilha.worksheets.return_value = []
+    ws_nova = MagicMock()
+    mock_planilha.add_worksheet.return_value = ws_nova
+
+    res = gas.criar_abas_necessarias(
+        planilha=mock_planilha,
+        estrutura={"NovaAba": ["Col1", "Col2"]},
+    )
+    assert res["criadas"] == ["NovaAba"]
+    mock_planilha.add_worksheet.assert_called_once()
+

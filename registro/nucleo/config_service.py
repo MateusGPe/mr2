@@ -245,6 +245,55 @@ def testar_conexao_google_sheets() -> Tuple[bool, str]:
         return (False, f"Falha ao conectar à API do Google Sheets:\n{e}")
 
 
+def inicializar_estrutura_planilha() -> Tuple[bool, str, Dict[str, List[str]]]:
+    """
+    Cria as abas essenciais (Discentes, DB, Almoço, Lanche) na planilha configurada.
+    Retorna (sucesso, mensagem_resumo, detalhe_dict).
+    """
+    if not CAMINHO_CREDENCIAS.exists():
+        return (
+            False,
+            "Arquivo 'credentials.json' não encontrado na pasta config.",
+            {"criadas": [], "atualizadas_vazias": [], "mantidas": []},
+        )
+
+    sheet_id = obter_id_planilha()
+    if not sheet_id:
+        return (
+            False,
+            "ID da planilha não configurado em 'spreadsheet.json'.",
+            {"criadas": [], "atualizadas_vazias": [], "mantidas": []},
+        )
+
+    try:
+        from registro.nucleo.google_api_service import GoogleSheetsService
+
+        service = GoogleSheetsService(sheet_id)
+        detalhes = service.criar_abas_necessarias()
+
+        criadas = detalhes.get("criadas", [])
+        atualizadas = detalhes.get("atualizadas_vazias", [])
+        mantidas = detalhes.get("mantidas", [])
+
+        partes = []
+        if criadas:
+            partes.append(f"Abas criadas: {', '.join(criadas)}")
+        if atualizadas:
+            partes.append(f"Abas vazias inicializadas: {', '.join(atualizadas)}")
+        if mantidas:
+            partes.append(f"Abas existentes mantidas: {', '.join(mantidas)}")
+
+        mensagem = "\n".join(partes) if partes else "Nenhuma alteração necessária nas abas."
+        return (True, mensagem, detalhes)
+    except Exception as e:
+        return (
+            False,
+            f"Falha ao criar/estruturar abas no Google Sheets:\n{e}",
+            {"criadas": [], "atualizadas_vazias": [], "mantidas": []},
+        )
+
+
+
 # ----------------------------------------------------------------------------
 # Lanches e Presets de Turmas
 # ----------------------------------------------------------------------------
