@@ -59,7 +59,7 @@ def _escrever_consumos_em_planilha(
 ):
     """Função auxiliar para escrever uma lista de consumos em uma planilha XLSX."""
     worksheet = workbook.add_worksheet(worksheet_name)
-    cabecalho = ["Matrícula", "Data", "Nome", "Turma", "Refeição", "Hora"]
+    cabecalho = ["Matrícula", "Data", "Nome", "Turma", "Refeição", "Hora", "Categoria"]
     if incluir_sessao_id:
         cabecalho.append("Sessão ID")
 
@@ -76,6 +76,7 @@ def _escrever_consumos_em_planilha(
         turma = (
             consumo.estudante.grupos[0].nome if consumo.estudante.grupos else "N/A"
         )
+        categoria = getattr(consumo.estudante, "categoria", "REGULAR")
 
         dados_linha = [
             consumo.estudante.prontuario,
@@ -84,6 +85,7 @@ def _escrever_consumos_em_planilha(
             turma,
             prato,
             consumo.hora_consumo,
+            categoria,
         ]
         if incluir_sessao_id:
             dados_linha.append(consumo.sessao_id)
@@ -168,6 +170,50 @@ def exportar_sessao_para_xlsx(
             consumos=consumos,
             incluir_sessao_id=False,
         )
+
+        consumos_cancelados = repo_consumo.ler_filtrado(
+            opcoes_carregamento=opcoes, sessao_id=id_sessao, ativo=False
+        )
+        if consumos_cancelados:
+            ws_cancelados = workbook.add_worksheet("Cancelados")
+            cab_cancelados = [
+                "Matrícula",
+                "Data",
+                "Nome",
+                "Turma",
+                "Refeição",
+                "Hora",
+                "Categoria",
+                "Cancelado Por",
+                "Motivo",
+            ]
+            ws_cancelados.write_row(0, 0, cab_cancelados)
+            for j, c_canc in enumerate(consumos_cancelados):
+                turma_canc = (
+                    c_canc.estudante.grupos[0].nome
+                    if c_canc.estudante.grupos
+                    else "N/A"
+                )
+                prato_canc = (
+                    c_canc.reserva.prato
+                    if c_canc.reserva
+                    else (sessao.item_servido or "Não especificado")
+                )
+                ws_cancelados.write_row(
+                    j + 1,
+                    0,
+                    [
+                        c_canc.estudante.prontuario,
+                        sessao.data,
+                        c_canc.estudante.nome,
+                        turma_canc,
+                        prato_canc,
+                        c_canc.hora_consumo,
+                        getattr(c_canc.estudante, "categoria", "REGULAR"),
+                        c_canc.deletado_por or "",
+                        c_canc.motivo_cancelamento or "",
+                    ],
+                )
     return str(caminho_arquivo)
 
 

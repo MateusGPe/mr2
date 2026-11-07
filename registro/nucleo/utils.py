@@ -28,7 +28,7 @@ from fuzzywuzzy import fuzz
 DADOS_SESSAO = TypedDict(
     "DADOS_SESSAO",
     {
-        "refeicao": Literal["lanche", "almoço"],
+        "refeicao": Literal["lanche", "almoço", "jantar"],
         "item_servido": Optional[str],
         "periodo": Literal["Integral", "Matutino", "Vespertino", "Noturno"],
         "data": str,
@@ -67,6 +67,9 @@ MAPEAMENTO_CHAVES = {
     "matrícula": "pront",
     "prontuário": "pront",
     "refeição": "prato",
+    "categoria": "categoria",
+    "tag": "categoria",
+    "tags": "categoria",
 }
 
 

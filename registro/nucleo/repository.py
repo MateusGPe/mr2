@@ -8,7 +8,7 @@
 Fornece implementações concretas do Padrão de Repositório, especializando
 a classe CRUD genérica para cada modelo de dados da aplicação.
 """
-from typing import List, Set, Optional
+from typing import Any, List, Optional, Sequence, Set
 
 from sqlalchemy.orm import Session, selectinload
 
@@ -103,16 +103,31 @@ class RepositorioConsumo(CRUD[Consumo]):
     def __init__(self, sessao: Session):
         super().__init__(sessao, Consumo)
 
+    def ler_filtrado(
+        self, opcoes_carregamento: Optional[List] = None, **filtros: Any
+    ) -> Sequence[Consumo]:
+        """Lê consumos aplicando filtro por ativo=True por padrão, a menos que especificado."""
+        filtros_copia = dict(filtros)
+        if "ativo" not in filtros_copia:
+            filtros_copia["ativo"] = True
+        elif filtros_copia["ativo"] is None:
+            del filtros_copia["ativo"]
+        return super().ler_filtrado(
+            opcoes_carregamento=opcoes_carregamento, **filtros_copia
+        )
+
     def por_prontuario_e_sessao(
-        self, prontuario: str, id_sessao: int
+        self, prontuario: str, id_sessao: int, apenas_ativo: bool = True
     ) -> Consumo | None:
         """Retorna um consumo baseado no prontuário do estudante e na sessão."""
-        return (
+        query = (
             self._sessao_db.query(Consumo)
             .join(Estudante)
             .filter(Estudante.prontuario == prontuario, Consumo.sessao_id == id_sessao)
-            .one_or_none()
         )
+        if apenas_ativo:
+            query = query.filter(Consumo.ativo.is_(True))
+        return query.one_or_none()
 
 
 class RepositorioGrupo(CRUD[Grupo]):

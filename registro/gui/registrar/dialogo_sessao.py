@@ -38,6 +38,7 @@ from registro.gui.registrar.constants import (
 )
 from registro.gui.comum.utils import capitalizar
 from registro.nucleo.facade import FachadaRegistro
+from registro.nucleo.services import grade_horarios_service
 from registro.nucleo.utils import carregar_json, salvar_json
 
 if TYPE_CHECKING:
@@ -76,6 +77,10 @@ class DialogoSessao(tk.Toplevel):
         self._dados_checkbox_turmas: List[
             Tuple[str, tk.BooleanVar, ttk.Checkbutton]
         ] = []
+        self._dados_checkbox_turmas_editar: List[
+            Tuple[str, tk.BooleanVar, ttk.Checkbutton]
+        ] = []
+        self._sessao_ativa_info: Optional[Dict[str, Any]] = None
         self._conjunto_opcoes_lanche: Set[str] = set()
         self._presets_turmas: Dict[str, Dict[str, List[str]]] = {}
 
@@ -84,6 +89,8 @@ class DialogoSessao(tk.Toplevel):
         self._entrada_data: Optional[ttk.DateEntry] = None
         self._combobox_refeicao: Optional[ttk.Combobox] = None
         self._combobox_lanche: Optional[ttk.Combobox] = None
+        self._combobox_lanche_editar: Optional[ttk.Combobox] = None
+        self._btn_iniciar_acao: Optional[ttk.Button] = None
         self._treeview_sessoes: Optional[TreeviewSimples] = None
 
         self.protocol("WM_DELETE_WINDOW", self._ao_fechar)
@@ -106,14 +113,114 @@ class DialogoSessao(tk.Toplevel):
         self._notebook = ttk.Notebook(main_frame, bootstyle="primary")
         self._notebook.grid(row=0, column=0, sticky=NSEW)
 
+        try:
+            if self._fachada and self._fachada.id_sessao_ativa is not None:
+                self._sessao_ativa_info = self._fachada.obter_detalhes_sessao_ativa()
+        except Exception as e:
+            logger.warning("Não foi possível carregar detalhes da sessão ativa: %s", e)
+            self._sessao_ativa_info = None
+
+        aba_ativa_inicial = None
+        if self._sessao_ativa_info:
+            aba_ativa_inicial = self._criar_aba(
+                "✏️ Editar Sessão Ativa", self._criar_conteudo_aba_editar_sessao
+            )
+
         self._criar_aba("➕ Criar Nova Sessão",
                         self._criar_conteudo_aba_nova_sessao)
         self._criar_aba(
             "📝 Carregar Sessão Existente", self._criar_conteudo_aba_carregar_sessao
         )
 
+        if aba_ativa_inicial:
+            self._notebook.select(aba_ativa_inicial)
+
+        self._notebook.bind("<<NotebookTabChanged>>", self._ao_mudar_aba)
+
         botoes_frame = self._criar_secao_botoes_principais(main_frame)
         botoes_frame.grid(row=1, column=0, sticky=EW, pady=(15, 0))
+        self._ao_mudar_aba()
+
+    def _ao_mudar_aba(self, _=None):
+        """Atualiza o texto e estilo do botão principal com base na aba selecionada."""
+        if not self._notebook or not self._btn_iniciar_acao:
+            return
+        aba_selecionada = self._notebook.tab(self._notebook.select(), "text").strip()
+        if "Editar" in aba_selecionada:
+            self._btn_iniciar_acao.config(text="💾 Salvar Alterações", bootstyle="primary")
+        elif "Carregar" in aba_selecionada:
+            self._btn_iniciar_acao.config(text="📂 Carregar", bootstyle="info")
+        else:
+            self._btn_iniciar_acao.config(text="✔️ Iniciar", bootstyle="success")
+
+    def _criar_conteudo_aba_editar_sessao(self, parent: ttk.Frame):
+        """Popula a aba de edição da sessão em andamento."""
+        if not self._sessao_ativa_info:
+            ttk.Label(parent, text="Nenhuma sessão ativa encontrada.").pack(pady=20)
+            return
+
+        refeicao = capitalizar(str(self._sessao_ativa_info.get("refeicao", "")))
+        data = self._sessao_ativa_info.get("data", "")
+        hora = self._sessao_ativa_info.get("hora", "")
+        item_atual = self._sessao_ativa_info.get("item_servido") or ""
+        grupos_atuais = set(self._sessao_ativa_info.get("grupos", []))
+
+        # Card de informações no topo
+        card_info = ttk.Labelframe(parent, text="📌 Informações da Sessão Ativa", padding=10)
+        card_info.grid(row=0, column=0, sticky=EW, pady=(0, 15))
+        card_info.columnconfigure((1, 3, 5), weight=1)
+
+        ttk.Label(card_info, text="ID:", font="-weight bold").grid(row=0, column=0, sticky=W, padx=5)
+        ttk.Label(card_info, text=str(self._sessao_ativa_info.get("id"))).grid(row=0, column=1, sticky=W)
+
+        ttk.Label(card_info, text="Refeição:", font="-weight bold").grid(row=0, column=2, sticky=W, padx=5)
+        ttk.Label(card_info, text=refeicao, bootstyle="info").grid(row=0, column=3, sticky=W)
+
+        ttk.Label(card_info, text="Data/Hora:", font="-weight bold").grid(row=0, column=4, sticky=W, padx=5)
+        ttk.Label(card_info, text=f"{data} às {hora}").grid(row=0, column=5, sticky=W)
+
+        # Edição do Item Servido
+        frame_item = ttk.Frame(card_info)
+        frame_item.grid(row=1, column=0, columnspan=6, sticky=EW, pady=(10, 0))
+        frame_item.columnconfigure(1, weight=1)
+
+        ttk.Label(frame_item, text="Cardápio / Item:", font="-weight bold").grid(row=0, column=0, sticky=W, padx=(0, 10))
+        opcoes_lanche, lista_exibicao = self._carregar_opcoes_lanche()
+        self._conjunto_opcoes_lanche = opcoes_lanche
+        self._combobox_lanche_editar = ttk.Combobox(
+            frame_item, values=lista_exibicao, bootstyle="info"
+        )
+        self._combobox_lanche_editar.set(item_atual)
+        self._combobox_lanche_editar.grid(row=0, column=1, sticky=EW)
+
+        # Seleção de turmas da sessão ativa
+        frame_turmas = ttk.Frame(parent)
+        frame_turmas.grid(row=1, column=0, sticky=NSEW)
+        frame_turmas.columnconfigure(0, weight=1)
+        frame_turmas.rowconfigure(2, weight=1)
+
+        ttk.Label(
+            frame_turmas,
+            text="🎟️ Turmas Participantes da Sessão",
+            font=("-size 12 -weight bold"),
+        ).grid(row=0, column=0, sticky=W, pady=(0, 5))
+        ttk.Separator(frame_turmas, orient=HORIZONTAL).grid(
+            row=1, column=0, sticky=EW, pady=(0, 10)
+        )
+
+        turmas_disponiveis = self._buscar_turmas_disponiveis()
+        self._dados_checkbox_turmas_editar, frame_checkboxes = self._criar_checkboxes_turmas(
+            frame_turmas, turmas_disponiveis
+        )
+        frame_checkboxes.grid(row=2, column=0, sticky=NSEW)
+
+        # Marca as turmas que já estão na sessão
+        for nome_turma, var, _ in self._dados_checkbox_turmas_editar:
+            if nome_turma in grupos_atuais:
+                var.set(True)
+
+        frame_botoes = self._criar_secao_botoes_turmas(frame_turmas, modo_edicao=True)
+        frame_botoes.grid(row=3, column=0, sticky=EW, pady=(10, 0))
 
     def _criar_aba(self, texto_aba: str, construtor_conteudo: Callable):
         """Cria uma aba no notebook e a popula usando uma função construtora."""
@@ -199,7 +306,7 @@ class DialogoSessao(tk.Toplevel):
             3,
             0,
             ttk.Combobox,
-            values=["Lanche", "Almoço"],
+            values=["Lanche", "Almoço", "Jantar"],
             state="readonly",
             columnspan=3,
         )
@@ -208,8 +315,15 @@ class DialogoSessao(tk.Toplevel):
         )
 
         hora_agora = dt.datetime.now().time()
-        eh_hora_almoco = dt.time(11, 0) <= hora_agora <= dt.time(13, 30)
-        self._combobox_refeicao.current(1 if eh_hora_almoco else 0)
+        eh_hora_almoco = dt.time(11, 0) <= hora_agora <= dt.time(14, 0)
+        eh_hora_jantar = dt.time(17, 30) <= hora_agora <= dt.time(21, 30)
+        if eh_hora_jantar:
+            self._combobox_refeicao.current(2)
+        elif eh_hora_almoco:
+            self._combobox_refeicao.current(1)
+        else:
+            self._combobox_refeicao.current(0)
+
         self._combobox_refeicao.bind(
             "<<ComboboxSelected>>", self._ao_selecionar_refeicao
         )
@@ -288,15 +402,16 @@ class DialogoSessao(tk.Toplevel):
 
         return dados, container
 
-    def _criar_secao_botoes_turmas(self, parent: tk.Widget) -> ttk.Frame:
-        """Cria os botões de ação para seleção de turmas (Limpar, Integrado, etc.)."""
+    def _criar_secao_botoes_turmas(self, parent: tk.Widget, modo_edicao: bool = False) -> ttk.Frame:
+        """Cria os botões de ação para seleção de turmas (Grade, Integrado, etc.)."""
         frame = ttk.Frame(parent)
-        frame.columnconfigure(tuple(range(4)), weight=1)
+        frame.columnconfigure(tuple(range(5)), weight=1)
         botoes = [
-            ("⚪ Limpar", self._ao_limpar_turmas, "secondary-outline"),
-            ("🔗 Integrado", self._ao_selecionar_integral, "info-outline"),
-            ("📚 Outros", self._ao_selecionar_outros, "info-outline"),
-            ("🔄 Inverter", self._ao_inverter_turmas, "secondary-outline"),
+            ("🕒 Grade do Dia", lambda: self._ao_selecionar_grade_do_dia(modo_edicao), "success-outline"),
+            ("🔗 Integrado", lambda: self._ao_selecionar_integral(modo_edicao), "info-outline"),
+            ("📚 Outros", lambda: self._ao_selecionar_outros(modo_edicao), "info-outline"),
+            ("🔄 Inverter", lambda: self._ao_inverter_turmas(modo_edicao), "secondary-outline"),
+            ("⚪ Limpar", lambda: self._ao_limpar_turmas(modo_edicao), "secondary-outline"),
         ]
         for i, (texto, cmd, estilo) in enumerate(botoes):
             ttk.Button(frame, text=texto, command=cmd, bootstyle=estilo).grid(
@@ -328,31 +443,83 @@ class DialogoSessao(tk.Toplevel):
         return frame
 
     def _criar_secao_botoes_principais(self, parent: tk.Widget) -> ttk.Frame:
-        """Cria os botões principais na parte inferior do diálogo (Sincronizar, Cancelar, Iniciar)."""
+        """Cria os botões principais na parte inferior do diálogo (Sincronizar, Cancelar, Iniciar/Salvar)."""
         frame = ttk.Frame(parent)
         frame.columnconfigure(0, weight=1)
 
         ttk.Button(
             frame,
-            text="📥 Sincronizar Reservas",
+            text="📥 Sincronizar Nuvem",
             command=self._ao_sincronizar_reservas,
             bootstyle="warning-outline",
         ).grid(row=0, column=0, sticky=W)
         ttk.Button(
             frame, text="❌ Cancelar", command=self._ao_fechar, bootstyle="danger"
         ).grid(row=0, column=1, sticky=E, padx=5)
-        ttk.Button(
+        self._btn_iniciar_acao = ttk.Button(
             frame, text="✔️ Iniciar", command=self._ao_ok, bootstyle="success"
-        ).grid(row=0, column=2, sticky=E)
+        )
+        self._btn_iniciar_acao.grid(row=0, column=2, sticky=E)
 
         return frame
 
     def _ao_ok(self):
-        """Callback do botão 'Iniciar'. Processa a criação ou carregamento de uma sessão."""
-        if self._notebook.index(self._notebook.select()) == 1:
+        """Callback do botão de ação principal. Processa conforme a aba ativa."""
+        if not self._notebook:
+            return
+        aba_selecionada = self._notebook.tab(self._notebook.select(), "text").strip()
+        if "Editar" in aba_selecionada:
+            self._processar_editar_sessao()
+        elif "Carregar" in aba_selecionada:
             self._processar_carregar_sessao()
         else:
             self._processar_criar_sessao()
+
+    def _processar_editar_sessao(self):
+        """Salva as alterações feitas na sessão ativa (cardápio e turmas)."""
+        if not self._sessao_ativa_info:
+            return
+
+        turmas = [
+            txt for txt, var, _ in self._dados_checkbox_turmas_editar if var.get()
+        ]
+        if not turmas:
+            Messagebox.show_warning(
+                "Selecione pelo menos uma turma para a sessão.", parent=self
+            )
+            return
+
+        item = (
+            self._combobox_lanche_editar.get().strip()
+            if self._combobox_lanche_editar
+            else ""
+        )
+        if item:
+            self._salvar_nova_opcao_lanche(item)
+
+        try:
+            self._fachada.atualizar_sessao_ativa(
+                item_servido=item,
+                turmas=turmas,
+            )
+            logger.info("Sessão ativa ID %s atualizada.", self._sessao_ativa_info.get("id"))
+            Messagebox.show_info(
+                "Sessão Atualizada",
+                f"Sessão ID {self._sessao_ativa_info.get('id')} atualizada com sucesso!\n"
+                f"Turmas participantes: {len(turmas)}",
+                parent=self,
+            )
+            if hasattr(self._parente_app, "_atualizar_ui_apos_mudanca_dados"):
+                self._parente_app._atualizar_ui_apos_mudanca_dados()
+            if hasattr(self._parente_app, "_configurar_ui_para_sessao_carregada"):
+                self._parente_app._configurar_ui_para_sessao_carregada()
+            self.grab_release()
+            self.destroy()
+        except Exception as e:
+            logger.exception("Erro ao salvar alterações da sessão: %s", e)
+            Messagebox.show_error(
+                "Erro ao Atualizar", f"Falha ao salvar alterações:\n{e}", parent=self
+            )
 
     def _ao_fechar(self):
         """Callback para fechar o diálogo, notificando a aplicação principal."""
@@ -364,25 +531,54 @@ class DialogoSessao(tk.Toplevel):
         """Habilita/desabilita o campo de lanche com base na refeição selecionada."""
         if not self._combobox_refeicao or not self._combobox_lanche:
             return
-        eh_almoco = self._combobox_refeicao.get() == "Almoço"
+        eh_com_reserva = self._combobox_refeicao.get() in ("Almoço", "Jantar")
         self._combobox_lanche.config(
-            state="disabled" if eh_almoco else "normal")
-        if eh_almoco:
+            state="disabled" if eh_com_reserva else "normal")
+        if eh_com_reserva:
             self._combobox_lanche.set("")
         elif NOME_LANCHE_PADRAO in self._conjunto_opcoes_lanche:
             self._combobox_lanche.set(NOME_LANCHE_PADRAO)
 
-    def _ao_limpar_turmas(self):
-        self._definir_checkboxes_turmas(lambda n, v: False)
+    def _ao_selecionar_grade_do_dia(self, modo_edicao: bool = False):
+        """Seleciona as turmas previstas na grade horária para o dia e refeição atual."""
+        refeicao = "lanche"
+        if modo_edicao and self._sessao_ativa_info:
+            refeicao = str(self._sessao_ativa_info.get("refeicao", "lanche")).lower()
+        elif self._combobox_refeicao:
+            refeicao = self._combobox_refeicao.get().lower()
 
-    def _ao_selecionar_integral(self):
-        self._definir_checkboxes_turmas(lambda n, v: n in TURMAS_INTEGRADO)
+        dia_atual = grade_horarios_service.obter_dia_semana_atual()
+        turmas_grade = grade_horarios_service.obter_turmas_previstas_para_refeicao(
+            dia_atual, refeicao
+        )
+        if turmas_grade:
+            self._definir_checkboxes_turmas(
+                lambda n, v: n in turmas_grade, modo_edicao=modo_edicao
+            )
+        else:
+            Messagebox.show_info(
+                "Grade de Horários",
+                f"Nenhuma turma prevista na grade para {refeicao.capitalize()} na {dia_atual.capitalize()}.",
+                parent=self,
+            )
 
-    def _ao_selecionar_outros(self):
-        self._definir_checkboxes_turmas(lambda n, v: n not in TURMAS_INTEGRADO)
+    def _ao_limpar_turmas(self, modo_edicao: bool = False):
+        self._definir_checkboxes_turmas(lambda n, v: False, modo_edicao=modo_edicao)
 
-    def _ao_inverter_turmas(self):
-        self._definir_checkboxes_turmas(lambda n, v: not v.get())
+    def _ao_selecionar_integral(self, modo_edicao: bool = False):
+        self._definir_checkboxes_turmas(
+            lambda n, v: n in TURMAS_INTEGRADO, modo_edicao=modo_edicao
+        )
+
+    def _ao_selecionar_outros(self, modo_edicao: bool = False):
+        self._definir_checkboxes_turmas(
+            lambda n, v: n not in TURMAS_INTEGRADO, modo_edicao=modo_edicao
+        )
+
+    def _ao_inverter_turmas(self, modo_edicao: bool = False):
+        self._definir_checkboxes_turmas(
+            lambda n, v: not v.get(), modo_edicao=modo_edicao
+        )
 
     def _processar_carregar_sessao(self):
         """Valida e envia o ID da sessão selecionada para a aplicação principal."""
@@ -497,7 +693,23 @@ class DialogoSessao(tk.Toplevel):
             self._presets_turmas = presets
 
     def _ao_selecionar_preset(self, periodo: str, dia: str):
-        """Seleciona as turmas de um preset."""
+        """Seleciona as turmas de um preset ou da grade horária."""
+        refeicao = self._combobox_refeicao.get() if self._combobox_refeicao else "lanche"
+        mapa_dias = {
+            "seg": "segunda",
+            "ter": "terca",
+            "qua": "quarta",
+            "qui": "quinta",
+            "sex": "sexta",
+        }
+        dia_chave = mapa_dias.get(dia, dia)
+        turmas_grade = grade_horarios_service.obter_turmas_previstas_para_refeicao(
+            dia_chave, refeicao
+        )
+        if turmas_grade:
+            self._definir_checkboxes_turmas(lambda nome, var: nome in turmas_grade)
+            return
+
         turmas_preset = self._presets_turmas.get(periodo, {}).get(dia, [])
         if not turmas_preset:
             Messagebox.show_info(
@@ -573,21 +785,23 @@ class DialogoSessao(tk.Toplevel):
             return []
 
     def _salvar_nova_opcao_lanche(self, selecao: str):
-        """Salva uma nova opção de lanche no arquivo JSON se ela for nova."""
+        """Salva uma nova opção de lanche no arquivo JSON se ela for nova e envia para a nuvem."""
         if not selecao or selecao in self._conjunto_opcoes_lanche or "Erro" in selecao:
             return
 
         normalizado = capitalizar(selecao)
         self._conjunto_opcoes_lanche.add(normalizado)
         try:
-            if salvar_json(
-                str(CAMINHO_JSON_LANCHES), sorted(
-                    list(self._conjunto_opcoes_lanche))
-            ):
-                self._combobox_lanche["values"] = sorted(
-                    list(self._conjunto_opcoes_lanche)
-                )
-                self._combobox_lanche.set(normalizado)
+            valores_ordenados = sorted(list(self._conjunto_opcoes_lanche))
+            if salvar_json(str(CAMINHO_JSON_LANCHES), valores_ordenados):
+                if self._combobox_lanche:
+                    self._combobox_lanche["values"] = valores_ordenados
+                    self._combobox_lanche.set(normalizado)
+                if self._combobox_lanche_editar:
+                    self._combobox_lanche_editar["values"] = valores_ordenados
+                    self._combobox_lanche_editar.set(normalizado)
+                if hasattr(self._fachada, "adicionar_novo_lanche_bidirecional"):
+                    self._fachada.adicionar_novo_lanche_bidirecional(normalizado)
         except Exception:  # pylint: disable=broad-exception-caught
             Messagebox.show_error(
                 "Não foi possível salvar a nova opção de lanche.", parent=self
@@ -631,6 +845,13 @@ class DialogoSessao(tk.Toplevel):
             Messagebox.show_info(
                 "Reservas sincronizadas com sucesso.", parent=self)
             self._atualizar_treeview_sessoes_existentes()
+            # Recarrega opções de lanche que podem ter vindo da planilha
+            opcoes, lista_exib = self._carregar_opcoes_lanche()
+            self._conjunto_opcoes_lanche = opcoes
+            if self._combobox_lanche:
+                self._combobox_lanche["values"] = lista_exib
+            if self._combobox_lanche_editar:
+                self._combobox_lanche_editar["values"] = lista_exib
 
     def _centralizar_janela(self):
         """Centraliza o diálogo em relação à janela principal."""
@@ -641,11 +862,24 @@ class DialogoSessao(tk.Toplevel):
         self.geometry(
             f"+{px + (pw // 2) - (sw // 2)}+{py + (ph // 2) - (sh // 2)}")
 
+    def _obter_dados_checkboxes_ativos(self) -> List[Tuple[str, tk.BooleanVar, ttk.Checkbutton]]:
+        """Retorna os dados dos checkboxes da aba atualmente selecionada."""
+        if self._notebook:
+            texto = self._notebook.tab(self._notebook.select(), "text")
+            if "Editar" in texto:
+                return self._dados_checkbox_turmas_editar
+        return self._dados_checkbox_turmas
+
     def _definir_checkboxes_turmas(
-        self, condicao: Callable[[str, tk.BooleanVar], bool]
+        self, condicao: Callable[[str, tk.BooleanVar], bool], modo_edicao: bool = False
     ):
         """Aplica uma condição a todos os checkboxes de turmas."""
-        for nome, var, _ in self._dados_checkbox_turmas:
+        dados = (
+            self._dados_checkbox_turmas_editar
+            if modo_edicao
+            else self._obter_dados_checkboxes_ativos()
+        )
+        for nome, var, _ in dados:
             var.set(condicao(nome, var))
 
     def _chave_ordenacao_sessao(self, sessao: Dict) -> dt.datetime:

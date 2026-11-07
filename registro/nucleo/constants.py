@@ -27,6 +27,7 @@ CAMINHO_SETTINGS: Path = DIRETORIO_CONFIG / "settings.json"
 CAMINHO_SESSAO: Path = DIRETORIO_CONFIG / "session.json"
 CAMINHO_JSON_LANCHES: Path = DIRETORIO_CONFIG / "lanches.json"
 CAMINHO_JSON_PRESETS_TURMAS: Path = DIRETORIO_CONFIG / "presets_turmas.json"
+CAMINHO_GRADE_HORARIOS: Path = DIRETORIO_CONFIG / "grade_horarios.json"
 JSON_ID_PLANILHA: Path = DIRETORIO_CONFIG / "spreadsheet.json"
 CAMINHO_CSV_ESTUDANTES: Path = DIRETORIO_CONFIG / "students.csv"
 CAMINHO_CSV_RESERVAS: Path = DIRETORIO_CONFIG / "reserves.csv"
@@ -39,6 +40,18 @@ ESCOPOS: List[str] = [
 ]
 NOME_ABA_RESERVAS: str = "DB"
 NOME_ABA_ESTUDANTES: str = "Discentes"
+NOME_ABA_CANCELADOS: str = "Consumo_Cancelados"
+NOME_ABA_CONFIGURACAO: str = "Configuração"
+NOME_ABA_LANCHES: str = "Lanches"
+
+REFEICOES_PERMITIDAS: List[str] = [
+    "Almoço",
+    "Jantar",
+    "Lanche",
+]
+
+CATEGORIA_PADRAO: str = "REGULAR"
+CATEGORIA_PAP: str = "PAP"
 
 CABECALHO_EXPORTACAO: List[str] = [
     "Matrícula",
@@ -47,12 +60,27 @@ CABECALHO_EXPORTACAO: List[str] = [
     "Turma",
     "Refeição",
     "Hora",
+    "Categoria",
 ]
 
 CABECALHO_DISCENTES: List[str] = [
     "Matrícula",
     "Nome",
     "Turma",
+    "Categoria",
+]
+
+CABECALHO_CANCELADOS: List[str] = [
+    "Data",
+    "Hora Original",
+    "Hora Cancelamento",
+    "Matrícula",
+    "Nome",
+    "Turma",
+    "Categoria",
+    "Refeição",
+    "Cancelado Por",
+    "Motivo",
 ]
 
 CABECALHO_RESERVAS: List[str] = [
@@ -64,11 +92,28 @@ CABECALHO_RESERVAS: List[str] = [
     "DIA DA SEMANA",
 ]
 
+CABECALHO_CONFIGURACAO: List[str] = [
+    "Dia",
+    "Refeição",
+    "Horário Início",
+    "Horário Fim",
+    "Turmas Liberadas",
+    "Categorias Permitidas",
+]
+
+CABECALHO_LANCHES: List[str] = [
+    "Lanche",
+]
+
 ESTRUTURA_ABAS_PADRAO: Dict[str, List[str]] = {
     NOME_ABA_ESTUDANTES: CABECALHO_DISCENTES,
     NOME_ABA_RESERVAS: CABECALHO_RESERVAS,
     "Almoço": CABECALHO_EXPORTACAO,
+    "Jantar": CABECALHO_EXPORTACAO,
     "Lanche": CABECALHO_EXPORTACAO,
+    NOME_ABA_CANCELADOS: CABECALHO_CANCELADOS,
+    NOME_ABA_CONFIGURACAO: CABECALHO_CONFIGURACAO,
+    NOME_ABA_LANCHES: CABECALHO_LANCHES,
 }
 
 NOME_LANCHE_PADRAO: str = "Lanche Padrão"

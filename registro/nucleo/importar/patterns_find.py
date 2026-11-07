@@ -31,6 +31,9 @@ MAPEAMENTO_CHAVES = {
     "grupo": "turma",
     "dia da semana": "dia_semana",
     "refeição": "prato",
+    "categoria": "categoria",
+    "tag": "categoria",
+    "tags": "categoria",
 }
 
 

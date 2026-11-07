@@ -96,14 +96,23 @@ def importar_estudantes_csv(
                 prontuarios_no_csv.add(pront)
 
                 # Processa os dados do estudante (criar/atualizar) apenas na primeira ocorrência.
-                dados_estudante = {"prontuario": pront,
-                                   "nome": linha.get("nome", "")}
+                cat_raw = str(linha.get("categoria", "")).strip().upper()
+                categoria = "PAP" if "PAP" in cat_raw else "REGULAR"
+
+                dados_estudante = {
+                    "prontuario": pront,
+                    "nome": linha.get("nome", ""),
+                    "categoria": categoria,
+                }
 
                 if pront in mapa_estudantes_existentes:
                     estudante_existente = mapa_estudantes_existentes[pront]
-                    if estudante_existente.nome != dados_estudante["nome"]:
-                        payload = {**dados_estudante,
-                                   "id": estudante_existente.id}
+                    cat_existente = getattr(estudante_existente, "categoria", "REGULAR")
+                    if (
+                        estudante_existente.nome != dados_estudante["nome"]
+                        or cat_existente != dados_estudante["categoria"]
+                    ):
+                        payload = {**dados_estudante, "id": estudante_existente.id}
                         estudantes_para_atualizar.append(payload)
                 else:
                     estudantes_para_criar.append(dados_estudante)

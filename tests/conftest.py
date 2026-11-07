@@ -101,9 +101,12 @@ def criar_estudante(db_session: Session) -> Callable[..., Estudante]:
         prontuario: str = "IQ3000001",
         nome: str = "Estudante Teste",
         ativo: bool = True,
+        categoria: str = "REGULAR",
         grupos: Optional[List[Grupo]] = None,
     ) -> Estudante:
-        estudante = Estudante(prontuario=prontuario, nome=nome, ativo=ativo)
+        estudante = Estudante(
+            prontuario=prontuario, nome=nome, ativo=ativo, categoria=categoria
+        )
         if grupos:
             estudante.grupos.extend(grupos)
         db_session.add(estudante)

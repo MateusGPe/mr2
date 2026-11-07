@@ -70,6 +70,7 @@ class FachadaRegistro:
 
         self.id_sessao_ativa: Optional[int] = None
         self.excecao_grupos: Set[str] = set()
+        self.filtro_categoria_sessao: Optional[str] = None
         self._servico_importacao_cache: Optional[Any] = None
 
     # --- Propriedades de compatibilidade para Repositórios ---
@@ -208,6 +209,54 @@ class FachadaRegistro:
             excessao_grupos=excessao_grupos,
         )
 
+    def atualizar_sessao_ativa(
+        self,
+        item_servido: Optional[str] = None,
+        turmas: Optional[List[str]] = None,
+        filtro_categoria: Optional[str] = None,
+    ) -> bool:
+        """
+        Atualiza o cardápio (item servido), as turmas participantes e o filtro
+        de categoria da sessão atualmente ativa sem precisar fechá-la.
+        """
+        if self.id_sessao_ativa is None:
+            raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
+
+        dados_atualizacao = {}
+        if item_servido is not None:
+            dados_atualizacao["item_servido"] = item_servido
+
+        if dados_atualizacao:
+            self.atualizar_detalhes_sessao(self.id_sessao_ativa, dados_atualizacao)
+
+        if turmas is not None:
+            self.atualizar_grupos_sessao(turmas)
+
+        if filtro_categoria is not None:
+            self.filtro_categoria_sessao = (
+                filtro_categoria.strip().upper()
+                if filtro_categoria.strip().upper() not in ("", "TODAS", "*")
+                else None
+            )
+
+        return True
+
+    def adicionar_novo_lanche_bidirecional(self, item_lanche: str):
+        """
+        Envia em background um novo item de lanche para ser salvo na aba
+        'Lanches' da planilha do Google Sheets conectada.
+        """
+        import threading
+        from registro.nucleo.services import sync_service
+
+        def _worker():
+            try:
+                sync_service.sincronizar_novo_lanche_para_planilha(item_lanche)
+            except Exception as e:
+                logger.warning("Falha assíncrona ao sincronizar lanche: %s", e)
+
+        threading.Thread(target=_worker, daemon=True).start()
+
     # --- Registro e Cancelamento de Consumo ---
 
     def registrar_consumo(
@@ -216,6 +265,7 @@ class FachadaRegistro:
         excecao_grupos: Optional[Set[str]] = None,
         excessao_grupos: Optional[Set[str]] = None,
         pular_grupos: bool = False,
+        permitir_fora_horario: bool = False,
     ) -> Dict[str, Any]:
         """Registra que um estudante consumiu uma refeição, seguindo as regras."""
         if self.id_sessao_ativa is None:
@@ -232,6 +282,7 @@ class FachadaRegistro:
             prontuario=prontuario,
             excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
+            permitir_fora_horario=permitir_fora_horario,
         )
 
     def registrar_consumo_com_reserva(
@@ -240,6 +291,7 @@ class FachadaRegistro:
         excecao_grupos: Optional[Set[str]] = None,
         excessao_grupos: Optional[Set[str]] = None,
         pular_grupos: bool = False,
+        permitir_fora_horario: bool = False,
     ) -> Dict[str, Any]:
         """Registra consumo de refeição exclusivamente para quem possui reserva."""
         if self.id_sessao_ativa is None:
@@ -256,20 +308,37 @@ class FachadaRegistro:
             prontuario=prontuario,
             excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
+            permitir_fora_horario=permitir_fora_horario,
         )
 
-    def desfazer_consumo_por_prontuario(self, prontuario: str):
-        """Desfaz o registro de consumo de uma refeição na sessão ativa."""
+    def desfazer_consumo_por_prontuario(
+        self,
+        prontuario: str,
+        operador: str = "Operador",
+        motivo: str = "Cancelado pelo operador",
+    ) -> bool:
+        """Desfaz logicamente o registro de consumo de uma refeição na sessão ativa."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa para desfazer o consumo.")
 
-        service_logic.desfazer_consumo_por_prontuario(
-            self._repo_consumo, prontuario, self.id_sessao_ativa
+        return service_logic.desfazer_consumo_por_prontuario(
+            self._repo_consumo,
+            prontuario,
+            self.id_sessao_ativa,
+            operador=operador,
+            motivo=motivo,
         )
 
-    def desfazer_consumo(self, id_consumo: int):
-        """Desfaz o registro de consumo específico pelo ID."""
-        service_logic.desfazer_consumo(self._repo_consumo, id_consumo)
+    def desfazer_consumo(
+        self,
+        id_consumo: int,
+        operador: str = "Operador",
+        motivo: str = "Cancelado pelo operador",
+    ) -> bool:
+        """Desfaz logicamente o registro de consumo específico pelo ID."""
+        return service_logic.desfazer_consumo(
+            self._repo_consumo, id_consumo, operador=operador, motivo=motivo
+        )
 
     def atualizar_consumo(
         self,
@@ -390,6 +459,12 @@ class FachadaRegistro:
             excessao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
         )
+        if self.filtro_categoria_sessao:
+            todos_elegiveis = [
+                e
+                for e in todos_elegiveis
+                if str(e.get("categoria", "")).strip().upper() == self.filtro_categoria_sessao
+            ]
         return [
             {"pront": estudante["pront"], "nome": estudante["nome"]}
             for estudante in todos_elegiveis
@@ -408,7 +483,7 @@ class FachadaRegistro:
 
         grupos_filtro = excecao_grupos or excessao_grupos or self.excecao_grupos
 
-        return service_logic.obter_estudantes_para_sessao(
+        estudantes = service_logic.obter_estudantes_para_sessao(
             repo_sessao=self._repo_sessao,
             repo_estudante=self._repo_estudante,
             repo_reserva=self._repo_reserva,
@@ -419,6 +494,13 @@ class FachadaRegistro:
             excessao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
         )
+        if self.filtro_categoria_sessao:
+            estudantes = [
+                e
+                for e in estudantes
+                if str(e.get("categoria", "")).strip().upper() == self.filtro_categoria_sessao
+            ]
+        return estudantes
 
     # --- Gestão de Reservas e Grupos ---
 

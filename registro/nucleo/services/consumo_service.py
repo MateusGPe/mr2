@@ -20,6 +20,7 @@ from registro.nucleo.repository import (
     RepositorioReserva,
     RepositorioSessao,
 )
+from registro.nucleo.services import grade_horarios_service
 from registro.nucleo.services.sessao_service import obter_detalhes_sessao
 
 logger = logging.getLogger(__name__)
@@ -43,7 +44,7 @@ def _avaliar_regra_padrao(
     prato = "Sem Reserva"
     id_reserva = None
 
-    if sessao.refeicao == "almoço":
+    if sessao.refeicao in ("almoço", "jantar"):
         reservas = repo_reserva.ler_filtrado(
             estudante_id=estudante.id, data=sessao.data, cancelada=False
         )
@@ -88,7 +89,7 @@ def _avaliar_regra_com_reserva(
     prato = "Sem Reserva"
 
     reservas = []
-    if sessao.refeicao == "almoço":
+    if sessao.refeicao in ("almoço", "jantar"):
         reservas = repo_reserva.ler_filtrado(
             estudante_id=estudante.id, data=sessao.data, cancelada=False
         )
@@ -129,6 +130,7 @@ def _processar_consumo_pipeline(
     avaliador_regra: PolicyEvaluator,
     excecao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
+    permitir_fora_horario: bool = False,
 ) -> Dict[str, Any]:
     """
     Pipeline unificado de autorização e registro de consumo (DRY + KISS).
@@ -141,6 +143,7 @@ def _processar_consumo_pipeline(
         return {"autorizado": False, "motivo": "Estudante não encontrado."}
 
     estudante = estudantes[0]
+    categoria = getattr(estudante, "categoria", "REGULAR")
     turma = (
         ", ".join(sorted(g.nome for g in estudante.grupos))
         if estudante.grupos
@@ -148,7 +151,7 @@ def _processar_consumo_pipeline(
     )
 
     consumo_existente = repo_consumo.ler_filtrado(
-        estudante_id=estudante.id, sessao_id=id_sessao
+        estudante_id=estudante.id, sessao_id=id_sessao, ativo=True
     )
     if consumo_existente:
         return {
@@ -158,7 +161,27 @@ def _processar_consumo_pipeline(
             "aluno": estudante.nome,
             "prontuario": estudante.prontuario,
             "turma": turma,
+            "categoria": categoria,
         }
+
+    # Validação de janela de horário
+    if not permitir_fora_horario and not pular_grupos:
+        turmas_nomes = [g.nome for g in estudante.grupos]
+        valido, motivo_horario = grade_horarios_service.validar_janela_horario(
+            turmas_estudante=turmas_nomes,
+            refeicao=sessao.refeicao,
+            categoria_estudante=categoria,
+        )
+        if not valido:
+            return {
+                "autorizado": False,
+                "motivo": motivo_horario,
+                "aluno": estudante.nome,
+                "nome": estudante.nome,
+                "prontuario": estudante.prontuario,
+                "turma": turma,
+                "categoria": categoria,
+            }
 
     autorizado, motivo, prato, id_reserva = avaliador_regra(
         sessao, estudante, repo_reserva, excecao_grupos, pular_grupos
@@ -172,6 +195,7 @@ def _processar_consumo_pipeline(
             "sessao_id": sessao.id,
             "hora_consumo": hora_consumo,
             "reserva_id": id_reserva,
+            "ativo": True,
         }
         repo_consumo.criar(payload)
         repo_consumo.obter_sessao().commit()
@@ -183,6 +207,7 @@ def _processar_consumo_pipeline(
         "nome": estudante.nome,
         "prontuario": estudante.prontuario,
         "turma": turma,
+        "categoria": categoria,
         "prato": prato,
         "hora_consumo": hora_consumo,
     }
@@ -197,6 +222,7 @@ def registrar_consumo(
     prontuario: str,
     excecao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
+    permitir_fora_horario: bool = False,
 ) -> Dict[str, Any]:
     """Aplica a lógica de autorização padrão e, se bem-sucedido, registra o consumo."""
     return _processar_consumo_pipeline(
@@ -209,6 +235,7 @@ def registrar_consumo(
         avaliador_regra=_avaliar_regra_padrao,
         excecao_grupos=excecao_grupos,
         pular_grupos=pular_grupos,
+        permitir_fora_horario=permitir_fora_horario,
     )
 
 
@@ -221,6 +248,7 @@ def registrar_consumo_com_reserva(
     prontuario: str,
     excecao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
+    permitir_fora_horario: bool = False,
 ) -> Dict[str, Any]:
     """
     Aplica a lógica de autorização estrita (com reserva obrigatória) e registra o consumo.
@@ -235,21 +263,44 @@ def registrar_consumo_com_reserva(
         avaliador_regra=_avaliar_regra_com_reserva,
         excecao_grupos=excecao_grupos,
         pular_grupos=pular_grupos,
+        permitir_fora_horario=permitir_fora_horario,
     )
 
 
-def desfazer_consumo(repo_consumo: RepositorioConsumo, id_consumo: int):
-    """Remove um registro de consumo do banco de dados."""
-    if repo_consumo.deletar(id_consumo):
+def desfazer_consumo(
+    repo_consumo: RepositorioConsumo,
+    id_consumo: int,
+    operador: str = "Operador",
+    motivo: str = "Cancelado pelo operador",
+) -> bool:
+    """Cancela logicamente um registro de consumo do banco de dados (soft delete)."""
+    consumo = repo_consumo.ler_um(id_consumo)
+    if consumo:
+        consumo.ativo = False
+        consumo.deletado_em = datetime.now()
+        consumo.deletado_por = operador
+        consumo.motivo_cancelamento = motivo
         repo_consumo.obter_sessao().commit()
+        return True
+    return False
 
 
 def desfazer_consumo_por_prontuario(
-    repo_consumo: RepositorioConsumo, prontuario: str, id_sessao: int
+    repo_consumo: RepositorioConsumo,
+    prontuario: str,
+    id_sessao: int,
+    operador: str = "Operador",
+    motivo: str = "Cancelado pelo operador",
 ) -> bool:
-    """Remove um registro de consumo pelo prontuário e id da sessão."""
-    consumo = repo_consumo.por_prontuario_e_sessao(prontuario, id_sessao)
-    if consumo and repo_consumo.deletar(consumo.id):
+    """Cancela logicamente um registro de consumo pelo prontuário e id da sessão (soft delete)."""
+    consumo = repo_consumo.por_prontuario_e_sessao(
+        prontuario, id_sessao, apenas_ativo=True
+    )
+    if consumo:
+        consumo.ativo = False
+        consumo.deletado_em = datetime.now()
+        consumo.deletado_por = operador
+        consumo.motivo_cancelamento = motivo
         repo_consumo.obter_sessao().commit()
         return True
     return False

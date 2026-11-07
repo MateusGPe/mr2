@@ -167,10 +167,13 @@ class PainelStatusRegistrados(ttk.Frame):
                 consumido=False)
 
             n_reg = len(registrados)
+            n_pap = sum(
+                1 for e in registrados if "PAP" in str(e.get("categoria", "")).upper()
+            )
             n_rest = len(elegiveis)
             n_total = n_reg + n_rest
 
-            texto_reg = f"Registrados: {n_reg}"
+            texto_reg = f"Registrados: {n_reg} (PAP: {n_pap})"
             texto_rem = f"Elegíveis: {n_total} / Restantes: {n_rest}"
             estilo = PRIMARY
         except ErroSessaoNaoAtiva:
@@ -282,9 +285,13 @@ class PainelStatusRegistrados(ttk.Frame):
     def _formatar_linha_para_tabela(self, estudante: Dict[str, Any]) -> tuple:
         """Formata um dicionário de estudante em uma tupla para a Treeview."""
         display_prato = estudante.get("prato") or "Sem Reserva"
+        nome_display = estudante.get("nome", "")
+        if "PAP" in str(estudante.get("categoria", "")).upper():
+            nome_display = f"[PAP] {nome_display}"
+
         linha = (
             estudante.get("pront", ""),
-            estudante.get("nome", ""),
+            nome_display,
             estudante.get("turma", ""),
             estudante.get("hora_consumo", ""),
             display_prato,

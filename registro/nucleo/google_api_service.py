@@ -128,7 +128,12 @@ class GoogleSheetsService:
 
     def anexar_linhas_unicas(self, nome_aba: str, linhas: List[List[str]]) -> int:
         try:
-            aba = self._planilha.worksheet(nome_aba)
+            try:
+                aba = self._planilha.worksheet(nome_aba)
+            except WorksheetNotFound:
+                self.criar_abas_necessarias()
+                aba = self._planilha.worksheet(nome_aba)
+
             dados_existentes = {
                 _chave_identificadora_linha(row)
                 for row in aba.get_all_values()
@@ -284,7 +289,11 @@ def anexar_linhas_unicas(
     A comparação considera apenas a matrícula, a data, a refeição e a hora.
     """
     try:
-        aba = planilha.worksheet(nome_aba)
+        try:
+            aba = planilha.worksheet(nome_aba)
+        except WorksheetNotFound:
+            criar_abas_necessarias(planilha)
+            aba = planilha.worksheet(nome_aba)
         dados_existentes = {
             _chave_identificadora_linha(row)
             for row in aba.get_all_values()

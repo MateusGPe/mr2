@@ -6,14 +6,16 @@
 
 import logging
 import tkinter as tk
-from tkinter import BOTH, EW, HORIZONTAL, NSEW, YES, W
-from typing import TYPE_CHECKING, Any, Callable, List, Tuple
+from tkinter import BOTH, EW, HORIZONTAL, NSEW, YES, W, E
+from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap import ScrolledFrame
 
+from registro.gui.registrar.constants import TURMAS_INTEGRADO
 from registro.nucleo.facade import FachadaRegistro
+from registro.nucleo.services import grade_horarios_service
 
 if TYPE_CHECKING:
     from registro.gui.registrar.app import AppRegistro
@@ -33,87 +35,10 @@ def _toggle_selecao_coluna(vars_coluna: List[tk.BooleanVar]):
         var.set(novo_estado)
 
 
-def criar_secao_filtro_turmas_dialogo(
-    master: tk.Widget, turmas: List[str]
-) -> Tuple[List[Tuple[str, tk.BooleanVar, ttk.Checkbutton]], ttk.Frame]:
-    """
-    Cria a seção de filtro de turmas com cabeçalho e lista rolável de checkboxes.
-
-    Args:
-        master: O widget pai onde esta seção será inserida.
-        turmas: A lista de nomes de turmas a serem exibidas.
-
-    Returns:
-        Uma tupla contendo os dados dos checkboxes e o frame principal da seção.
-    """
-    frame_secao = ttk.Frame(master)
-    frame_secao.columnconfigure(0, weight=2)
-    frame_secao.columnconfigure((1, 2), weight=1)
-    frame_secao.rowconfigure(2, weight=1)
-
-    if not turmas:
-        ttk.Label(frame_secao, text="Nenhuma turma disponível.").grid(row=0, column=0)
-        return [], frame_secao
-
-    vars_com_reserva = []
-    vars_sem_reserva = []
-    ttk.Label(frame_secao, text="Turma", font="-weight bold", anchor=W).grid(
-        row=0, column=0, sticky=EW, padx=5
-    )
-    ttk.Button(
-        frame_secao,
-        text="COM Reserva",
-        bootstyle="success-outline",
-        command=lambda: _toggle_selecao_coluna(vars_com_reserva),
-    ).grid(row=0, column=1, sticky=EW, padx=5)
-    ttk.Button(
-        frame_secao,
-        text="SEM Reserva (#)",
-        bootstyle="warning-outline",
-        command=lambda: _toggle_selecao_coluna(vars_sem_reserva),
-    ).grid(row=0, column=2, sticky=EW, padx=5)
-    ttk.Separator(frame_secao, orient=HORIZONTAL).grid(
-        row=1, column=0, columnspan=3, sticky=EW, pady=5
-    )
-
-    frame_rolavel = ScrolledFrame(frame_secao, padding=5, auto_hide=True)
-    frame_rolavel.grid(row=2, column=0, columnspan=3, sticky=NSEW)
-    frame_rolavel.columnconfigure(0, weight=2)
-    frame_rolavel.columnconfigure((1, 2), weight=1)
-
-    dados_checkbuttons = []
-    for i, nome_turma in enumerate(turmas):
-        var_com = tk.BooleanVar(value=False)
-        var_sem = tk.BooleanVar(value=False)
-        vars_com_reserva.append(var_com)
-        vars_sem_reserva.append(var_sem)
-
-        ttk.Label(frame_rolavel, text=nome_turma, anchor=W).grid(
-            row=i, column=0, sticky="ew", padx=(10, 5), pady=2
-        )
-        cb_com = ttk.Checkbutton(
-            frame_rolavel, variable=var_com, bootstyle="success-square-toggle"
-        )
-        cb_com.grid(row=i, column=1, pady=2)
-        cb_sem = ttk.Checkbutton(
-            frame_rolavel, variable=var_sem, bootstyle="warning-square-toggle"
-        )
-        cb_sem.grid(row=i, column=2, pady=2)
-
-        dados_checkbuttons.extend(
-            [
-                (nome_turma, var_com, cb_com),
-                (f"#{nome_turma}", var_sem, cb_sem),
-            ]
-        )
-
-    return dados_checkbuttons, frame_secao
-
-
 class DialogoFiltroTurmas(tk.Toplevel):
     """
-    Diálogo para permitir que o usuário filtre as turmas que participam
-    da sessão de registro, podendo incluir ou excluir turmas.
+    Diálogo moderno para permitir que o operador filtre as turmas e categorias
+    que participam da sessão ativa, com busca instantânea e atalhos rápidos.
     """
 
     def __init__(
@@ -124,7 +49,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
     ):
         super().__init__(parent)
         self.withdraw()
-        self.title("📊 Filtrar Turmas")
+        self.title("📊 Filtrar Turmas e Categorias da Sessão")
         self.transient(parent)
         self.grab_set()
 
@@ -132,6 +57,13 @@ class DialogoFiltroTurmas(tk.Toplevel):
         self._callback_aplicar = callback_aplicar
         self._app_parente = parent
         self._dados_checkbox: List[Tuple[str, tk.BooleanVar, ttk.Checkbutton]] = []
+        self._mapa_widgets_turma: Dict[str, Dict[str, tk.Widget]] = {}
+        self._vars_com_reserva: List[tk.BooleanVar] = []
+        self._vars_sem_reserva: List[tk.BooleanVar] = []
+
+        self._entrada_busca: Optional[ttk.Entry] = None
+        self._var_categoria = tk.StringVar(value="TODAS")
+        self._label_contador: Optional[ttk.Label] = None
 
         self._criar_widgets()
         self._inicializar_estados()
@@ -145,89 +77,308 @@ class DialogoFiltroTurmas(tk.Toplevel):
         """Cria e organiza os widgets no diálogo."""
         frame_principal = ttk.Frame(self, padding=15)
         frame_principal.pack(fill=BOTH, expand=YES)
-        frame_principal.rowconfigure(0, weight=1)
+        frame_principal.rowconfigure(2, weight=1)
         frame_principal.columnconfigure(0, weight=1)
 
+        # 1. Barra de Busca e Filtro de Categoria
+        frame_topo = ttk.Frame(frame_principal)
+        frame_topo.grid(row=0, column=0, sticky=EW, pady=(0, 10))
+        frame_topo.columnconfigure(0, weight=1)
+
+        # Busca textual
+        frame_busca = ttk.Frame(frame_topo)
+        frame_busca.grid(row=0, column=0, sticky=EW)
+        frame_busca.columnconfigure(1, weight=1)
+
+        ttk.Label(frame_busca, text="🔍 Buscar:", font="-weight bold").grid(
+            row=0, column=0, sticky=W, padx=(0, 8)
+        )
+        self._entrada_busca = ttk.Entry(frame_busca)
+        self._entrada_busca.grid(row=0, column=1, sticky=EW)
+        self._entrada_busca.bind("<KeyRelease>", self._ao_digitar_busca)
+
+        # Filtro de Categoria
+        frame_cat = ttk.Labelframe(frame_topo, text="👤 Categoria Permitida na Sessão", padding=8)
+        frame_cat.grid(row=1, column=0, sticky=EW, pady=(8, 0))
+
+        cat_atual = getattr(self._fachada, "filtro_categoria_sessao", None) or "TODAS"
+        self._var_categoria.set(cat_atual)
+
+        opcoes_cat = [
+            ("Todas as Categorias", "TODAS"),
+            ("Apenas REGULAR", "REGULAR"),
+            ("Apenas PAP (Bolsistas)", "PAP"),
+        ]
+        for idx, (label_txt, valor) in enumerate(opcoes_cat):
+            rb = ttk.Radiobutton(
+                frame_cat,
+                text=label_txt,
+                variable=self._var_categoria,
+                value=valor,
+                bootstyle="info",
+            )
+            rb.grid(row=0, column=idx, padx=12, sticky=W)
+
+        # 2. Barra de Botões Inteligentes (Grade, Integrado, Inverter, Limpar)
+        frame_atalhos = ttk.Frame(frame_principal)
+        frame_atalhos.grid(row=1, column=0, sticky=EW, pady=(0, 10))
+        frame_atalhos.columnconfigure(tuple(range(5)), weight=1)
+
+        botoes_atalho = [
+            ("🕒 Grade do Dia", self._ao_selecionar_grade, "success-outline"),
+            ("🔗 Integrado", self._ao_selecionar_integrado, "info-outline"),
+            ("🔄 Inverter", self._ao_inverter_selecoes, "secondary-outline"),
+            ("✅ Marcar Todas", self._ao_marcar_todas, "secondary-outline"),
+            ("⚪ Limpar", self._ao_limpar_todas, "secondary-outline"),
+        ]
+        for i, (txt, cmd, estilo) in enumerate(botoes_atalho):
+            ttk.Button(frame_atalhos, text=txt, command=cmd, bootstyle=estilo).grid(
+                row=0, column=i, padx=2, sticky=EW
+            )
+
+        # 3. Lista de Turmas com Rolagem e Toggles de Coluna
         try:
             turmas = sorted(g["nome"] for g in self._fachada.listar_todos_os_grupos())
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.exception("Erro ao buscar turmas da fachada: %s", e)
-            Messagebox.show_error(
-                "Erro", "Não foi possível buscar as turmas.", parent=self
-            )
+        except Exception as e:
+            logger.exception("Erro ao buscar turmas: %s", e)
             turmas = []
 
-        self._dados_checkbox, frame_checkbox = criar_secao_filtro_turmas_dialogo(
-            frame_principal, turmas
+        frame_secao_turmas = self._criar_secao_turmas(frame_principal, turmas)
+        frame_secao_turmas.grid(row=2, column=0, sticky=NSEW, pady=(0, 10))
+
+        # 4. Rodapé com Contador e Botões de Ação
+        frame_rodape = ttk.Frame(frame_principal)
+        frame_rodape.grid(row=3, column=0, sticky=EW)
+        frame_rodape.columnconfigure(0, weight=1)
+
+        self._label_contador = ttk.Label(
+            frame_rodape,
+            text="📊 0 turmas selecionadas",
+            font="-size 10 -weight bold",
+            bootstyle="primary",
         )
-        frame_checkbox.grid(row=0, column=0, sticky=NSEW, pady=(0, 10))
+        self._label_contador.grid(row=0, column=0, sticky=W)
 
-        frame_botoes = self._criar_botoes_acao(frame_principal)
-        frame_botoes.grid(row=1, column=0, sticky=EW)
+        frame_botoes = ttk.Frame(frame_rodape)
+        frame_botoes.grid(row=0, column=1, sticky=E)
 
-    def _criar_botoes_acao(self, parent: tk.Widget) -> ttk.Frame:
-        """Cria os botões de ação na parte inferior do diálogo."""
-        frame = ttk.Frame(parent)
-        frame.columnconfigure(tuple(range(4)), weight=1)
-        botoes = [
-            ("⚪", self._limpar_todos, "secondary-outline"),
-            ("✅", self._selecionar_todos, "secondary-outline"),
-            ("❌", self._ao_cancelar, "danger"),
-            ("✔️", self._ao_aplicar, "success"),
-        ]
-        for i, (texto, cmd, estilo) in enumerate(botoes):
-            ttk.Button(frame, text=texto, command=cmd, bootstyle=estilo).grid(
-                row=0, column=i, padx=3, pady=5, sticky=EW
+        ttk.Button(
+            frame_botoes, text="❌ Cancelar", command=self._ao_cancelar, bootstyle="danger"
+        ).pack(side=tk.LEFT, padx=5)
+        ttk.Button(
+            frame_botoes, text="✔️ Aplicar Filtros", command=self._ao_aplicar, bootstyle="success"
+        ).pack(side=tk.LEFT)
+
+    def _criar_secao_turmas(self, master: tk.Widget, turmas: List[str]) -> ttk.Frame:
+        """Cria o cabeçalho e a lista rolável com as turmas."""
+        frame = ttk.Frame(master)
+        frame.columnconfigure(0, weight=2)
+        frame.columnconfigure((1, 2), weight=1)
+        frame.rowconfigure(2, weight=1)
+
+        if not turmas:
+            ttk.Label(frame, text="Nenhuma turma disponível.").grid(row=0, column=0)
+            return frame
+
+        self._vars_com_reserva.clear()
+        self._vars_sem_reserva.clear()
+
+        ttk.Label(frame, text="Turma", font="-weight bold", anchor=W).grid(
+            row=0, column=0, sticky=EW, padx=5
+        )
+        ttk.Button(
+            frame,
+            text="COM Reserva",
+            bootstyle="success-outline",
+            command=self._toggle_coluna_com,
+        ).grid(row=0, column=1, sticky=EW, padx=5)
+        ttk.Button(
+            frame,
+            text="SEM Reserva (#)",
+            bootstyle="warning-outline",
+            command=self._toggle_coluna_sem,
+        ).grid(row=0, column=2, sticky=EW, padx=5)
+
+        ttk.Separator(frame, orient=HORIZONTAL).grid(
+            row=1, column=0, columnspan=3, sticky=EW, pady=5
+        )
+
+        frame_rolavel = ScrolledFrame(frame, padding=5, auto_hide=True)
+        frame_rolavel.grid(row=2, column=0, columnspan=3, sticky=NSEW)
+        frame_rolavel.columnconfigure(0, weight=2)
+        frame_rolavel.columnconfigure((1, 2), weight=1)
+
+        self._dados_checkbox.clear()
+        self._mapa_widgets_turma.clear()
+
+        for i, nome_turma in enumerate(turmas):
+            var_com = tk.BooleanVar(value=False)
+            var_sem = tk.BooleanVar(value=False)
+            self._vars_com_reserva.append(var_com)
+            self._vars_sem_reserva.append(var_sem)
+
+            lbl = ttk.Label(frame_rolavel, text=nome_turma, anchor=W)
+            lbl.grid(row=i, column=0, sticky="ew", padx=(10, 5), pady=2)
+
+            cb_com = ttk.Checkbutton(
+                frame_rolavel,
+                variable=var_com,
+                bootstyle="success-square-toggle",
+                command=self._ao_mudar_checkbox,
             )
+            cb_com.grid(row=i, column=1, pady=2)
+
+            cb_sem = ttk.Checkbutton(
+                frame_rolavel,
+                variable=var_sem,
+                bootstyle="warning-square-toggle",
+                command=self._ao_mudar_checkbox,
+            )
+            cb_sem.grid(row=i, column=2, pady=2)
+
+            self._dados_checkbox.extend(
+                [
+                    (nome_turma, var_com, cb_com),
+                    (f"#{nome_turma}", var_sem, cb_sem),
+                ]
+            )
+            self._mapa_widgets_turma[nome_turma] = {
+                "label": lbl,
+                "cb_com": cb_com,
+                "cb_sem": cb_sem,
+            }
+
         return frame
+
+    def _ao_digitar_busca(self, _=None):
+        """Filtra visualmente as turmas conforme o texto digitado."""
+        if not self._entrada_busca:
+            return
+        termo = self._entrada_busca.get().strip().lower()
+        for nome_turma, widgets in self._mapa_widgets_turma.items():
+            visivel = (not termo) or (termo in nome_turma.lower())
+            if visivel:
+                widgets["label"].grid()
+                widgets["cb_com"].grid()
+                widgets["cb_sem"].grid()
+            else:
+                widgets["label"].grid_remove()
+                widgets["cb_com"].grid_remove()
+                widgets["cb_sem"].grid_remove()
+
+    def _ao_mudar_checkbox(self):
+        """Atualiza o contador sempre que houver alteração em um checkbox."""
+        self._atualizar_contador()
+
+    def _atualizar_contador(self):
+        """Atualiza a contagem exibida no rodapé."""
+        if not self._label_contador:
+            return
+        total_com = sum(1 for ident, var, _ in self._dados_checkbox if var.get() and not ident.startswith("#"))
+        total_sem = sum(1 for ident, var, _ in self._dados_checkbox if var.get() and ident.startswith("#"))
+        texto = f"📊 Selecionadas: {total_com} com reserva"
+        if total_sem > 0:
+            texto += f" | {total_sem} sem reserva (#)"
+        self._label_contador.config(text=texto)
+
+    def _toggle_coluna_com(self):
+        _toggle_selecao_coluna(self._vars_com_reserva)
+        self._atualizar_contador()
+
+    def _toggle_coluna_sem(self):
+        _toggle_selecao_coluna(self._vars_sem_reserva)
+        self._atualizar_contador()
+
+    def _ao_selecionar_grade(self):
+        """Marca as turmas previstas na grade horária para o dia e refeição da sessão ativa."""
+        try:
+            detalhes = self._fachada.obter_detalhes_sessao_ativa()
+            refeicao = detalhes.get("refeicao", "lanche")
+        except Exception:
+            refeicao = "lanche"
+
+        dia_atual = grade_horarios_service.obter_dia_semana_atual()
+        turmas_grade = set(
+            grade_horarios_service.obter_turmas_previstas_para_refeicao(dia_atual, refeicao)
+        )
+        if not turmas_grade:
+            Messagebox.show_info(
+                "Grade de Horários",
+                f"Nenhuma turma prevista na grade para {refeicao.capitalize()} na {dia_atual.capitalize()}.",
+                parent=self,
+            )
+            return
+
+        for ident, var, _ in self._dados_checkbox:
+            if not ident.startswith("#"):
+                var.set(ident in turmas_grade)
+        self._atualizar_contador()
+
+    def _ao_selecionar_integrado(self):
+        """Marca apenas as turmas do integrado na coluna com reserva."""
+        for ident, var, _ in self._dados_checkbox:
+            if not ident.startswith("#"):
+                var.set(ident in TURMAS_INTEGRADO)
+        self._atualizar_contador()
+
+    def _ao_inverter_selecoes(self):
+        """Inverte todas as seleções de turmas."""
+        for _, var, _ in self._dados_checkbox:
+            var.set(not var.get())
+        self._atualizar_contador()
+
+    def _ao_marcar_todas(self):
+        """Marca todas as turmas na coluna com reserva."""
+        for ident, var, _ in self._dados_checkbox:
+            if not ident.startswith("#"):
+                var.set(True)
+        self._atualizar_contador()
+
+    def _ao_limpar_todas(self):
+        """Desmarca todas as turmas."""
+        for _, var, _ in self._dados_checkbox:
+            var.set(False)
+        self._atualizar_contador()
 
     def _inicializar_estados(self):
         """Inicializa o estado dos checkboxes com base nos filtros da sessão ativa."""
         try:
             detalhes_sessao = self._fachada.obter_detalhes_sessao_ativa()
             grupos_ativos = detalhes_sessao.get("grupos", set())
-            grupos_excluidos = {f"#{eg}" for eg in self._fachada.excessao_grupos}
-            selecionados = grupos_ativos | grupos_excluidos
+            grupos_excluidos = {f"#{eg}" for eg in self._fachada.excecao_grupos}
+            selecionados = set(grupos_ativos) | set(grupos_excluidos)
 
             for identificador, var, _ in self._dados_checkbox:
                 var.set(identificador in selecionados)
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:
             logger.error("Erro ao inicializar estados do filtro: %s", e)
 
-    def _limpar_todos(self):
-        """Desmarca todos os checkboxes."""
-        logger.debug("Limpando todas as seleções do filtro de turmas.")
-        for _, var, _ in self._dados_checkbox:
-            var.set(False)
-
-    def _selecionar_todos(self):
-        """Marca todos os checkboxes (coluna 'COM Reserva')."""
-        logger.debug("Selecionando todas as opções do filtro de turmas.")
-        for identificador, var, _ in self._dados_checkbox:
-            if not identificador.startswith("#"):
-                var.set(True)
+        self._atualizar_contador()
 
     def _ao_cancelar(self):
         """Fecha o diálogo sem aplicar as alterações."""
-        logger.debug("Diálogo de filtro de turmas cancelado.")
         self.grab_release()
         self.destroy()
 
     def _ao_aplicar(self):
-        """Aplica os filtros selecionados e fecha o diálogo."""
+        """Aplica os filtros de turma e categoria selecionados."""
         if not self._dados_checkbox:
             self._ao_cancelar()
             return
 
         selecionados = [ident for ident, var, _ in self._dados_checkbox if var.get()]
-        logger.info("Aplicando filtros de turma: %s", selecionados)
+        categoria_escolhida = self._var_categoria.get().strip().upper()
+        self._fachada.filtro_categoria_sessao = (
+            categoria_escolhida if categoria_escolhida in ("REGULAR", "PAP") else None
+        )
 
+        logger.info("Aplicando filtros: turmas=%s, categoria=%s", selecionados, categoria_escolhida)
         try:
             self._callback_aplicar(selecionados)
             self.grab_release()
             self.destroy()
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.exception("Erro ao executar callback de aplicação de filtro.")
+        except Exception as e:
+            logger.exception("Erro ao aplicar filtros: %s", e)
             Messagebox.show_error(
                 "Erro", f"Falha ao aplicar filtros:\n{e}", parent=self
             )

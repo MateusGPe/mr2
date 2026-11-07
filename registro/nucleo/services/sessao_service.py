@@ -43,7 +43,7 @@ def iniciar_nova_sessao(
         "%d/%m/%Y"
     )
 
-    if refeicao == "almoço":
+    if refeicao in ("almoço", "jantar"):
         reservas = repo_reserva.ler_filtrado(
             data=data_formatada, cancelada=False
         )
@@ -185,7 +185,7 @@ def obter_estudantes_para_sessao(
 
         ids_grupos_estudante = {g.id for g in est.grupos}
 
-        if sessao.refeicao == "almoço":
+        if sessao.refeicao in ("almoço", "jantar"):
             reserva = mapa_reservas_dia.get(est.id)
             if reserva and (
                 ids_grupos_sessao.intersection(ids_grupos_estudante)
@@ -225,6 +225,7 @@ def obter_estudantes_para_sessao(
                 "pront": est.prontuario,
                 "nome": est.nome,
                 "turma": grupos,
+                "categoria": getattr(est, "categoria", "REGULAR"),
                 "prato": prato,
                 "consumido": bool(info_consumo),
                 "id_consumo": info_consumo.id if info_consumo else None,

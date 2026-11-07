@@ -55,6 +55,7 @@ class PainelAcaoBusca(ttk.Frame):
 
         
         self._var_entrada_busca: tk.StringVar = tk.StringVar()
+        self._var_bypass_horario: tk.BooleanVar = tk.BooleanVar(value=False)
         self._entrada_busca: Optional[ttk.Entry] = None
         self._botao_limpar: Optional[ttk.Button] = None
         self._tree_estudantes_elegiveis: Optional[TreeviewSimples] = None
@@ -126,6 +127,14 @@ class PainelAcaoBusca(ttk.Frame):
         )
         self._botao_registrar.grid(row=0, column=2, sticky="ew", padx=(0, 2))
 
+        self._check_bypass = ttk.Checkbutton(
+            barra_busca,
+            text="⚡ Bypass",
+            variable=self._var_bypass_horario,
+            bootstyle="warning-toolbutton",
+        )
+        self._check_bypass.grid(row=0, column=3, padx=(2, 0), sticky="ew")
+
     def _criar_area_preview(self):
         """Cria a área de pré-visualização do aluno selecionado."""
         frame_preview = ttk.Frame(
@@ -166,6 +175,9 @@ class PainelAcaoBusca(ttk.Frame):
         if self._entrada_busca:
             self._entrada_busca.bind(
                 "<Return>", lambda _: self._registrar_elegivel_selecionado()
+            )
+            self._entrada_busca.bind(
+                "<Shift-Return>", lambda _: self._registrar_elegivel_selecionado(forcar_bypass=True)
             )
             self._entrada_busca.bind(
                 "<Down>", lambda _: self._selecionar_proximo_elegivel(1)
@@ -360,9 +372,10 @@ class PainelAcaoBusca(ttk.Frame):
         self._atualizar_treeview_elegiveis(correspondencias)
         self._auto_selecionar_primeiro_resultado()
 
-    def _registrar_elegivel_selecionado(self):
+    def _registrar_elegivel_selecionado(self, forcar_bypass: bool = False):
         """
         Registra o consumo para o estudante atualmente selecionado na lista.
+        Permite bypass de horário se forcar_bypass=True ou se a flag da UI estiver ativa.
         """
         if not self._dados_elegivel_selecionado:
             logger.warning("Tentativa de registro sem aluno selecionado.")
@@ -378,18 +391,23 @@ class PainelAcaoBusca(ttk.Frame):
             )
             return
 
-        logger.info("Registrando consumo para: %s - %s", pront, nome)
+        bypass = forcar_bypass or self._var_bypass_horario.get()
+        logger.info("Registrando consumo para: %s - %s (bypass=%s)", pront, nome, bypass)
         try:
-            resultado = self._fachada.registrar_consumo(pront, pular_grupos=True)
+            resultado = self._fachada.registrar_consumo(
+                pront, pular_grupos=True, permitir_fora_horario=bypass
+            )
             logger.info("Resultado do registro para %s: %s", pront, resultado)
 
             if resultado.get("autorizado"):
+                categoria = resultado.get("categoria", self._dados_elegivel_selecionado.get("Categoria", "REGULAR"))
                 tupla_estudante = (
                     str(resultado.get("prontuario", pront)),
                     str(resultado.get("nome", nome)),
                     str(resultado.get("turma", "")),
                     str(resultado.get("hora_consumo", datetime.now().strftime("%H:%M:%S"))),
                     str(resultado.get("prato", "")),
+                    str(categoria),
                 )
                 self._app.notificar_sucesso_registro(tupla_estudante)
                 self.limpar_busca()
@@ -454,6 +472,7 @@ class PainelAcaoBusca(ttk.Frame):
                 "Nome": s.get("nome"),
                 "Turma": s.get("turma"),
                 "Prato": s.get("prato"),
+                "Categoria": s.get("categoria", "REGULAR"),
                 "score": 100,  
             }
             for s in estudantes_elegiveis
@@ -508,6 +527,7 @@ class PainelAcaoBusca(ttk.Frame):
                     "Nome": estudante.get("nome"),
                     "Turma": estudante.get("turma"),
                     "Prato": estudante.get("prato"),
+                    "Categoria": estudante.get("categoria", "REGULAR"),
                     "score": score,
                 }
                 correspondencias.append(copia_estudante)
@@ -560,9 +580,11 @@ class PainelAcaoBusca(ttk.Frame):
         elif self._dados_elegivel_selecionado:
             pront = self._dados_elegivel_selecionado.get("Pront", "?")
             nome = self._dados_elegivel_selecionado.get("Nome", "?")
+            categoria = self._dados_elegivel_selecionado.get("Categoria", "REGULAR")
+            tag_pap = " [PAP]" if "PAP" in str(categoria).upper() else ""
             turma = self._dados_elegivel_selecionado.get("Turma", "S/ Turma")
             prato = self._dados_elegivel_selecionado.get("Prato") or "Sem Reserva"
-            texto = f"Pront: {pront}\nNome: {nome}\nTurma: {turma}\nPrato: {prato}"
+            texto = f"Pront: {pront}\nNome: {nome}{tag_pap}\nTurma: {turma}\nPrato: {prato}"
             estilo = "@primary"
         else:
             texto = "Pesquise um aluno."

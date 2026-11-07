@@ -199,6 +199,8 @@ def obter_estatisticas_sessao(
     dist_pratos: Dict[str, int] = {}
     total_com_reserva = 0
     total_sem_reserva = 0
+    total_pap = 0
+    total_regular = 0
     dist_turmas: Dict[str, int] = {}
     dist_horarios: Dict[str, int] = {}
 
@@ -206,6 +208,12 @@ def obter_estatisticas_sessao(
     consumidos_com_hora.sort(key=lambda x: str(x.get("hora_consumo", "")))
 
     for c in consumidos:
+        cat = str(c.get("categoria", "REGULAR")).upper()
+        if "PAP" in cat:
+            total_pap += 1
+        else:
+            total_regular += 1
+
         prato = str(c.get("prato") or "Sem Reserva")
         dist_pratos[prato] = dist_pratos.get(prato, 0) + 1
         if prato == "Sem Reserva" or c.get("status") == "Sem Reserva":
@@ -267,6 +275,8 @@ def obter_estatisticas_sessao(
         "hora_prevista": sessao.hora,
         "item_servido": sessao.item_servido,
         "total_consumidos": total_consumidos,
+        "total_pap": total_pap,
+        "total_regular": total_regular,
         "total_restantes": total_restantes,
         "total_esperado": total_esperado,
         "taxa_adesao": taxa_adesao,

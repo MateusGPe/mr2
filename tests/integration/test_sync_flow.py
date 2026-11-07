@@ -21,7 +21,9 @@ class FakeRepoConsumo:
     def __init__(self, consumos_por_sessao):
         self._consumos_por_sessao = consumos_por_sessao
 
-    def ler_filtrado(self, opcoes_carregamento=None, sessao_id=None):
+    def ler_filtrado(self, opcoes_carregamento=None, sessao_id=None, **kwargs):
+        if kwargs.get("ativo") is False:
+            return []
         return list(self._consumos_por_sessao.get(sessao_id, []))
 
 

@@ -572,6 +572,12 @@ class SessionDialog(ttk.Toplevel):
         ).pack(side=LEFT, padx=5)
         ttk.Radiobutton(
             refeicao_label_frame,
+            text="Jantar",
+            variable=self.refeicao_var,
+            value="jantar",
+        ).pack(side=LEFT, padx=5)
+        ttk.Radiobutton(
+            refeicao_label_frame,
             text="Lanche",
             variable=self.refeicao_var,
             value="lanche",

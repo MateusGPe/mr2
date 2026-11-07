@@ -9,12 +9,15 @@ Define os modelos de dados SQLAlchemy que representam as tabelas do banco de
 dados da aplicação de registro de refeições. Inclui tabelas para Estudantes,
 Grupos (Turmas), Reservas, Sessoes e Consumos.
 """
+from datetime import datetime
 from typing import List, Optional
 
 from sqlalchemy import (
     Boolean,
     Column,
+    DateTime,
     ForeignKey,
+    Index,
     Integer,
     String,
     Table,
@@ -104,6 +107,9 @@ class Estudante(Base):
     )
     nome: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
+    categoria: Mapped[str] = mapped_column(
+        String(50), default="REGULAR", nullable=False, index=True
+    )
 
     grupos: Mapped[List["Grupo"]] = relationship(
         secondary=associacao_estudante_grupo, back_populates="estudantes", lazy="select"
@@ -212,6 +218,14 @@ class Consumo(Base):
     reserva_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("reservas.id", ondelete="RESTRICT"), nullable=True, index=True
     )
+    ativo: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False, index=True
+    )
+    deletado_em: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    deletado_por: Mapped[Optional[str]] = mapped_column(String(50), nullable=True)
+    motivo_cancelamento: Mapped[Optional[str]] = mapped_column(
+        String(200), nullable=True
+    )
 
     estudante: Mapped["Estudante"] = relationship(
         back_populates="consumos", lazy="joined"
@@ -223,11 +237,12 @@ class Consumo(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint(
+        Index(
+            "uq_consumos_estudante_sessao_ativo",
             "estudante_id",
             "sessao_id",
-            name="_estudante_sessao_consumo_uc",
-            sqlite_on_conflict="IGNORE",
+            unique=True,
+            sqlite_where=(Column("ativo") == True),
         ),
     )
 
