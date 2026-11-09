@@ -21,6 +21,18 @@ from registro.nucleo.models import (
 from registro.nucleo.facade import FachadaRegistro
 
 
+@pytest.fixture(autouse=True)
+def isolar_grade_horarios(monkeypatch, tmp_path_factory):
+    """Garante que nenhum teste utilize a grade de horários real do sistema."""
+    tmp_config = tmp_path_factory.mktemp("config_padrao")
+    caminho_tmp_grade = tmp_config / "grade_horarios.json"
+    from registro.nucleo import constants
+    from registro.nucleo.services import grade_horarios_service
+
+    monkeypatch.setattr(constants, "CAMINHO_GRADE_HORARIOS", caminho_tmp_grade)
+    monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_tmp_grade)
+
+
 @pytest.fixture
 def db_engine():
     """Cria um engine SQLAlchemy em memória isolado com StaticPool."""

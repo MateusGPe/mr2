@@ -413,7 +413,8 @@ class PainelAcaoBusca(ttk.Frame):
                 self.limpar_busca()
             else:
                 motivo = resultado.get("motivo", "Erro desconhecido")
-                if "já consumiu" in motivo.lower():
+                motivo_lower = motivo.lower()
+                if "já consumiu" in motivo_lower or "já registrado" in motivo_lower:
                     Messagebox.show_warning(
                         "Já Registrado",
                         f"{nome} ({pront})\n{motivo}",

@@ -94,7 +94,13 @@ def salvar_grade_horarios(
 def _hora_para_minutos(hora_str: str) -> int:
     """Converte 'HH:MM' ou 'HH:MM:SS' para quantidade total de minutos desde 00:00."""
     partes = str(hora_str).strip().split(":")
-    return int(partes[0]) * 60 + int(partes[1])
+    if len(partes) < 2:
+        raise ValueError(f"Formato de horário inválido: {hora_str}")
+    h = int(partes[0])
+    m = int(partes[1])
+    if not (0 <= h <= 23 and 0 <= m <= 59):
+        raise ValueError(f"Horário fora dos limites (00:00-23:59): {hora_str}")
+    return h * 60 + m
 
 
 MAPA_NORMALIZACAO_DIAS = {

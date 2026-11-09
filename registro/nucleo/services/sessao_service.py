@@ -200,9 +200,16 @@ def obter_estudantes_para_sessao(
             ):
                 autorizado = True
                 motivo = "Exceção (Grupo)"
-        elif ids_grupos_sessao.intersection(ids_grupos_estudante):
+        elif (
+            ids_grupos_sessao.intersection(ids_grupos_estudante)
+            or pular_grupos
+        ):
             autorizado = True
             motivo = "Autorizado (Grupo)"
+            prato = sessao.item_servido or "Lanche"
+        elif ids_excecao_grupos.intersection(ids_grupos_estudante):
+            autorizado = True
+            motivo = "Exceção (Grupo)"
             prato = sessao.item_servido or "Lanche"
 
         if not autorizado:

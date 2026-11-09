@@ -579,7 +579,7 @@ class FachadaRegistro:
             self._repo_consumo, nome_arquivo
         )
 
-    def sincronizar_do_google_sheets(self):
+    def sincronizar_do_google_sheets(self, caminho_config: Optional[Path] = None):
         """Sincroniza a base de dados local a partir do Google Sheets (com isolamento thread-safe)."""
         import threading
 
@@ -589,9 +589,13 @@ class FachadaRegistro:
                     fachada_worker._repo_estudante,
                     fachada_worker._repo_reserva,
                     fachada_worker._repo_grupo,
+                    caminho_config=caminho_config,
                 )
         return service_logic.sincronizar_do_google_sheets(
-            self._repo_estudante, self._repo_reserva, self._repo_grupo
+            self._repo_estudante,
+            self._repo_reserva,
+            self._repo_grupo,
+            caminho_config=caminho_config,
         )
 
     def sincronizar_para_google_sheets(self):

@@ -10,7 +10,7 @@ Fornece abas de gestão de alunos, reservas, importação de dados e dashboard a
 """
 
 import traceback
-from typing import Dict
+from typing import Dict, Optional
 from ttkbootstrap.dialogs import Messagebox
 
 import ttkbootstrap as ttk
@@ -25,12 +25,14 @@ from registro.nucleo.facade import FachadaRegistro
 
 
 class App(ttk.Window):
-    def __init__(self):
+    def __init__(self, fachada_nucleo: Optional[FachadaRegistro] = None):
         super().__init__(themename="sandstone", title="Sistema de Gestão de Refeitório")
         self.geometry("1280x800")
 
         try:
-            self.fachada_nucleo: FachadaRegistro = FachadaRegistro()
+            self.fachada_nucleo: FachadaRegistro = (
+                fachada_nucleo if fachada_nucleo is not None else FachadaRegistro()
+            )
         except Exception:
             Messagebox.show_error(
                 "Erro Fatal",

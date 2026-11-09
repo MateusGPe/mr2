@@ -48,7 +48,11 @@ class AppRegistro(tk.Tk):
     e o ciclo de vida da aplicação.
     """
 
-    def __init__(self, title: str = "Registro de Refeições"):
+    def __init__(
+        self,
+        title: str = "Registro de Refeições",
+        fachada_nucleo: Optional[FachadaRegistro] = None,
+    ):
         super().__init__()
         self.title(title)
         self.protocol("WM_DELETE_WINDOW", self.ao_fechar_app)
@@ -67,7 +71,7 @@ class AppRegistro(tk.Tk):
         self.colors: Optional[Any] = None
 
         try:
-            self._fachada = FachadaRegistro()
+            self._fachada = fachada_nucleo if fachada_nucleo is not None else FachadaRegistro()
             self._configurar_estilo()
             self._configurar_layout_grid()
             self._criar_widgets()

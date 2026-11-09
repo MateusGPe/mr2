@@ -213,19 +213,27 @@ def test_sincronizacao_lanches_e_configuracao(facade, monkeypatch, tmp_path):
         sync_service.google_api_service, "anexar_linhas_unicas", mock_anexar
     )
 
-    # Executa sincronização
+    # Executa sincronização isolada em diretório temporário
+    caminho_config_teste = tmp_path / "config"
     sync_service.sincronizar_do_google_sheets(
-        facade.repo_estudante, facade.repo_reserva, facade.repo_grupo
+        facade.repo_estudante,
+        facade.repo_reserva,
+        facade.repo_grupo,
+        caminho_config=caminho_config_teste,
     )
 
-    # Verifica se os lanches foram salvos no JSON
-    caminho_lanches = Path("./config/lanches.json")
+    # Verifica se os lanches foram salvos no JSON temporário
+    caminho_lanches = caminho_config_teste / "lanches.json"
     assert caminho_lanches.exists()
     import json
     with open(caminho_lanches, "r", encoding="utf-8") as f:
         lanches_salvos = json.load(f)
     assert "Vitamina de Morango" in lanches_salvos
     assert "Iogurte com Cereais" in lanches_salvos
+
+    # Verifica se a grade foi salva no JSON temporário
+    caminho_grade = caminho_config_teste / "grade_horarios.json"
+    assert caminho_grade.exists()
 
     # Testa envio de novo lanche
     sync_service.sincronizar_novo_lanche_para_planilha("Bolo de Cenoura")

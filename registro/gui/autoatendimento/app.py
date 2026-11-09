@@ -49,14 +49,16 @@ class AppSelfService(ttk.Window):
     Permite gerenciar sessões e filtros de turma on-the-fly via menu de contexto.
     """
 
-    def __init__(self):
+    def __init__(self, fachada_nucleo: Optional[FachadaRegistro] = None):
         super().__init__(themename="sandstone", title="🍽️ Totem de Autoatendimento")
         self.geometry("1280x800")
         self.minsize(960, 620)
         self.protocol("WM_DELETE_WINDOW", self._on_closing)
 
         try:
-            self.fachada_nucleo = FachadaRegistro()
+            self.fachada_nucleo = (
+                fachada_nucleo if fachada_nucleo is not None else FachadaRegistro()
+            )
         except Exception:
             Messagebox.show_error(
                 "Erro Fatal", "Não foi possível iniciar o backend. Verifique o console."

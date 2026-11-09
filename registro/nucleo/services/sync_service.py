@@ -12,12 +12,13 @@ import json
 from datetime import datetime
 import logging
 from pathlib import Path
-from typing import List, Sequence
+from typing import List, Optional, Sequence
 
 from sqlalchemy.orm import selectinload
 
 from registro.nucleo import google_api_service, importers_service
 from registro.nucleo.constants import (
+    DIRETORIO_CONFIG,
     NOME_ABA_CANCELADOS,
     NOME_ABA_CONFIGURACAO,
     NOME_ABA_LANCHES,
@@ -47,11 +48,12 @@ def sincronizar_do_google_sheets(
     repo_estudante: RepositorioEstudante,
     repo_reserva: RepositorioReserva,
     repo_grupo: RepositorioGrupo,
+    caminho_config: Optional[Path] = None,
 ):
     """Sincroniza estudantes e reservas a partir de uma planilha do Google Sheets."""
     try:
-        caminho_config = Path("./config")
-        caminho_config.mkdir(exist_ok=True)
+        caminho_config = Path(caminho_config) if caminho_config else DIRETORIO_CONFIG
+        caminho_config.mkdir(parents=True, exist_ok=True)
         planilha = google_api_service.obter_planilha()
 
         discentes = google_api_service.buscar_valores_aba(

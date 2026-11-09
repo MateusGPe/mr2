@@ -70,9 +70,14 @@ def _avaliar_regra_padrao(
         prato = sessao.item_servido or "Lanche"
         ids_grupos_sessao = {g.id for g in sessao.grupos}
         ids_grupos_estudante = {g.id for g in estudante.grupos}
-        if ids_grupos_sessao.intersection(ids_grupos_estudante):
+        if pular_grupos or ids_grupos_sessao.intersection(ids_grupos_estudante):
             autorizado = True
             motivo = "Autorizado para lanche (grupo)."
+        elif excecao_grupos:
+            nomes_estudante = {g.nome for g in estudante.grupos}
+            if nomes_estudante.intersection(excecao_grupos):
+                autorizado = True
+                motivo = "Autorizado por exceção (grupo)."
 
     return autorizado, motivo, prato, id_reserva
 
