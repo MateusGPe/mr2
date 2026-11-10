@@ -64,8 +64,16 @@ def iniciar_nova_sessao(
         grupos_db = repo_grupo.por_nomes(set(dados_sessao["grupos"]))
         nova_sessao_db.grupos.extend(grupos_db)
 
-    repo_sessao.obter_sessao().commit()
-    return nova_sessao_db.id
+    try:
+        repo_sessao.obter_sessao().commit()
+        return nova_sessao_db.id
+    except Exception as e:
+        logger.exception("Falha ao iniciar nova sessão: %s", e)
+        try:
+            repo_sessao.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroSessao(f"Falha ao iniciar nova sessão no banco de dados: {e}") from e
 
 
 def listar_todas_sessoes(repo_sessao: RepositorioSessao) -> List[Dict[str, Any]]:
@@ -191,6 +199,7 @@ def obter_estudantes_para_sessao(
             reserva = mapa_reservas_dia.get(est.id)
             if reserva and (
                 ids_grupos_sessao.intersection(ids_grupos_estudante)
+                or ids_excecao_grupos.intersection(ids_grupos_estudante)
                 or pular_grupos
             ):
                 autorizado = True
@@ -255,7 +264,15 @@ def deletar_sessao(repo_sessao: RepositorioSessao, id_sessao: int):
         raise ErroSessao(
             f"Sessão com ID {id_sessao} não encontrada para exclusão."
         )
-    repo_sessao.obter_sessao().commit()
+    try:
+        repo_sessao.obter_sessao().commit()
+    except Exception as e:
+        logger.exception("Falha ao deletar sessão %s: %s", id_sessao, e)
+        try:
+            repo_sessao.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroSessao(f"Falha ao excluir sessão do banco de dados: {e}") from e
 
 
 def atualizar_sessao(
@@ -268,8 +285,16 @@ def atualizar_sessao(
         raise ErroSessao(
             f"Sessão com ID {id_sessao} não encontrada para atualização."
         )
-    repo_sessao.obter_sessao().commit()
-    return sessao_atualizada
+    try:
+        repo_sessao.obter_sessao().commit()
+        return sessao_atualizada
+    except Exception as e:
+        logger.exception("Falha ao atualizar sessão %s: %s", id_sessao, e)
+        try:
+            repo_sessao.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroSessao(f"Falha ao atualizar sessão no banco de dados: {e}") from e
 
 
 def atualizar_grupos_sessao(
@@ -282,7 +307,15 @@ def atualizar_grupos_sessao(
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
     grupos_db = repo_grupo.por_nomes(set(nomes_grupos))
     sessao.grupos = grupos_db
-    repo_sessao.obter_sessao().commit()
+    try:
+        repo_sessao.obter_sessao().commit()
+    except Exception as e:
+        logger.exception("Falha ao atualizar grupos da sessão %s: %s", id_sessao, e)
+        try:
+            repo_sessao.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroSessao(f"Falha ao atualizar grupos da sessão no banco de dados: {e}") from e
 
 
 def carregar_estado_sessao(fachada: Any) -> Optional[Dict[str, Any]]:

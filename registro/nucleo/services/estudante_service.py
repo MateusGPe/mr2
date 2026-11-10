@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from fuzzywuzzy import fuzz
 from sqlalchemy.orm import selectinload
 
+from registro.nucleo.exceptions import ErroNucleoRegistro
 from registro.nucleo.models import Consumo, Estudante, Grupo, Reserva
 from registro.nucleo.repository import (
     RepositorioConsumo,
@@ -57,7 +58,15 @@ def criar_estudante(
             if not grupo:
                 grupo = repo_grupo.criar({"nome": grupo_nome})
             novo_estudante.grupos.append(grupo)
-    repo_estudante.obter_sessao().commit()
+    try:
+        repo_estudante.obter_sessao().commit()
+    except Exception as e:
+        logger.exception("Falha ao criar estudante %s: %s", prontuario, e)
+        try:
+            repo_estudante.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao criar estudante no banco de dados: {e}") from e
     return {
         "id": novo_estudante.id,
         "prontuario": novo_estudante.prontuario,
@@ -98,8 +107,16 @@ def atualizar_estudante(
                 grupo = repo_grupo.criar({"nome": grupo_nome})
             estudante.grupos.append(grupo)
 
-    sessao.commit()
-    return True
+    try:
+        sessao.commit()
+        return True
+    except Exception as e:
+        logger.exception("Falha ao atualizar estudante %s: %s", id_estudante, e)
+        try:
+            sessao.rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao atualizar estudante no banco de dados: {e}") from e
 
 
 def alternar_status_estudante(
@@ -112,8 +129,16 @@ def alternar_status_estudante(
     if not estudante:
         return False
     estudante.ativo = not bool(estudante.ativo)
-    sessao.commit()
-    return True
+    try:
+        sessao.commit()
+        return True
+    except Exception as e:
+        logger.exception("Falha ao alternar status do estudante %s: %s", id_estudante, e)
+        try:
+            sessao.rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao alternar status do estudante no banco: {e}") from e
 
 
 def deletar_ou_desativar_estudante(
@@ -160,20 +185,36 @@ def deletar_ou_desativar_estudante(
 
     if forcar_desativacao:
         estudante.ativo = False
-        sessao.commit()
-        return {
-            "status": "deactivated",
-            "mensagem": f"O aluno '{estudante.nome}' foi desativado com sucesso.",
-        }
+        try:
+            sessao.commit()
+            return {
+                "status": "deactivated",
+                "mensagem": f"O aluno '{estudante.nome}' foi desativado com sucesso.",
+            }
+        except Exception as e:
+            logger.exception("Falha ao desativar estudante %s: %s", id_estudante, e)
+            try:
+                sessao.rollback()
+            except Exception:
+                pass
+            raise ErroNucleoRegistro(f"Falha ao desativar estudante no banco: {e}") from e
 
     # Sem histórico: pode excluir com segurança
     estudante.grupos.clear()
     sessao.delete(estudante)
-    sessao.commit()
-    return {
-        "status": "deleted",
-        "mensagem": f"O aluno '{estudante.nome}' foi excluído com sucesso.",
-    }
+    try:
+        sessao.commit()
+        return {
+            "status": "deleted",
+            "mensagem": f"O aluno '{estudante.nome}' foi excluído com sucesso.",
+        }
+    except Exception as e:
+        logger.exception("Falha ao excluir estudante %s: %s", id_estudante, e)
+        try:
+            sessao.rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao excluir estudante no banco: {e}") from e
 
 
 def listar_todos_os_estudantes(

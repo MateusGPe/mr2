@@ -86,12 +86,20 @@ def obter_estatisticas_dashboard(
         .all()
     )
 
-    # Consumos: contagens históricas/ontem via SQL e objetos detalhados apenas de hoje
-    consumos_total = int(sessao_db.query(func.count(Consumo.id)).scalar() or 0)
+    # Consumos: contagens históricas/ontem via SQL e objetos detalhados apenas de hoje (apenas ativos)
+    consumos_total = int(
+        sessao_db.query(func.count(Consumo.id))
+        .filter(Consumo.ativo.is_(True))
+        .scalar()
+        or 0
+    )
     consumos_ontem_qtd = int(
         sessao_db.query(func.count(Consumo.id))
         .join(Consumo.sessao)
-        .filter(Sessao.data.in_((ontem_iso, ontem_br)))
+        .filter(
+            Consumo.ativo.is_(True),
+            Sessao.data.in_((ontem_iso, ontem_br)),
+        )
         .scalar()
         or 0
     )
@@ -103,7 +111,10 @@ def obter_estatisticas_dashboard(
             selectinload(Consumo.reserva),
             selectinload(Consumo.estudante).selectinload(Estudante.grupos),
         )
-        .filter(Sessao.data.in_((hoje_iso, hoje_br)))
+        .filter(
+            Consumo.ativo.is_(True),
+            Sessao.data.in_((hoje_iso, hoje_br)),
+        )
         .all()
     )
 

@@ -282,8 +282,13 @@ def validar_janela_horario(
     categorias_permitidas_slot: List[str] = []
 
     for slot in slots_refeicao:
-        inicio_m = _hora_para_minutos(slot["inicio"]) - tolerancia_min
-        fim_m = _hora_para_minutos(slot["fim"]) + tolerancia_min
+        try:
+            inicio_m = _hora_para_minutos(slot.get("inicio", "")) - tolerancia_min
+            fim_m = _hora_para_minutos(slot.get("fim", "")) + tolerancia_min
+        except (ValueError, TypeError) as e:
+            logger.warning("Slot com horário inválido ignorado: %s", e)
+            continue
+
         if inicio_m <= minutos_atuais <= fim_m:
             slot_corrente = slot
             turma_ok = _turmas_autorizadas_para_slot(slot, conjunto_turmas_estudante)
@@ -305,6 +310,11 @@ def validar_janela_horario(
     # 2. Se não foi autorizado, procura qual é o horário previsto para a turma e categoria do discente
     slot_turma_previsto = None
     for slot in slots_refeicao:
+        try:
+            _hora_para_minutos(slot.get("inicio", ""))
+            _hora_para_minutos(slot.get("fim", ""))
+        except (ValueError, TypeError):
+            continue
         turma_ok = _turmas_autorizadas_para_slot(slot, conjunto_turmas_estudante)
         cat_ok = _categoria_autorizada_para_slot(slot, cat_estudante)
         if turma_ok and cat_ok:

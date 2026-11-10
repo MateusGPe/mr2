@@ -294,6 +294,7 @@ class FachadaRegistro:
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
 
+        prontuario_limpo = (prontuario or "").strip().upper()
         grupos_filtro = excecao_grupos or excessao_grupos or self.excecao_grupos
 
         return service_logic.registrar_consumo(
@@ -302,7 +303,7 @@ class FachadaRegistro:
             repo_reserva=self._repo_reserva,
             repo_consumo=self._repo_consumo,
             id_sessao=self.id_sessao_ativa,
-            prontuario=prontuario,
+            prontuario=prontuario_limpo,
             excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
             permitir_fora_horario=permitir_fora_horario,
@@ -321,6 +322,7 @@ class FachadaRegistro:
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
 
+        prontuario_limpo = (prontuario or "").strip().upper()
         grupos_filtro = excecao_grupos or excessao_grupos or self.excecao_grupos
 
         return service_logic.registrar_consumo_com_reserva(
@@ -329,7 +331,7 @@ class FachadaRegistro:
             repo_reserva=self._repo_reserva,
             repo_consumo=self._repo_consumo,
             id_sessao=self.id_sessao_ativa,
-            prontuario=prontuario,
+            prontuario=prontuario_limpo,
             excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
             permitir_fora_horario=permitir_fora_horario,
@@ -346,9 +348,10 @@ class FachadaRegistro:
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa para desfazer o consumo.")
 
+        prontuario_limpo = (prontuario or "").strip().upper()
         return service_logic.desfazer_consumo_por_prontuario(
             self._repo_consumo,
-            prontuario,
+            prontuario_limpo,
             self.id_sessao_ativa,
             operador=operador,
             motivo=motivo,

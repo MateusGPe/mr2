@@ -38,7 +38,15 @@ def criar_reserva(
     payload["estudante_id"] = estudantes[0].id
 
     nova_reserva = repo_reserva.criar(payload)
-    repo_reserva.obter_sessao().commit()
+    try:
+        repo_reserva.obter_sessao().commit()
+    except Exception as e:
+        logger.exception("Falha ao criar reserva para estudante %s: %s", prontuario_estudante, e)
+        try:
+            repo_reserva.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao criar reserva no banco: {e}") from e
 
     return {
         "id": nova_reserva.id,
@@ -57,8 +65,16 @@ def atualizar_reserva(
     """Atualiza os dados de uma reserva."""
     reserva = repo_reserva.atualizar(id_reserva, dados)
     if reserva:
-        repo_reserva.obter_sessao().commit()
-        return True
+        try:
+            repo_reserva.obter_sessao().commit()
+            return True
+        except Exception as e:
+            logger.exception("Falha ao atualizar reserva %s: %s", id_reserva, e)
+            try:
+                repo_reserva.obter_sessao().rollback()
+            except Exception:
+                pass
+            raise ErroNucleoRegistro(f"Falha ao atualizar reserva no banco: {e}") from e
     return False
 
 
@@ -68,8 +84,16 @@ def deletar_reserva(
 ) -> bool:
     """Remove uma reserva do sistema."""
     if repo_reserva.deletar(id_reserva):
-        repo_reserva.obter_sessao().commit()
-        return True
+        try:
+            repo_reserva.obter_sessao().commit()
+            return True
+        except Exception as e:
+            logger.exception("Falha ao deletar reserva %s: %s", id_reserva, e)
+            try:
+                repo_reserva.obter_sessao().rollback()
+            except Exception:
+                pass
+            raise ErroNucleoRegistro(f"Falha ao excluir reserva no banco: {e}") from e
     return False
 
 
@@ -138,7 +162,15 @@ def atualizar_cancelamento_reserva(
         raise ErroNucleoRegistro(
             f"Reserva com ID {id_reserva} não encontrada."
         )
-    repo_reserva.obter_sessao().commit()
+    try:
+        repo_reserva.obter_sessao().commit()
+    except Exception as e:
+        logger.exception("Falha ao atualizar cancelamento da reserva %s: %s", id_reserva, e)
+        try:
+            repo_reserva.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao atualizar cancelamento da reserva: {e}") from e
 
 
 def salvar_importacao_dados(
@@ -215,7 +247,15 @@ def salvar_importacao_dados(
     if reservas_finais:
         repo_reserva.criar_em_massa(reservas_finais)
 
-    repo_estudante.obter_sessao().commit()
+    try:
+        repo_estudante.obter_sessao().commit()
+    except Exception as e:
+        logger.exception("Falha ao salvar dados importados: %s", e)
+        try:
+            repo_estudante.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao salvar importação de dados no banco: {e}") from e
 
     return {
         "estudantes_criados": len(unicos),

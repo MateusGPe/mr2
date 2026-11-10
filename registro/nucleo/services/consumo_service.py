@@ -45,9 +45,13 @@ def _avaliar_regra_padrao(
     id_reserva = None
 
     if sessao.refeicao in ("almoço", "jantar"):
-        reservas = repo_reserva.ler_filtrado(
+        reservas_candidatas = repo_reserva.ler_filtrado(
             estudante_id=estudante.id, data=sessao.data, cancelada=False
         )
+        reservas = [
+            r for r in reservas_candidatas
+            if not (r.consumo and getattr(r.consumo, "ativo", False))
+        ]
         if reservas:
             autorizado = True
             id_reserva = reservas[0].id
@@ -57,6 +61,10 @@ def _avaliar_regra_padrao(
             autorizado = True
             motivo = "Autorizado por ignorar grupos."
             prato = "Sem Reserva (Forçado)"
+        elif reservas_candidatas:
+            autorizado = False
+            motivo = "Reserva já utilizada nesta data."
+            prato = "Reserva Utilizada"
         else:
             ids_excecao_grupos = {
                 g.id for g in sessao.grupos if g.nome in (excecao_grupos or set())
@@ -94,12 +102,19 @@ def _avaliar_regra_com_reserva(
     prato = "Sem Reserva"
 
     reservas = []
+    reservas_candidatas = []
     if sessao.refeicao in ("almoço", "jantar"):
-        reservas = repo_reserva.ler_filtrado(
+        reservas_candidatas = repo_reserva.ler_filtrado(
             estudante_id=estudante.id, data=sessao.data, cancelada=False
         )
+        reservas = [
+            r for r in reservas_candidatas
+            if not (r.consumo and getattr(r.consumo, "ativo", False))
+        ]
 
     if not reservas:
+        if sessao.refeicao in ("almoço", "jantar") and reservas_candidatas:
+            return False, "Reserva já utilizada nesta data.", prato, id_reserva
         return False, "Sem reserva válida.", prato, id_reserva
 
     id_reserva = reservas[0].id
@@ -144,7 +159,10 @@ def _processar_consumo_pipeline(
     janela de horário, aplica a política e persiste o registro no banco em caso de sucesso.
     """
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
-    estudantes = repo_estudante.ler_filtrado(prontuario=prontuario)
+    prontuario_limpo = (prontuario or "").strip().upper()
+    estudantes = repo_estudante.ler_filtrado(prontuario=prontuario_limpo)
+    if not estudantes and prontuario != prontuario_limpo:
+        estudantes = repo_estudante.ler_filtrado(prontuario=prontuario)
     if not estudantes:
         return {"autorizado": False, "motivo": "Estudante não encontrado."}
 
@@ -156,6 +174,7 @@ def _processar_consumo_pipeline(
         else "N/A"
     )
 
+    # 1. Duplicidade na mesma sessão
     consumo_existente = repo_consumo.ler_filtrado(
         estudante_id=estudante.id, sessao_id=id_sessao, ativo=True
     )
@@ -169,6 +188,59 @@ def _processar_consumo_pipeline(
             "turma": turma,
             "categoria": categoria,
         }
+
+    # 2. Cota diária por refeição e período (protegida mesmo com pular_grupos)
+    sessao_db = repo_consumo.obter_sessao()
+    refeicao_tipo = (sessao.refeicao or "").strip().lower()
+
+    if refeicao_tipo in ("almoço", "jantar"):
+        consumo_mesma_refeicao = (
+            sessao_db.query(models.Consumo)
+            .join(models.Consumo.sessao)
+            .filter(
+                models.Consumo.estudante_id == estudante.id,
+                models.Consumo.ativo.is_(True),
+                models.Sessao.data == sessao.data,
+                models.Sessao.refeicao.ilike(refeicao_tipo),
+            )
+            .first()
+        )
+        if consumo_mesma_refeicao:
+            return {
+                "autorizado": False,
+                "motivo": f"Consumo de {refeicao_tipo} já registrado nesta data (Cota diária atingida).",
+                "nome": estudante.nome,
+                "aluno": estudante.nome,
+                "prontuario": estudante.prontuario,
+                "turma": turma,
+                "categoria": categoria,
+            }
+    elif refeicao_tipo == "lanche":
+        periodo_sessao = (sessao.periodo or "").strip()
+        query_lanche = (
+            sessao_db.query(models.Consumo)
+            .join(models.Consumo.sessao)
+            .filter(
+                models.Consumo.estudante_id == estudante.id,
+                models.Consumo.ativo.is_(True),
+                models.Sessao.data == sessao.data,
+                models.Sessao.refeicao.ilike("lanche"),
+            )
+        )
+        if periodo_sessao:
+            query_lanche = query_lanche.filter(models.Sessao.periodo.ilike(periodo_sessao))
+        consumo_lanche_existente = query_lanche.first()
+        if consumo_lanche_existente:
+            detalhe_periodo = f" no período {periodo_sessao}" if periodo_sessao else ""
+            return {
+                "autorizado": False,
+                "motivo": f"Lanche já consumido nesta data{detalhe_periodo} (Cota atingida).",
+                "nome": estudante.nome,
+                "aluno": estudante.nome,
+                "prontuario": estudante.prontuario,
+                "turma": turma,
+                "categoria": categoria,
+            }
 
     # Validação do filtro de categoria da sessão ativa (se aplicável e não forçado)
     if filtro_categoria and not pular_grupos:
@@ -218,8 +290,24 @@ def _processar_consumo_pipeline(
             "reserva_id": id_reserva,
             "ativo": True,
         }
-        repo_consumo.criar(payload)
-        repo_consumo.obter_sessao().commit()
+        try:
+            repo_consumo.criar(payload)
+            repo_consumo.obter_sessao().commit()
+        except Exception as e:
+            logger.exception("Falha ao salvar consumo no banco de dados: %s", e)
+            try:
+                repo_consumo.obter_sessao().rollback()
+            except Exception:
+                pass
+            return {
+                "autorizado": False,
+                "motivo": "Erro de gravação no banco de dados. Tente novamente.",
+                "aluno": estudante.nome,
+                "nome": estudante.nome,
+                "prontuario": estudante.prontuario,
+                "turma": turma,
+                "categoria": categoria,
+            }
 
     return {
         "autorizado": autorizado,
@@ -309,8 +397,16 @@ def desfazer_consumo(
         consumo.deletado_em = datetime.now()
         consumo.deletado_por = operador
         consumo.motivo_cancelamento = motivo
-        repo_consumo.obter_sessao().commit()
-        return True
+        try:
+            repo_consumo.obter_sessao().commit()
+            return True
+        except Exception as e:
+            logger.exception("Falha ao desfazer consumo %s: %s", id_consumo, e)
+            try:
+                repo_consumo.obter_sessao().rollback()
+            except Exception:
+                pass
+            return False
     return False
 
 
@@ -330,8 +426,16 @@ def desfazer_consumo_por_prontuario(
         consumo.deletado_em = datetime.now()
         consumo.deletado_por = operador
         consumo.motivo_cancelamento = motivo
-        repo_consumo.obter_sessao().commit()
-        return True
+        try:
+            repo_consumo.obter_sessao().commit()
+            return True
+        except Exception as e:
+            logger.exception("Falha ao desfazer consumo por prontuário %s: %s", prontuario, e)
+            try:
+                repo_consumo.obter_sessao().rollback()
+            except Exception:
+                pass
+            return False
     return False
 
 
@@ -379,5 +483,13 @@ def atualizar_consumo(
                     )
                     consumo.reserva_id = nova_reserva.id
 
-    repo_consumo.obter_sessao().commit()
-    return True
+    try:
+        repo_consumo.obter_sessao().commit()
+        return True
+    except Exception as e:
+        logger.exception("Falha ao atualizar consumo %s: %s", id_consumo, e)
+        try:
+            repo_consumo.obter_sessao().rollback()
+        except Exception:
+            pass
+        return False

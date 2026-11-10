@@ -108,6 +108,7 @@ def exportar_todos_os_consumos_para_xlsx(
     consumos = (
         db_session.query(Consumo)
         .options(*opcoes)
+        .filter(Consumo.ativo.is_(True))
         .order_by(Consumo.id.desc())
         .all()
     )

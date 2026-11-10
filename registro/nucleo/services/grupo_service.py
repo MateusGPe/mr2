@@ -8,11 +8,15 @@
 Serviço de gerenciamento de Grupos / Turmas (CRUD, listagens e vinculação de alunos).
 """
 
+import logging
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import selectinload
 
+from registro.nucleo.exceptions import ErroNucleoRegistro
 from registro.nucleo.models import Estudante, Grupo
 from registro.nucleo.repository import RepositorioEstudante, RepositorioGrupo
+
+logger = logging.getLogger(__name__)
 
 
 def criar_grupo(
@@ -30,7 +34,15 @@ def criar_grupo(
         raise ValueError(f"A turma '{nome_limpo}' já existe.")
 
     grupo = repo_grupo.criar({"nome": nome_limpo, "ativo": ativo})
-    repo_grupo.obter_sessao().commit()
+    try:
+        repo_grupo.obter_sessao().commit()
+    except Exception as e:
+        logger.exception("Falha ao criar turma %s: %s", nome_limpo, e)
+        try:
+            repo_grupo.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao criar turma no banco: {e}") from e
     return {"id": grupo.id, "nome": grupo.nome, "ativo": grupo.ativo}
 
 
@@ -57,8 +69,16 @@ def atualizar_grupo(
     if "ativo" in dados:
         grupo.ativo = bool(dados["ativo"])
 
-    sessao.commit()
-    return True
+    try:
+        sessao.commit()
+        return True
+    except Exception as e:
+        logger.exception("Falha ao atualizar turma %s: %s", id_grupo, e)
+        try:
+            sessao.rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao atualizar turma no banco: {e}") from e
 
 
 def deletar_grupo(
@@ -99,8 +119,16 @@ def deletar_grupo(
     grupo.estudantes.clear()
     grupo.sessoes.clear()
     sessao.delete(grupo)
-    sessao.commit()
-    return {"status": "deleted", "mensagem": f"Turma '{grupo.nome}' excluída com sucesso."}
+    try:
+        sessao.commit()
+        return {"status": "deleted", "mensagem": f"Turma '{grupo.nome}' excluída com sucesso."}
+    except Exception as e:
+        logger.exception("Falha ao excluir turma %s: %s", id_grupo, e)
+        try:
+            sessao.rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao excluir turma no banco: {e}") from e
 
 
 def listar_turmas_detalhadas(
@@ -173,7 +201,15 @@ def vincular_aluno_turma(
 
     if estudante not in grupo.estudantes:
         grupo.estudantes.append(estudante)
-        sessao.commit()
+        try:
+            sessao.commit()
+        except Exception as e:
+            logger.exception("Falha ao vincular aluno %s à turma %s: %s", id_estudante, id_grupo, e)
+            try:
+                sessao.rollback()
+            except Exception:
+                pass
+            raise ErroNucleoRegistro(f"Falha ao vincular aluno à turma: {e}") from e
     return True
 
 
@@ -198,6 +234,14 @@ def desvincular_aluno_turma(
     )
     if estudante_para_remover:
         grupo.estudantes.remove(estudante_para_remover)
-        sessao.commit()
-        return True
+        try:
+            sessao.commit()
+            return True
+        except Exception as e:
+            logger.exception("Falha ao desvincular aluno %s da turma %s: %s", id_estudante, id_grupo, e)
+            try:
+                sessao.rollback()
+            except Exception:
+                pass
+            raise ErroNucleoRegistro(f"Falha ao desvincular aluno da turma: {e}") from e
     return False
