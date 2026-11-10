@@ -167,13 +167,29 @@ class PainelStatusRegistrados(ttk.Frame):
                 consumido=False)
 
             n_reg = len(registrados)
-            n_pap = sum(
-                1 for e in registrados if "PAP" in str(e.get("categoria", "")).upper()
-            )
+            dist_cats: Dict[str, int] = {}
+            for e in registrados:
+                cats = e.get("categorias")
+                if cats is None:
+                    cat_str = str(e.get("categoria", "")).strip()
+                    cats = [
+                        p.strip()
+                        for p in cat_str.split(",")
+                        if p.strip() and p.strip().upper() not in ("-", "REGULAR", "N/A")
+                    ]
+                for c in cats:
+                    dist_cats[c] = dist_cats.get(c, 0) + 1
+
             n_rest = len(elegiveis)
             n_total = n_reg + n_rest
 
-            texto_reg = f"Registrados: {n_reg} (PAP: {n_pap})"
+            if dist_cats:
+                resumo_cats = ", ".join(
+                    f"{k}: {v}" for k, v in sorted(dist_cats.items())[:3]
+                )
+                texto_reg = f"Registrados: {n_reg} ({resumo_cats})"
+            else:
+                texto_reg = f"Registrados: {n_reg}"
             texto_rem = f"Elegíveis: {n_total} / Restantes: {n_rest}"
             estilo = PRIMARY
         except ErroSessaoNaoAtiva:
@@ -293,8 +309,16 @@ class PainelStatusRegistrados(ttk.Frame):
         """Formata um dicionário de estudante em uma tupla para a Treeview."""
         display_prato = estudante.get("prato") or "Sem Reserva"
         nome_display = estudante.get("nome", "")
-        if "PAP" in str(estudante.get("categoria", "")).upper():
-            nome_display = f"[PAP] {nome_display}"
+        cats = estudante.get("categorias")
+        if cats is None:
+            cat_str = str(estudante.get("categoria", "")).strip()
+            cats = [
+                p.strip()
+                for p in cat_str.split(",")
+                if p.strip() and p.strip().upper() not in ("-", "REGULAR", "N/A")
+            ]
+        if cats:
+            nome_display = f"[{', '.join(cats)}] {nome_display}"
 
         linha = (
             estudante.get("pront", ""),

@@ -15,6 +15,7 @@ from typing import Any, Dict, List, Optional
 from fuzzywuzzy import fuzz
 from sqlalchemy.orm import selectinload
 
+from registro.nucleo.constants import TIPO_GRUPO_CATEGORIA, TIPO_GRUPO_TURMA
 from registro.nucleo.exceptions import ErroNucleoRegistro
 from registro.nucleo.models import Consumo, Estudante, Grupo, Reserva
 from registro.nucleo.repository import (
@@ -23,10 +24,59 @@ from registro.nucleo.repository import (
     RepositorioGrupo,
     RepositorioReserva,
 )
+from registro.nucleo.utils import (
+    extrair_turmas_e_categorias,
+    normalizar_lista_categorias,
+)
 
 logger = logging.getLogger(__name__)
 
 REGEX_LIMPEZA_PRONTUARIO: re.Pattern[str] = re.compile(r"^[Ii][Qq]30+")
+
+
+def _vincular_grupos_estudante(
+    estudante: Estudante,
+    repo_grupo: RepositorioGrupo,
+    grupos: Optional[List[str]] = None,
+    categorias: Optional[List[str]] = None,
+) -> None:
+    """Associa turmas e categorias ao estudante sem duplicar grupos existentes."""
+    nomes_vistos = {g.nome for g in estudante.grupos}
+
+    for grupo_nome in grupos or []:
+        nome_limpo = (grupo_nome or "").strip()
+        if not nome_limpo or nome_limpo in nomes_vistos:
+            continue
+        grupo = repo_grupo.por_nome(nome_limpo)
+        if not grupo:
+            grupo = repo_grupo.criar({"nome": nome_limpo, "tipo": TIPO_GRUPO_TURMA})
+        estudante.grupos.append(grupo)
+        nomes_vistos.add(nome_limpo)
+
+    for cat_nome in normalizar_lista_categorias(categorias):
+        if cat_nome in nomes_vistos:
+            continue
+        grupo = repo_grupo.por_nome(cat_nome)
+        if not grupo:
+            grupo = repo_grupo.criar({"nome": cat_nome, "tipo": TIPO_GRUPO_CATEGORIA})
+        estudante.grupos.append(grupo)
+        nomes_vistos.add(cat_nome)
+
+
+def _serializar_estudante(est: Estudante) -> Dict[str, Any]:
+    """Serializa estudante separando turmas reais de categorias/tags."""
+    turmas, categorias = extrair_turmas_e_categorias(est)
+    return {
+        "id": est.id,
+        "prontuario": est.prontuario,
+        "nome": est.nome,
+        "ativo": bool(est.ativo) if est.ativo is not None else True,
+        "turma": ", ".join(turmas) if turmas else "N/A",
+        "turmas": turmas,
+        "categorias": categorias,
+        "categoria": ", ".join(categorias) if categorias else "-",
+        "grupos": [g.nome for g in est.grupos],
+    }
 
 
 def criar_estudante(
@@ -35,29 +85,26 @@ def criar_estudante(
     prontuario: str,
     nome: str,
     grupos: Optional[List[str]] = None,
-    categoria: str = "REGULAR",
+    categoria: Optional[str] = None,
+    categorias: Optional[List[str]] = None,
 ) -> Dict[str, Any]:
-    """Cria um novo estudante e associa aos grupos fornecidos."""
+    """Cria um novo estudante e associa às turmas e categorias fornecidas."""
     existente = repo_estudante.ler_filtrado(prontuario=prontuario)
     if existente:
         raise ValueError(f"Estudante com prontuário {prontuario} já existe.")
 
-    cat = (categoria or "REGULAR").strip().upper()
-    if cat not in ("REGULAR", "PAP"):
-        cat = "REGULAR"
-
     novo_estudante = repo_estudante.criar(
-        {"prontuario": prontuario, "nome": nome, "ativo": True, "categoria": cat}
+        {"prontuario": prontuario, "nome": nome, "ativo": True}
     )
 
-    if grupos:
-        for grupo_nome in grupos:
-            if not grupo_nome:
-                continue
-            grupo = repo_grupo.por_nome(grupo_nome)
-            if not grupo:
-                grupo = repo_grupo.criar({"nome": grupo_nome})
-            novo_estudante.grupos.append(grupo)
+    lista_cats = list(categorias or [])
+    if categoria:
+        lista_cats.extend(normalizar_lista_categorias(categoria))
+
+    _vincular_grupos_estudante(
+        novo_estudante, repo_grupo, grupos=grupos, categorias=lista_cats
+    )
+
     try:
         repo_estudante.obter_sessao().commit()
     except Exception as e:
@@ -67,11 +114,14 @@ def criar_estudante(
         except Exception:
             pass
         raise ErroNucleoRegistro(f"Falha ao criar estudante no banco de dados: {e}") from e
+
+    _, cats_finais = extrair_turmas_e_categorias(novo_estudante)
     return {
         "id": novo_estudante.id,
         "prontuario": novo_estudante.prontuario,
         "nome": novo_estudante.nome,
-        "categoria": novo_estudante.categoria,
+        "categorias": cats_finais,
+        "categoria": ", ".join(cats_finais) if cats_finais else "-",
     }
 
 
@@ -81,8 +131,9 @@ def atualizar_estudante(
     dados: Dict[str, Any],
     repo_grupo: Optional[RepositorioGrupo] = None,
     grupos: Optional[List[str]] = None,
+    categorias: Optional[List[str]] = None,
 ) -> bool:
-    """Atualiza os dados de um estudante e seus grupos associados."""
+    """Atualiza os dados de um estudante e suas turmas/categorias associadas."""
     sessao = repo_estudante.obter_sessao()
     estudante = (
         sessao.query(Estudante)
@@ -94,18 +145,28 @@ def atualizar_estudante(
         return False
 
     for k, v in dados.items():
+        if k == "categoria":
+            continue
         if hasattr(estudante, k):
             setattr(estudante, k, v)
 
-    if grupos is not None and repo_grupo is not None:
+    if repo_grupo is not None and (grupos is not None or categorias is not None or "categoria" in dados):
+        # Se ambos ou grupos+categorias foram passados explicitamente, substitui seletivamente
+        turmas_atuais = [g.nome for g in estudante.grupos if not g.eh_categoria]
+        cats_atuais = [g.nome for g in estudante.grupos if g.eh_categoria]
+
+        novas_turmas = grupos if grupos is not None else turmas_atuais
+        if categorias is not None:
+            novas_cats = categorias
+        elif "categoria" in dados:
+            novas_cats = normalizar_lista_categorias(dados["categoria"])
+        else:
+            novas_cats = cats_atuais
+
         estudante.grupos.clear()
-        for grupo_nome in grupos:
-            if not grupo_nome:
-                continue
-            grupo = repo_grupo.por_nome(grupo_nome)
-            if not grupo:
-                grupo = repo_grupo.criar({"nome": grupo_nome})
-            estudante.grupos.append(grupo)
+        _vincular_grupos_estudante(
+            estudante, repo_grupo, grupos=novas_turmas, categorias=novas_cats
+        )
 
     try:
         sessao.commit()
@@ -264,17 +325,7 @@ def listar_estudantes(
         query = query.filter(Estudante.grupos.any(Grupo.nome == turma_nome))
 
     estudantes = query.order_by(Estudante.nome).all()
-    return [
-        {
-            "id": est.id,
-            "prontuario": est.prontuario,
-            "nome": est.nome,
-            "ativo": bool(est.ativo) if est.ativo is not None else True,
-            "categoria": getattr(est, "categoria", "REGULAR") or "REGULAR",
-            "grupos": [g.nome for g in est.grupos],
-        }
-        for est in estudantes
-    ]
+    return [_serializar_estudante(est) for est in estudantes]
 
 
 def listar_estudantes_fuzzy(
@@ -319,14 +370,4 @@ def listar_estudantes_fuzzy(
         resultados_com_score.sort(key=lambda x: x["score"], reverse=True)
         estudantes = [item["estudante"] for item in resultados_com_score]
 
-    return [
-        {
-            "id": est.id,
-            "prontuario": est.prontuario,
-            "nome": est.nome,
-            "ativo": bool(est.ativo) if est.ativo is not None else True,
-            "categoria": getattr(est, "categoria", "REGULAR") or "REGULAR",
-            "grupos": [g.nome for g in est.grupos],
-        }
-        for est in estudantes
-    ]
+    return [_serializar_estudante(est) for est in estudantes]

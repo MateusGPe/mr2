@@ -9,16 +9,41 @@ Serviço de gerenciamento de Reservas (CRUD, listagens e importações em lote).
 """
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Set, Tuple
 
+from sqlalchemy import insert
+from sqlalchemy.orm import selectinload
+
+from registro.nucleo.constants import TIPO_GRUPO_CATEGORIA
 from registro.nucleo.exceptions import ErroNucleoRegistro
+from registro.nucleo.models import Estudante, Grupo, Reserva, associacao_reserva_grupo
 from registro.nucleo.repository import (
     RepositorioEstudante,
     RepositorioGrupo,
     RepositorioReserva,
 )
+from registro.nucleo.utils import (
+    extrair_turmas_e_categorias,
+    normalizar_lista_categorias,
+)
 
 logger = logging.getLogger(__name__)
+
+
+def _sincronizar_categorias_reserva(
+    reserva: Reserva,
+    categorias_raw: Any,
+    repo_grupo: RepositorioGrupo,
+) -> None:
+    """Atualiza as categorias vinculadas diretamente à reserva (sem alterar o estudante)."""
+    cats = normalizar_lista_categorias(categorias_raw)
+    reserva.grupos.clear()
+    if not cats:
+        return
+    mapa = repo_grupo.obter_ou_criar_por_nomes(set(cats), tipo=TIPO_GRUPO_CATEGORIA)
+    for nome in cats:
+        if nome in mapa:
+            reserva.grupos.append(mapa[nome])
 
 
 def criar_reserva(
@@ -26,8 +51,9 @@ def criar_reserva(
     repo_reserva: RepositorioReserva,
     prontuario_estudante: str,
     dados_reserva: Dict[str, Any],
+    repo_grupo: Optional[RepositorioGrupo] = None,
 ) -> Dict[str, Any]:
-    """Cria uma reserva para o estudante especificado."""
+    """Cria uma reserva para o estudante especificado, com categorias pontuais opcionais."""
     estudantes = repo_estudante.ler_filtrado(prontuario=prontuario_estudante)
     if not estudantes:
         raise ValueError(
@@ -35,9 +61,20 @@ def criar_reserva(
         )
 
     payload = dados_reserva.copy()
+    has_cats = "categorias" in payload or "categoria" in payload
+    cats_raw = payload.pop("categorias", None)
+    if cats_raw is None:
+        cats_raw = payload.pop("categoria", None)
+    else:
+        payload.pop("categoria", None)
+
     payload["estudante_id"] = estudantes[0].id
 
     nova_reserva = repo_reserva.criar(payload)
+    if has_cats:
+        rg = repo_grupo or RepositorioGrupo(repo_reserva.obter_sessao())
+        _sincronizar_categorias_reserva(nova_reserva, cats_raw, rg)
+
     try:
         repo_reserva.obter_sessao().commit()
     except Exception as e:
@@ -48,12 +85,14 @@ def criar_reserva(
             pass
         raise ErroNucleoRegistro(f"Falha ao criar reserva no banco: {e}") from e
 
+    cats_salvas = sorted(g.nome for g in nova_reserva.grupos)
     return {
         "id": nova_reserva.id,
         "estudante_id": nova_reserva.estudante_id,
         "prato": nova_reserva.prato,
         "data": nova_reserva.data,
         "cancelada": nova_reserva.cancelada,
+        "categorias": cats_salvas,
     }
 
 
@@ -61,10 +100,24 @@ def atualizar_reserva(
     repo_reserva: RepositorioReserva,
     id_reserva: int,
     dados: Dict[str, Any],
+    repo_grupo: Optional[RepositorioGrupo] = None,
 ) -> bool:
-    """Atualiza os dados de uma reserva."""
-    reserva = repo_reserva.atualizar(id_reserva, dados)
+    """Atualiza os dados e categorias pontuais de uma reserva."""
+    payload = dados.copy()
+    has_cats = "categorias" in payload or "categoria" in payload
+    cats_raw = payload.pop("categorias", None)
+    if cats_raw is None and "categoria" in payload:
+        cats_raw = payload.pop("categoria", None)
+    else:
+        payload.pop("categoria", None)
+
+    reserva = repo_reserva.atualizar(id_reserva, payload) if payload else repo_reserva.ler_um(
+        id_reserva, opcoes_carregamento=[selectinload(Reserva.grupos)]
+    )
     if reserva:
+        if has_cats:
+            rg = repo_grupo or RepositorioGrupo(repo_reserva.obter_sessao())
+            _sincronizar_categorias_reserva(reserva, cats_raw, rg)
         try:
             repo_reserva.obter_sessao().commit()
             return True
@@ -138,19 +191,32 @@ def listar_reservas(
             grupos_ids=grupos_ids, data_formatada=filtros.get("data")
         )
     else:
-        reservas = repo_reserva.ler_filtrado(**filtros)
+        reservas = repo_reserva.ler_filtrado(
+            opcoes_carregamento=[
+                selectinload(Reserva.grupos),
+                selectinload(Reserva.estudante).selectinload(Estudante.grupos),
+            ],
+            **filtros,
+        )
 
-    return [
-        {
-            "id": res.id,
-            "prontuario_estudante": res.estudante.prontuario,
-            "nome_estudante": res.estudante.nome,
-            "prato": res.prato,
-            "data": res.data,
-            "cancelada": res.cancelada,
-        }
-        for res in reservas
-    ]
+    resultado = []
+    for res in reservas:
+        turmas_est, _ = extrair_turmas_e_categorias(res.estudante)
+        cats_reserva = sorted(g.nome for g in (res.grupos or []))
+        resultado.append(
+            {
+                "id": res.id,
+                "prontuario_estudante": res.estudante.prontuario,
+                "nome_estudante": res.estudante.nome,
+                "turma_estudante": ", ".join(turmas_est) if turmas_est else "N/A",
+                "prato": res.prato,
+                "data": res.data,
+                "cancelada": res.cancelada,
+                "categorias": cats_reserva,
+                "categorias_str": ", ".join(cats_reserva) if cats_reserva else "-",
+            }
+        )
+    return resultado
 
 
 def atualizar_cancelamento_reserva(
@@ -177,10 +243,12 @@ def salvar_importacao_dados(
     repo_estudante: RepositorioEstudante,
     repo_reserva: RepositorioReserva,
     dados: List[Dict[str, Any]],
+    repo_grupo: Optional[RepositorioGrupo] = None,
 ) -> Dict[str, int]:
     """Persiste dados importados de estudantes e reservas de forma atômica."""
     novos_estudantes = []
     reservas_para_criar = []
+    todas_categorias_reservas: Set[str] = set()
 
     for linha in dados:
         id_banco = linha.get("_id_banco")
@@ -190,19 +258,18 @@ def salvar_importacao_dados(
             continue
 
         if not id_banco and pront:
-            cat = linha.get("categoria", "REGULAR")
-            cat_norm = (cat or "REGULAR").strip().upper()
-            if cat_norm not in ("REGULAR", "PAP"):
-                cat_norm = "REGULAR"
-
             novos_estudantes.append(
                 {
                     "prontuario": pront,
                     "nome": linha.get("nome", "Desconhecido"),
                     "ativo": True,
-                    "categoria": cat_norm,
                 }
             )
+
+        cats_linha = normalizar_lista_categorias(
+            linha.get("categorias") if linha.get("categorias") is not None else linha.get("categoria")
+        )
+        todas_categorias_reservas.update(cats_linha)
 
         reservas_para_criar.append(
             {
@@ -212,6 +279,7 @@ def salvar_importacao_dados(
                     "cancelada": False,
                 },
                 "chave": id_banco if id_banco else pront,
+                "categorias": cats_linha,
             }
         )
 
@@ -230,6 +298,7 @@ def salvar_importacao_dados(
         mapa_ids = {e.prontuario: e.id for e in objs}
 
     reservas_finais = []
+    categorias_por_chave: Dict[Tuple[int, str], List[str]] = {}
     for item in reservas_para_criar:
         chave = item["chave"]
         id_final = None
@@ -243,9 +312,37 @@ def salvar_importacao_dados(
             payload = item["payload"]
             payload["estudante_id"] = id_final
             reservas_finais.append(payload)
+            if item["categorias"]:
+                categorias_por_chave[(id_final, payload["data"])] = item["categorias"]
 
     if reservas_finais:
         repo_reserva.criar_em_massa(reservas_finais)
+
+    if categorias_por_chave:
+        sessao_db = repo_estudante.obter_sessao()
+        rg = repo_grupo or RepositorioGrupo(sessao_db)
+        mapa_grupos = rg.obter_ou_criar_por_nomes(
+            todas_categorias_reservas, tipo=TIPO_GRUPO_CATEGORIA
+        )
+        est_ids = {k[0] for k in categorias_por_chave}
+        datas = {k[1] for k in categorias_por_chave}
+        reservas_db = (
+            sessao_db.query(Reserva)
+            .filter(Reserva.estudante_id.in_(est_ids), Reserva.data.in_(datas))
+            .all()
+        )
+        assoc_rows = []
+        for res in reservas_db:
+            cats = categorias_por_chave.get((res.estudante_id, res.data), [])
+            for c_nome in cats:
+                g = mapa_grupos.get(c_nome)
+                if g:
+                    assoc_rows.append({"reserva_id": res.id, "grupo_id": g.id})
+        if assoc_rows:
+            sessao_db.execute(
+                insert(associacao_reserva_grupo).prefix_with("OR IGNORE"),
+                assoc_rows,
+            )
 
     try:
         repo_estudante.obter_sessao().commit()

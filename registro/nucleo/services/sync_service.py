@@ -12,7 +12,7 @@ import json
 from datetime import datetime
 import logging
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence
 
 from sqlalchemy.orm import selectinload
 
@@ -30,7 +30,7 @@ from registro.nucleo.exceptions import (
     ErroNucleoRegistro,
     ErroSessao,
 )
-from registro.nucleo.models import Consumo, Estudante, Sessao
+from registro.nucleo.models import Consumo, Estudante, Reserva, Sessao
 from registro.nucleo.repository import (
     RepositorioConsumo,
     RepositorioEstudante,
@@ -39,7 +39,7 @@ from registro.nucleo.repository import (
     RepositorioSessao,
 )
 from registro.nucleo.services.sessao_service import obter_detalhes_sessao
-from registro.nucleo.utils import salvar_csv
+from registro.nucleo.utils import formatar_turma_e_categoria, salvar_csv
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +71,7 @@ def sincronizar_do_google_sheets(
             caminho_csv = caminho_config / "reserves.csv"
             if salvar_csv(reservas, caminho_csv):
                 importers_service.importar_reservas_csv(
-                    repo_estudante, repo_reserva, caminho_csv
+                    repo_estudante, repo_reserva, caminho_csv, repo_grupo=repo_grupo
                 )
 
         # Sincronização da aba Configuração (Grade de Horários e Categorias)
@@ -152,9 +152,26 @@ def sincronizar_do_google_sheets(
         ) from e
 
 
+def _carregar_reservas_ativas_sessao(
+    repo_consumo: RepositorioConsumo, data_sessao: str
+) -> Dict[int, Reserva]:
+    """Carrega reservas ativas da data da sessão para enriquecer consumos sem reserva direta."""
+    sessao_db = getattr(repo_consumo, "_sessao_db", None)
+    if sessao_db is None or not hasattr(sessao_db, "query"):
+        return {}
+    reservas = (
+        sessao_db.query(Reserva)
+        .options(selectinload(Reserva.grupos))
+        .filter(Reserva.data == data_sessao, Reserva.cancelada.is_(False))
+        .all()
+    )
+    return {r.estudante_id: r for r in reservas}
+
+
 def _montar_linhas_para_sessao(
     sessao: Sessao,
     consumos: Sequence[Consumo],
+    mapa_reservas_dia: Optional[Dict[int, Reserva]] = None,
 ) -> List[List[str]]:
     """Constrói as linhas que serão enviadas para a planilha de uma sessão."""
     linhas_para_adicionar = []
@@ -165,12 +182,10 @@ def _montar_linhas_para_sessao(
         elif sessao.refeicao == "lanche":
             prato = sessao.item_servido or "Lanche"
 
-        turma = (
-            consumo.estudante.grupos[0].nome
-            if consumo.estudante.grupos
-            else "N/A"
+        reserva_ref = consumo.reserva or (
+            mapa_reservas_dia.get(consumo.estudante_id) if mapa_reservas_dia else None
         )
-        categoria = getattr(consumo.estudante, "categoria", "REGULAR")
+        turma, categoria = formatar_turma_e_categoria(consumo.estudante, reserva_ref)
 
         linhas_para_adicionar.append(
             [
@@ -189,11 +204,15 @@ def _montar_linhas_para_sessao(
 def _montar_linhas_canceladas(
     sessao: Sessao,
     consumos_cancelados: Sequence[Consumo],
+    mapa_reservas_dia: Optional[Dict[int, Reserva]] = None,
 ) -> List[List[str]]:
     """Constrói as linhas de auditoria para registros cancelados (soft delete)."""
     linhas = []
     for c in consumos_cancelados:
-        turma = c.estudante.grupos[0].nome if c.estudante.grupos else "N/A"
+        reserva_ref = c.reserva or (
+            mapa_reservas_dia.get(c.estudante_id) if mapa_reservas_dia else None
+        )
+        turma, categoria = formatar_turma_e_categoria(c.estudante, reserva_ref)
         hora_canc = (
             c.deletado_em.strftime("%H:%M:%S")
             if isinstance(c.deletado_em, datetime)
@@ -207,7 +226,7 @@ def _montar_linhas_canceladas(
                 c.estudante.prontuario,
                 c.estudante.nome,
                 turma,
-                getattr(c.estudante, "categoria", "REGULAR"),
+                categoria,
                 sessao.refeicao.capitalize(),
                 c.deletado_por or "Operador",
                 c.motivo_cancelamento or "Cancelado",
@@ -225,14 +244,18 @@ def sincronizar_para_google_sheets(
     try:
         sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
         opcoes = [
-            selectinload(Consumo.reserva),
+            selectinload(Consumo.reserva).selectinload(Reserva.grupos),
             selectinload(Consumo.estudante).selectinload(Estudante.grupos),
         ]
+        mapa_reservas = _carregar_reservas_ativas_sessao(repo_consumo, sessao.data)
+
         # Consumos ativos (RepositorioConsumo filtra ativo=True por padrão)
         consumos_ativos = repo_consumo.ler_filtrado(
             opcoes_carregamento=opcoes, sessao_id=id_sessao
         )
-        linhas_ativos = _montar_linhas_para_sessao(sessao, consumos_ativos)
+        linhas_ativos = _montar_linhas_para_sessao(
+            sessao, consumos_ativos, mapa_reservas_dia=mapa_reservas
+        )
 
         # Consumos cancelados (auditoria)
         try:
@@ -241,7 +264,9 @@ def sincronizar_para_google_sheets(
             )
         except TypeError:
             consumos_cancelados = []
-        linhas_canceladas = _montar_linhas_canceladas(sessao, consumos_cancelados)
+        linhas_canceladas = _montar_linhas_canceladas(
+            sessao, consumos_cancelados, mapa_reservas_dia=mapa_reservas
+        )
 
         planilha = google_api_service.obter_planilha()
         if linhas_ativos:
@@ -267,18 +292,21 @@ def sincronizar_todas_sessoes_para_google_sheets(
     """Envia os registros de consumo de todas as sessões para a planilha do Google Sheets."""
     try:
         opcoes = [
-            selectinload(Consumo.reserva),
+            selectinload(Consumo.reserva).selectinload(Reserva.grupos),
             selectinload(Consumo.estudante).selectinload(Estudante.grupos),
         ]
         todas_sessoes = repo_sessao.ler_todos()
         planilha = google_api_service.obter_planilha()
 
         for sessao in todas_sessoes:
+            mapa_reservas = _carregar_reservas_ativas_sessao(repo_consumo, sessao.data)
             consumos_ativos = repo_consumo.ler_filtrado(
                 opcoes_carregamento=opcoes,
                 sessao_id=sessao.id,
             )
-            linhas_ativos = _montar_linhas_para_sessao(sessao, consumos_ativos)
+            linhas_ativos = _montar_linhas_para_sessao(
+                sessao, consumos_ativos, mapa_reservas_dia=mapa_reservas
+            )
             if linhas_ativos:
                 google_api_service.anexar_linhas_unicas(
                     planilha,
@@ -294,7 +322,9 @@ def sincronizar_todas_sessoes_para_google_sheets(
                 )
             except TypeError:
                 consumos_cancelados = []
-            linhas_canceladas = _montar_linhas_canceladas(sessao, consumos_cancelados)
+            linhas_canceladas = _montar_linhas_canceladas(
+                sessao, consumos_cancelados, mapa_reservas_dia=mapa_reservas
+            )
             if linhas_canceladas:
                 google_api_service.anexar_linhas_unicas(
                     planilha,

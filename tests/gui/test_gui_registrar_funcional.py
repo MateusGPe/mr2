@@ -202,8 +202,11 @@ def test_painel_status_registrados_cancelamento_consumo(app_root, registrar_dado
     painel_status.destroy()
 
 
-def test_app_registro_janela_completa(facade, registrar_dados, mock_messagebox):
+def test_app_registro_janela_completa(facade, registrar_dados, mock_messagebox, tmp_path, monkeypatch):
     """Garante inicialização integrada da janela AppRegistro com a Fachada real injetada."""
+    import registro.nucleo.constants as constants
+
+    monkeypatch.setattr(constants, "CAMINHO_SESSAO", tmp_path / "session.json")
     with patch("ttkbootstrap.window._require_single_root"):
         app = AppRegistro(fachada_nucleo=facade)
         app.withdraw()
@@ -212,5 +215,20 @@ def test_app_registro_janela_completa(facade, registrar_dados, mock_messagebox):
         assert app.get_fachada() is facade
         assert app._painel_acao is not None
         assert app._painel_status is not None
+        assert app._btn_horario_livre is not None
+        assert facade.ignorar_horario_grade is False
+
+        # Alterna Horário Livre pela barra superior
+        app._var_horario_livre.set(True)
+        app._ao_alternar_horario_livre()
+        app.update()
+        assert facade.ignorar_horario_grade is True
+        assert "Horário Livre" in app._label_info_sessao.cget("text")
+
+        app._var_horario_livre.set(False)
+        app._ao_alternar_horario_livre()
+        app.update()
+        assert facade.ignorar_horario_grade is False
+        assert "Horário Livre" not in app._label_info_sessao.cget("text")
 
         app.destroy()

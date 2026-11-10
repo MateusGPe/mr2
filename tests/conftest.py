@@ -95,8 +95,10 @@ def repos(db_session: Session) -> Dict[str, Any]:
 def criar_grupo(db_session: Session) -> Callable[..., Grupo]:
     """Factory para criar instâncias de Grupo."""
 
-    def _criar(nome: str = "1º A - INFO", ativo: bool = True) -> Grupo:
-        grupo = Grupo(nome=nome, ativo=ativo)
+    def _criar(
+        nome: str = "1º A - INFO", ativo: bool = True, tipo: str = "turma"
+    ) -> Grupo:
+        grupo = Grupo(nome=nome, ativo=ativo, tipo=tipo)
         db_session.add(grupo)
         db_session.commit()
         db_session.refresh(grupo)
@@ -113,11 +115,10 @@ def criar_estudante(db_session: Session) -> Callable[..., Estudante]:
         prontuario: str = "IQ3000001",
         nome: str = "Estudante Teste",
         ativo: bool = True,
-        categoria: str = "REGULAR",
         grupos: Optional[List[Grupo]] = None,
     ) -> Estudante:
         estudante = Estudante(
-            prontuario=prontuario, nome=nome, ativo=ativo, categoria=categoria
+            prontuario=prontuario, nome=nome, ativo=ativo
         )
         if grupos:
             estudante.grupos.extend(grupos)

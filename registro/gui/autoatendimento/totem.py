@@ -264,9 +264,9 @@ class FrameSelfService(ttk.Frame):
                 else:
                     grupos_str = "Todas"
 
-                cat_info = (
-                    f" | 🏷️ {self._fachada.filtro_categoria_sessao}"
-                    if getattr(self._fachada, "filtro_categoria_sessao", None)
+                horario_livre_info = (
+                    " | 🕒 Horário Livre"
+                    if getattr(self._fachada, "ignorar_horario_grade", False) is True
                     else ""
                 )
 
@@ -276,7 +276,7 @@ class FrameSelfService(ttk.Frame):
                     )
                 if self._lbl_sessao_topo:
                     self._lbl_sessao_topo.config(
-                        text=f"🍲 {refeicao} ({hora}){texto_item} | 📅 {data} | 👥 {grupos_str}{cat_info}"
+                        text=f"🍲 {refeicao} ({hora}){texto_item} | 📅 {data} | 👥 {grupos_str}{horario_livre_info}"
                     )
 
                 consumidos = self._fachada.obter_estudantes_para_sessao(

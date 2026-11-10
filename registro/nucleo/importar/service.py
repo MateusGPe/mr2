@@ -100,6 +100,7 @@ class ServicoImportacao:
                     "prato": linha.get("prato"),
                     "aluno": nome_display,
                     "prontuario": pront,
+                    "categoria": linha.get("categoria") or "-",
                 }
             )
 

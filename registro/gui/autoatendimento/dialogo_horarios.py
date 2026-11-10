@@ -247,11 +247,18 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
         nome_dia = MAPA_NOMES_DIAS.get(dia_norm, dia_norm.capitalize())
         nome_ref = MAPA_NOMES_REFEICOES.get(refeicao_norm, refeicao_bruta.capitalize())
 
+        ignorar_horario = getattr(self._fachada, "ignorar_horario_grade", False) is True
         if self._lbl_subtitulo:
-            self._lbl_subtitulo.config(
-                text=f"Refeição: {nome_ref} • {nome_dia}",
-                bootstyle="secondary",
-            )
+            if ignorar_horario:
+                self._lbl_subtitulo.config(
+                    text=f"Refeição: {nome_ref} • {nome_dia}  |  🕒 Horário Livre (Flexibilizado)",
+                    bootstyle="warning",
+                )
+            else:
+                self._lbl_subtitulo.config(
+                    text=f"Refeição: {nome_ref} • {nome_dia}",
+                    bootstyle="secondary",
+                )
 
         # 2. Carrega a grade horária
         grade = self._fachada.obter_grade_horarios()
@@ -451,6 +458,7 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
     def _atualizar_estados_slots(self, minutos_atuais: int):
         """Avalia e atualiza visualmente os badges e textos de cada slot."""
         tolerancia_min = 5
+        ignorar_horario = getattr(self._fachada, "ignorar_horario_grade", False) is True
         style = ttk.Style.get_instance() or ttk.Style()
         cor_success = style.colors.success if hasattr(style, "colors") else "#769e3c"
         cor_border = style.colors.border if hasattr(style, "colors") else "#d6d6d6"
@@ -465,8 +473,25 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
             lbl_substatus = item["substatus"]
             lbl_horario = item.get("horario")
 
+            # 0. Horário Livre ativo na sessão (trava de horário flexibilizada)
+            if ignorar_horario:
+                lbl_badge.config(
+                    text="●  LIBERADO (HORÁRIO LIVRE)",
+                    bootstyle="@warning",
+                )
+                lbl_substatus.config(
+                    text=f"Previsto {ini_str} às {fim_str} • Trava de horário flexibilizada",
+                    bootstyle="warning",
+                )
+                if lbl_horario:
+                    lbl_horario.config(bootstyle="primary")
+                frame_card.config(
+                    highlightbackground=cor_success,
+                    highlightthickness=2,
+                )
+
             # 1. Slot Encerrado
-            if minutos_atuais > fim_m + tolerancia_min:
+            elif minutos_atuais > fim_m + tolerancia_min:
                 lbl_badge.config(
                     text="⚪  ENCERRADO",
                     bootstyle="@secondary",

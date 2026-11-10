@@ -31,7 +31,7 @@ def obter_caminho_banco_dados(caminho_db: Optional[Path] = None) -> Path:
 def verificar_necessidade_migracao(caminho_db: Optional[Path] = None) -> bool:
     """
     Verifica se o banco de dados SQLite precisa de migração estrutural
-    (ex.: ausência da coluna categoria em estudantes ou campos de soft delete em consumos).
+    (ex.: campos de soft delete em consumos).
     """
     db_path = obter_caminho_banco_dados(caminho_db)
     if not db_path.exists():
@@ -41,13 +41,7 @@ def verificar_necessidade_migracao(caminho_db: Optional[Path] = None) -> bool:
         with sqlite3.connect(db_path) as conn:
             cursor = conn.cursor()
 
-            # 1. Verifica tabela estudantes
-            cursor.execute("PRAGMA table_info(estudantes)")
-            colunas_estudantes = {row[1] for row in cursor.fetchall()}
-            if colunas_estudantes and "categoria" not in colunas_estudantes:
-                return True
-
-            # 2. Verifica tabela consumos
+            # 1. Verifica tabela consumos
             cursor.execute("PRAGMA table_info(consumos)")
             colunas_consumos = {row[1] for row in cursor.fetchall()}
             if colunas_consumos:
@@ -60,7 +54,7 @@ def verificar_necessidade_migracao(caminho_db: Optional[Path] = None) -> bool:
                 if not campos_obrigatorios.issubset(colunas_consumos):
                     return True
 
-            # 3. Verifica índice parcial uq_consumos_estudante_sessao_ativo
+            # 2. Verifica índice parcial uq_consumos_estudante_sessao_ativo
             cursor.execute("PRAGMA index_list(consumos)")
             indices = {row[1] for row in cursor.fetchall()}
             if "uq_consumos_estudante_sessao_ativo" not in indices:
@@ -93,18 +87,6 @@ def executar_migracao(caminho_db: Optional[Path] = None) -> bool:
 
             # Desativa temporariamente chaves estrangeiras para manipulação segura da tabela
             cursor.execute("PRAGMA foreign_keys = OFF")
-
-            # --- Migração Estudantes ---
-            cursor.execute("PRAGMA table_info(estudantes)")
-            colunas_estudantes = {row[1] for row in cursor.fetchall()}
-            if colunas_estudantes and "categoria" not in colunas_estudantes:
-                logger.info("Adicionando coluna 'categoria' na tabela estudantes...")
-                cursor.execute(
-                    "ALTER TABLE estudantes ADD COLUMN categoria VARCHAR(50) NOT NULL DEFAULT 'REGULAR'"
-                )
-                cursor.execute(
-                    "CREATE INDEX IF NOT EXISTS ix_estudantes_categoria ON estudantes(categoria)"
-                )
 
             # --- Migração Consumos ---
             cursor.execute("PRAGMA table_info(consumos)")

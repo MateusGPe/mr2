@@ -476,6 +476,18 @@ class AppSelfService(ttk.Window):
             label="🎯  Filtros de Turmas e Exceções",
             command=self._abrir_dialogo_filtro_turmas,
         )
+        horario_livre_ativo = (
+            getattr(self.fachada_nucleo, "ignorar_horario_grade", False) is True
+        )
+        label_horario_livre = (
+            "✅  Horário Livre Ativo (Restaurar Grade)"
+            if horario_livre_ativo
+            else "🕒  Ativar Horário Livre (Ignorar Trava)"
+        )
+        menu.add_command(
+            label=label_horario_livre,
+            command=self._alternar_ignorar_horario_grade,
+        )
         menu.add_command(
             label="🕒  Horários das Turmas (Grade)",
             command=self._abrir_dialogo_horarios,
@@ -681,6 +693,26 @@ class AppSelfService(ttk.Window):
         frame_selfservice = self.frames.get("selfservice")
         if frame_selfservice and hasattr(frame_selfservice, "_abrir_dialogo_horarios"):
             frame_selfservice._abrir_dialogo_horarios()
+
+    def _alternar_ignorar_horario_grade(self):
+        """Alterna o modo Horário Livre (ignora trava de horário da grade mantendo validação de turmas)."""
+        if not self.fachada_nucleo or self.fachada_nucleo.id_sessao_ativa is None:
+            Messagebox.show_warning(
+                "É necessário iniciar ou selecionar uma sessão antes de alterar a trava de horário.",
+                "Nenhuma Sessão Ativa",
+                parent=self,
+            )
+            return
+
+        novo_estado = not (getattr(self.fachada_nucleo, "ignorar_horario_grade", False) is True)
+        self.fachada_nucleo.definir_ignorar_horario_grade(novo_estado)
+        self._atualizar_barra_sessao()
+        msg = (
+            "Horário Livre ativado!\nA trava de horário da grade será ignorada nesta sessão (mantendo a validação de turmas previstas)."
+            if novo_estado
+            else "Horário Livre desativado!\nOs horários da grade voltaram a ser exigidos."
+        )
+        Messagebox.show_info(msg, "Horário Livre", parent=self)
 
     def ao_aplicar_filtro_turmas(self, identificadores: List[str]):
         """Aplica os novos filtros de turmas e exceções em tempo real."""

@@ -172,13 +172,22 @@ class AbaDashboard(ttk.Frame):
             # Card Alunos
             alunos_ativos = stats.get("alunos_ativos", 0)
             alunos_inativos = stats.get("alunos_inativos", 0)
-            alunos_pap = stats.get("alunos_pap", 0)
+            dist_cats = stats.get("distribuicao_categorias", {})
             self.lbl_alunos_val.configure(text=str(alunos_ativos))
-            self.lbl_alunos_sub.configure(
-                text=f"{alunos_pap} PAP | {alunos_inativos} inativo(s)"
-                if alunos_pap
-                else f"{alunos_inativos} inativo(s)"
-            )
+            if dist_cats:
+                resumo_cats = " | ".join(
+                    f"{k}: {v}" for k, v in list(dist_cats.items())[:2]
+                )
+                self.lbl_alunos_sub.configure(
+                    text=f"{resumo_cats} | {alunos_inativos} inativo(s)"
+                )
+            else:
+                alunos_pap = stats.get("alunos_pap", 0)
+                self.lbl_alunos_sub.configure(
+                    text=f"{alunos_pap} PAP | {alunos_inativos} inativo(s)"
+                    if alunos_pap
+                    else f"{alunos_inativos} inativo(s)"
+                )
 
             # Card Turmas
             turmas_ativas = stats.get("grupos_ativos", 0)

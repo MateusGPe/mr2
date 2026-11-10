@@ -233,7 +233,7 @@ def test_validar_janela_horario_tolerancia_zero(tmp_path: Path):
 
 
 def test_validar_janela_horario_restricao_categoria(tmp_path: Path):
-    """Verifica bloqueio específico e mensagem contextualizada por categoria."""
+    """Verifica bloqueio específico por categoria e regra OU com turmas."""
     caminho = tmp_path / "grade.json"
     grade = {
         "segunda": {
@@ -241,7 +241,7 @@ def test_validar_janela_horario_restricao_categoria(tmp_path: Path):
                 {
                     "inicio": "12:00",
                     "fim": "12:30",
-                    "turmas": ["1º A"],
+                    "turmas": ["*"],
                     "categorias": ["PAP"],
                 }
             ]
@@ -249,25 +249,25 @@ def test_validar_janela_horario_restricao_categoria(tmp_path: Path):
     }
     grade_horarios_service.salvar_grade_horarios(grade, caminho)
 
-    # Aluno da turma 1º A, mas REGULAR -> Bloqueado por categoria
+    # Aluno sem categoria -> Bloqueado por categoria
     ok, motivo = grade_horarios_service.validar_janela_horario(
         turmas_estudante=["1º A"],
         refeicao="almoço",
         hora_atual="12:15",
         dia_semana="segunda",
-        categoria_estudante="REGULAR",
+        categorias_estudante=[],
         caminho_grade=caminho,
     )
     assert ok is False
-    assert "Categoria 'REGULAR' não permitida neste horário. Permitidas: PAP." in motivo
+    assert "Categoria (Nenhuma) não permitida neste horário. Permitidas: PAP." in motivo
 
-    # Aluno PAP -> Autorizado
+    # Aluno com categoria PAP -> Autorizado
     ok, motivo = grade_horarios_service.validar_janela_horario(
         turmas_estudante=["1º A"],
         refeicao="almoço",
         hora_atual="12:15",
         dia_semana="segunda",
-        categoria_estudante="PAP",
+        categorias_estudante=["PAP"],
         caminho_grade=caminho,
     )
     assert ok is True

@@ -240,3 +240,77 @@ def salvar_csv_de_lista(dados: List[List[Any]], nome_arquivo: Union[str, Path], 
         logger.error("Erro ao salvar CSV em %s: %s", nome_arquivo, e)
         return False
 
+
+_CATEGORIAS_IGNORADAS = {"", "-", "n/a", "regular", "none", "null", "nenhuma"}
+
+
+def normalizar_lista_categorias(valor: Any) -> List[str]:
+    """
+    Converte uma string separada por vírgula/ponto-e-vírgula ou iterável
+    em uma lista limpa e sem duplicatas de nomes de categorias/tags.
+    Ignora marcadores vazios ou legados como 'REGULAR' e '-'.
+    """
+    if not valor:
+        return []
+
+    itens_brutos: List[str] = []
+    if isinstance(valor, str):
+        itens_brutos = re.split(r"[,;]", valor)
+    elif isinstance(valor, (list, tuple, set)):
+        for elem in valor:
+            if isinstance(elem, str):
+                itens_brutos.extend(re.split(r"[,;]", elem))
+            elif elem is not None:
+                itens_brutos.append(str(elem))
+    else:
+        itens_brutos = re.split(r"[,;]", str(valor))
+
+    resultado: List[str] = []
+    vistos_lower: set[str] = set()
+    for item in itens_brutos:
+        limpo = item.strip()
+        chave = limpo.lower()
+        if chave in _CATEGORIAS_IGNORADAS or chave in vistos_lower:
+            continue
+        vistos_lower.add(chave)
+        resultado.append(limpo)
+    return resultado
+
+
+def extrair_turmas_e_categorias(
+    estudante: Any, reserva: Any = None
+) -> Tuple[List[str], List[str]]:
+    """
+    Separa os grupos do estudante (e opcionalmente de uma reserva ativa na data)
+    em duas listas ordenadas: (turmas_reais, categorias).
+    """
+    turmas: set[str] = set()
+    categorias: set[str] = set()
+
+    grupos_est = getattr(estudante, "grupos", None) or []
+    for g in grupos_est:
+        if getattr(g, "eh_categoria", False):
+            categorias.add(g.nome)
+        else:
+            turmas.add(g.nome)
+
+    if reserva is not None and not getattr(reserva, "cancelada", False):
+        grupos_res = getattr(reserva, "grupos", None) or []
+        for g in grupos_res:
+            if getattr(g, "eh_categoria", False):
+                categorias.add(g.nome)
+            else:
+                turmas.add(g.nome)
+
+    return sorted(turmas), sorted(categorias)
+
+
+def formatar_turma_e_categoria(
+    estudante: Any, reserva: Any = None, turma_vazia: str = "N/A"
+) -> Tuple[str, str]:
+    """Retorna strings formatadas (turmas_str, categorias_str) para exibição/exportação."""
+    turmas, categorias = extrair_turmas_e_categorias(estudante, reserva)
+    turmas_str = ", ".join(turmas) if turmas else turma_vazia
+    cats_str = ", ".join(categorias) if categorias else "-"
+    return turmas_str, cats_str
+

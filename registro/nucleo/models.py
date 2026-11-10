@@ -71,9 +71,26 @@ associacao_sessao_grupo = Table(
     ),
 )
 
+associacao_reserva_grupo = Table(
+    "associacao_reserva_grupo",
+    Base.metadata,
+    Column(
+        "reserva_id",
+        Integer,
+        ForeignKey("reservas.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+    Column(
+        "grupo_id",
+        Integer,
+        ForeignKey("grupos.id", ondelete="CASCADE"),
+        primary_key=True,
+    ),
+)
+
 
 class Grupo(Base):
-    """Representa um grupo (turma) de estudantes."""
+    """Representa um grupo (turma real ou categoria/tag) de estudantes."""
 
     __tablename__ = "grupos"
 
@@ -81,6 +98,9 @@ class Grupo(Base):
         Integer, primary_key=True, autoincrement=True)
     nome: Mapped[str] = mapped_column(
         String(100), unique=True, nullable=False, index=True
+    )
+    tipo: Mapped[str] = mapped_column(
+        String(20), default="turma", nullable=False, index=True
     )
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
 
@@ -90,9 +110,17 @@ class Grupo(Base):
     sessoes: Mapped[List["Sessao"]] = relationship(
         secondary=associacao_sessao_grupo, back_populates="grupos", lazy="select"
     )
+    reservas: Mapped[List["Reserva"]] = relationship(
+        secondary=associacao_reserva_grupo, back_populates="grupos", lazy="select"
+    )
+
+    @property
+    def eh_categoria(self) -> bool:
+        """Indica se o grupo representa uma categoria/tag (ex.: PAP, ESP1, LIB0)."""
+        return (self.tipo or "turma").strip().lower() == "categoria"
 
     def __repr__(self) -> str:
-        return f"<Grupo(id={self.id}, nome='{self.nome}')>"
+        return f"<Grupo(id={self.id}, nome='{self.nome}', tipo='{self.tipo}')>"
 
 
 class Estudante(Base):
@@ -107,9 +135,6 @@ class Estudante(Base):
     )
     nome: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
     ativo: Mapped[bool] = mapped_column(Boolean, default=True, nullable=True)
-    categoria: Mapped[str] = mapped_column(
-        String(50), default="REGULAR", nullable=False, index=True
-    )
 
     grupos: Mapped[List["Grupo"]] = relationship(
         secondary=associacao_estudante_grupo, back_populates="estudantes", lazy="select"
@@ -120,6 +145,16 @@ class Estudante(Base):
     consumos: Mapped[List["Consumo"]] = relationship(
         back_populates="estudante", lazy="select", cascade="all, delete-orphan"
     )
+
+    @property
+    def turmas_nomes(self) -> List[str]:
+        """Retorna os nomes ordenados dos grupos do tipo 'turma' vinculados ao estudante."""
+        return sorted(g.nome for g in self.grupos if not g.eh_categoria)
+
+    @property
+    def categorias_nomes(self) -> List[str]:
+        """Retorna os nomes ordenados dos grupos do tipo 'categoria' vinculados ao estudante."""
+        return sorted(g.nome for g in self.grupos if g.eh_categoria)
 
     def __repr__(self) -> str:
         return "<Estudante(id={}, prontuario='{}', nome='{}...')>".format(
@@ -145,9 +180,17 @@ class Reserva(Base):
     estudante: Mapped["Estudante"] = relationship(
         back_populates="reservas", lazy="joined"
     )
+    grupos: Mapped[List["Grupo"]] = relationship(
+        secondary=associacao_reserva_grupo, back_populates="reservas", lazy="select"
+    )
     consumo: Mapped[Optional["Consumo"]] = relationship(
         back_populates="reserva", uselist=False, lazy="select"
     )
+
+    @property
+    def categorias_nomes(self) -> List[str]:
+        """Retorna os nomes ordenados das categorias vinculadas diretamente à reserva."""
+        return sorted(g.nome for g in self.grupos if g.eh_categoria)
 
     __table_args__ = (
         UniqueConstraint(

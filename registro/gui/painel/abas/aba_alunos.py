@@ -204,8 +204,8 @@ class AbaAlunos(ttk.Frame):
                     aluno["id"],
                     aluno["nome"],
                     aluno["prontuario"],
-                    ", ".join(aluno.get("grupos", [])),
-                    aluno.get("categoria", "REGULAR"),
+                    aluno.get("turma") or ", ".join(aluno.get("grupos", [])) or "N/A",
+                    aluno.get("categoria", "-"),
                     "Sim" if aluno.get("ativo", False) else "Não",
                 )
                 for aluno in alunos

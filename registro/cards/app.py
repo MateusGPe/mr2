@@ -316,12 +316,15 @@ class CardsApp(ttk.Window):
                     )
                     return
 
+                from registro.nucleo.utils import formatar_turma_e_categoria
+
                 lista_alunos = []
                 for e in estudantes:
                     if getattr(e, "ativo", True) is False:
                         continue
-                    turmas_str = ", ".join(sorted(g.nome for g in e.grupos)) if e.grupos else "(Sem Turma)"
-                    cat = getattr(e, "categoria", "REGULAR") or "REGULAR"
+                    turmas_str, cat = formatar_turma_e_categoria(
+                        e, turma_vazia="(Sem Turma)"
+                    )
                     lista_alunos.append({
                         "name": e.nome,
                         "register": e.prontuario,

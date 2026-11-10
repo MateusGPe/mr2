@@ -67,6 +67,8 @@ class AppRegistro(tk.Tk):
         self._label_info_sessao: Optional[ttk.Label] = None
         self._label_barra_status: Optional[ttk.Label] = None
         self._barra_progresso: Optional[ttk.Progressbar] = None
+        self._var_horario_livre: tk.BooleanVar = tk.BooleanVar(master=self, value=False)
+        self._btn_horario_livre: Optional[ttk.Checkbutton] = None
         self.style: Optional[ttk.Style] = None
         self.colors: Optional[Any] = None
 
@@ -176,6 +178,15 @@ class AppRegistro(tk.Tk):
             ttk.Button(
                 frame_botoes, text=texto, command=comando, bootstyle="dark"
             ).pack(side=RIGHT, padx=3)
+
+        self._btn_horario_livre = ttk.Checkbutton(
+            frame_botoes,
+            text="🕒 Horário Livre",
+            variable=self._var_horario_livre,
+            command=self._ao_alternar_horario_livre,
+            bootstyle="warning-toolbutton",
+        )
+        self._btn_horario_livre.pack(side=RIGHT, padx=3)
 
         ttk.Separator(frame_botoes, orient=VERTICAL, bootstyle="light").pack(
             side=RIGHT, padx=8, fill="y", pady=3
@@ -335,17 +346,7 @@ class AppRegistro(tk.Tk):
             return
 
         try:
-            detalhes = self._fachada.obter_detalhes_sessao_ativa()
-            refeicao = capitalizar(detalhes.get("refeicao", "?"))
-            hora = detalhes.get("hora", "??")
-            data = detalhes.get("data", "")
-            id_sessao = detalhes.get("id")
-
-            titulo = f"Reg: {refeicao} - {data} {hora} [ID:{id_sessao}]"
-            self.title(titulo)
-            if self._label_info_sessao:
-                self._label_info_sessao.config(
-                    text=titulo, bootstyle="@dark")
+            self._atualizar_estado_horario_livre()
 
             if self._painel_acao:
                 self._painel_acao.habilitar_controles()
@@ -354,13 +355,14 @@ class AppRegistro(tk.Tk):
                 self._painel_status.carregar_estudantes_registrados()
 
             self._focar_janela()
-            logger.info("UI configurada para sessão ID: %s", id_sessao)
+            logger.info("UI configurada para sessão ID: %s", self._fachada.id_sessao_ativa)
             # Sincroniza dados mestre na inicialização
             self._sincronizar_dados_mestre(automatico=True)
 
         except ErroSessaoNaoAtiva:
             logger.error("Não é possível configurar UI: Nenhuma sessão ativa.")
             self.title("Refeições Reg [Sem Sessão]")
+            self._var_horario_livre.set(False)
             if self._label_info_sessao:
                 self._label_info_sessao.config(
                     text="Erro: Nenhuma Sessão Ativa")
@@ -371,11 +373,60 @@ class AppRegistro(tk.Tk):
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao configurar UI para sessão: %s", e)
 
+    def _atualizar_estado_horario_livre(self):
+        """Sincroniza o botão de Horário Livre e o cabeçalho da sessão com o estado da fachada."""
+        if not self._fachada or self._fachada.id_sessao_ativa is None:
+            self._var_horario_livre.set(False)
+            return
+
+        ativo = getattr(self._fachada, "ignorar_horario_grade", False) is True
+        self._var_horario_livre.set(ativo)
+
+        detalhes = self._fachada.obter_detalhes_sessao_ativa()
+        refeicao = capitalizar(detalhes.get("refeicao", "?"))
+        hora = detalhes.get("hora", "??")
+        data = detalhes.get("data", "")
+        id_sessao = detalhes.get("id")
+
+        sufixo = " | 🕒 Horário Livre" if ativo else ""
+        titulo = f"Reg: {refeicao} - {data} {hora} [ID:{id_sessao}]{sufixo}"
+        self.title(titulo)
+        if self._label_info_sessao:
+            self._label_info_sessao.config(
+                text=titulo,
+                bootstyle="warning" if ativo else "@dark",
+            )
+
+    def _ao_alternar_horario_livre(self):
+        """Ativa ou desativa a trava de horário da grade para a sessão ativa."""
+        if not self._fachada or self._fachada.id_sessao_ativa is None:
+            self._var_horario_livre.set(False)
+            Messagebox.show_warning(
+                "É necessário iniciar uma sessão.", "Nenhuma Sessão Ativa", parent=self
+            )
+            return
+
+        novo_estado = bool(self._var_horario_livre.get())
+        self._fachada.definir_ignorar_horario_grade(novo_estado)
+        self._atualizar_estado_horario_livre()
+        if self._label_barra_status:
+            msg = (
+                "Horário Livre ativado: trava de horários da grade ignorada para esta sessão."
+                if novo_estado
+                else "Horário Livre desativado: horários da grade restaurados."
+            )
+            self._label_barra_status.config(text=msg)
+
     def _atualizar_ui_apos_mudanca_dados(self):
         """Atualiza os painéis após uma alteração nos dados da sessão."""
         logger.info("Atualizando UI após mudança nos dados da sessão...")
         if not self._fachada or self._fachada.id_sessao_ativa is None:
             return
+
+        try:
+            self._atualizar_estado_horario_livre()
+        except Exception:
+            pass
 
         if self._painel_status:
             self._painel_status.atualizar_contadores()

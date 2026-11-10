@@ -408,7 +408,7 @@ class AbaDashboard(ttk.Frame):
             tot_cons = stats.get("total_consumidos", 0)
             tot_rest = stats.get("total_restantes", 0)
             tot_esp = stats.get("total_esperado", 0)
-            tot_pap = stats.get("total_pap", 0)
+            dist_cats = stats.get("distribuicao_categorias", {})
             taxa = stats.get("taxa_adesao", 0.0)
             c_res = stats.get("total_com_reserva", 0)
             s_res = stats.get("total_sem_reserva", 0)
@@ -418,8 +418,11 @@ class AbaDashboard(ttk.Frame):
             self.lbl_adesao.config(text=f"{taxa:.1f}%")
             self.progress_adesao.config(value=taxa)
             info_esp = f"{tot_cons} de {tot_esp} esperados"
-            if tot_pap > 0:
-                info_esp += f" (PAP: {tot_pap})"
+            if dist_cats:
+                resumo_cats = ", ".join(
+                    f"{k}: {v}" for k, v in list(dist_cats.items())[:3]
+                )
+                info_esp += f" ({resumo_cats})"
             self.lbl_esperados.config(text=info_esp)
             self.lbl_reserva_info.config(text=f"{c_res} / {s_res}")
             pct_res = (

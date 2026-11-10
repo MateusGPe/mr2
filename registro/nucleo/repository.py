@@ -8,8 +8,9 @@
 Fornece implementações concretas do Padrão de Repositório, especializando
 a classe CRUD genérica para cada modelo de dados da aplicação.
 """
-from typing import Any, List, Optional, Sequence, Set
+from typing import Any, Dict, List, Optional, Sequence, Set
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, selectinload
 
 from registro.nucleo.crud import CRUD
@@ -20,6 +21,7 @@ from registro.nucleo.models import (
     Reserva,
     Sessao,
     associacao_estudante_grupo,
+    associacao_reserva_grupo,
 )
 
 
@@ -74,14 +76,33 @@ class RepositorioReserva(CRUD[Reserva]):
     def por_data_e_grupos(
         self, grupos_ids: List[int], data_formatada: Optional[str] = None
     ):
+        """Retorna reservas cujo estudante OU a própria reserva esteja vinculada aos grupos."""
+        if not grupos_ids:
+            return []
+
         subconsulta_estudantes = (
             self._sessao_db.query(associacao_estudante_grupo.c.estudante_id)
             .filter(associacao_estudante_grupo.c.grupo_id.in_(grupos_ids))
             .distinct()
         )
+        subconsulta_reservas = (
+            self._sessao_db.query(associacao_reserva_grupo.c.reserva_id)
+            .filter(associacao_reserva_grupo.c.grupo_id.in_(grupos_ids))
+            .distinct()
+        )
 
-        consulta_reserva = self._sessao_db.query(Reserva).filter(
-            Reserva.estudante_id.in_(subconsulta_estudantes)
+        consulta_reserva = (
+            self._sessao_db.query(Reserva)
+            .options(
+                selectinload(Reserva.grupos),
+                selectinload(Reserva.estudante).selectinload(Estudante.grupos),
+            )
+            .filter(
+                or_(
+                    Reserva.estudante_id.in_(subconsulta_estudantes),
+                    Reserva.id.in_(subconsulta_reservas),
+                )
+            )
         )
 
         if data_formatada:
@@ -148,3 +169,30 @@ class RepositorioGrupo(CRUD[Grupo]):
         if not nomes:
             return []
         return self._sessao_db.query(Grupo).filter(Grupo.nome.in_(nomes)).all()
+
+    def por_tipo(self, tipo: str) -> List[Grupo]:
+        """Retorna todos os grupos filtrados por tipo ('turma' ou 'categoria')."""
+        return (
+            self._sessao_db.query(Grupo)
+            .filter(Grupo.tipo == tipo)
+            .order_by(Grupo.nome)
+            .all()
+        )
+
+    def obter_ou_criar_por_nomes(
+        self, nomes: Set[str], tipo: str = "turma"
+    ) -> Dict[str, Grupo]:
+        """Busca grupos pelos nomes e cria os ausentes com o tipo especificado."""
+        nomes_limpos = {n.strip() for n in nomes if n and str(n).strip()}
+        if not nomes_limpos:
+            return {}
+
+        existentes = self.por_nomes(nomes_limpos)
+        mapa: Dict[str, Grupo] = {g.nome: g for g in existentes}
+
+        novos = nomes_limpos - set(mapa.keys())
+        if novos:
+            self.criar_em_massa([{"nome": n, "tipo": tipo} for n in sorted(novos)])
+            for g in self.por_nomes(novos):
+                mapa[g.nome] = g
+        return mapa

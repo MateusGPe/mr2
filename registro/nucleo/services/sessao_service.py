@@ -26,7 +26,11 @@ from registro.nucleo.repository import (
     RepositorioReserva,
     RepositorioSessao,
 )
-from registro.nucleo.utils import DADOS_SESSAO, para_codigo
+from registro.nucleo.utils import (
+    DADOS_SESSAO,
+    extrair_turmas_e_categorias,
+    para_codigo,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -94,9 +98,16 @@ def listar_todas_sessoes(repo_sessao: RepositorioSessao) -> List[Dict[str, Any]]
 
 
 def listar_todos_os_grupos(repo_grupo: RepositorioGrupo) -> List[Dict[str, Any]]:
-    """Retorna uma lista de todos os grupos existentes."""
+    """Retorna uma lista de todos os grupos existentes com seu tipo ('turma' ou 'categoria')."""
     grupos = repo_grupo.ler_todos()
-    return [{"id": g.id, "nome": g.nome} for g in grupos]
+    return [
+        {
+            "id": g.id,
+            "nome": g.nome,
+            "tipo": getattr(g, "tipo", constants.TIPO_GRUPO_TURMA) or constants.TIPO_GRUPO_TURMA,
+        }
+        for g in grupos
+    ]
 
 
 def obter_detalhes_sessao(
@@ -184,7 +195,11 @@ def obter_estudantes_para_sessao(
     }
     mapa_reservas_dia = {
         r.estudante_id: r
-        for r in repo_reserva.ler_filtrado(data=sessao.data, cancelada=False)
+        for r in repo_reserva.ler_filtrado(
+            opcoes_carregamento=[selectinload(Reserva.grupos)],
+            data=sessao.data,
+            cancelada=False,
+        )
     }
 
     detalhes_estudantes = []
@@ -193,10 +208,12 @@ def obter_estudantes_para_sessao(
         motivo = "Acesso Negado"
         prato = "Sem Reserva"
 
+        reserva = mapa_reservas_dia.get(est.id)
         ids_grupos_estudante = {g.id for g in est.grupos}
+        if reserva and not reserva.cancelada:
+            ids_grupos_estudante |= {g.id for g in reserva.grupos}
 
         if sessao.refeicao in ("almoço", "jantar"):
-            reserva = mapa_reservas_dia.get(est.id)
             if reserva and (
                 ids_grupos_sessao.intersection(ids_grupos_estudante)
                 or ids_excecao_grupos.intersection(ids_grupos_estudante)
@@ -232,18 +249,16 @@ def obter_estudantes_para_sessao(
         if consumido is False and info_consumo:
             continue
 
-        grupos = (
-            ", ".join(sorted(g.nome for g in est.grupos))
-            if est.grupos
-            else "N/A"
-        )
+        turmas_est, cats_est = extrair_turmas_e_categorias(est, reserva)
 
         detalhes_estudantes.append(
             {
                 "pront": est.prontuario,
                 "nome": est.nome,
-                "turma": grupos,
-                "categoria": getattr(est, "categoria", "REGULAR"),
+                "turma": ", ".join(turmas_est) if turmas_est else "N/A",
+                "turmas": turmas_est,
+                "categorias": cats_est,
+                "categoria": ", ".join(cats_est) if cats_est else "-",
                 "prato": prato,
                 "consumido": bool(info_consumo),
                 "id_consumo": info_consumo.id if info_consumo else None,
@@ -336,8 +351,8 @@ def carregar_estado_sessao(fachada: Any) -> Optional[Dict[str, Any]]:
             fachada.definir_sessao_ativa(dados["id_sessao"])
         if "excecao_grupos" in dados and hasattr(fachada, "excecao_grupos"):
             fachada.excecao_grupos = set(dados.get("excecao_grupos") or [])
-        if "filtro_categoria" in dados and hasattr(fachada, "filtro_categoria_sessao"):
-            fachada.filtro_categoria_sessao = dados.get("filtro_categoria")
+        if hasattr(fachada, "ignorar_horario_grade"):
+            fachada.ignorar_horario_grade = bool(dados.get("ignorar_horario_grade", False))
         return dados
     except Exception as e:
         logger.error(
@@ -361,11 +376,11 @@ def salvar_estado_sessao(
         return False
     try:
         excecao_grupos = list(getattr(fachada, "excecao_grupos", []))
-        filtro_categoria = getattr(fachada, "filtro_categoria_sessao", None)
+        ignorar_horario_grade = getattr(fachada, "ignorar_horario_grade", False) is True
         payload = {
             "id_sessao": sid,
             "excecao_grupos": excecao_grupos,
-            "filtro_categoria": filtro_categoria,
+            "ignorar_horario_grade": ignorar_horario_grade,
         }
         constants.CAMINHO_SESSAO.parent.mkdir(parents=True, exist_ok=True)
         constants.CAMINHO_SESSAO.write_text(
@@ -390,6 +405,8 @@ def limpar_estado_sessao(fachada: Any) -> bool:
     try:
         constants.CAMINHO_SESSAO.unlink(missing_ok=True)
         fachada.id_sessao_ativa = None
+        if hasattr(fachada, "ignorar_horario_grade"):
+            fachada.ignorar_horario_grade = False
         logger.info("Estado da sessão limpo: %s", constants.CAMINHO_SESSAO)
         return True
     except Exception as e:

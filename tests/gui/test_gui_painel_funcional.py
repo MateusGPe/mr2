@@ -156,3 +156,52 @@ def test_painel_app_navegacao_entre_abas(app_root, painel_dados, mock_messagebox
         assert app.selected == "turmas"
 
         app.destroy()
+
+
+def test_painel_dialogs_turma_tipo_e_reserva_categoria_pontual(
+    app_root, painel_dados, mock_messagebox
+):
+    """Testa TurmaDialog (tipo Categoria), ReservaDialog (vínculo pontual sem alterar aluno) e AbaReservas."""
+    from registro.gui.painel.abas.aba_reservas import AbaReservas
+    from registro.gui.painel.dialogos import ReservaDialog, TurmaDialog
+
+    facade = painel_dados["facade"]
+
+    with patch.object(TurmaDialog, "grab_set"), \
+         patch.object(TurmaDialog, "transient"), \
+         patch.object(TurmaDialog, "wait_window"):
+        dlg_turma = TurmaDialog(app_root, facade)
+        dlg_turma.nome_entry.insert(0, "ESP1")
+        dlg_turma.tipo_combobox.set("Categoria (Optativa / Programa / Evento)")
+        dlg_turma._on_save()
+        assert dlg_turma.result is True
+
+    grupos_esp1 = [g for g in facade.listar_todos_os_grupos() if g["nome"] == "ESP1"]
+    assert len(grupos_esp1) == 1
+    assert grupos_esp1[0]["tipo"] == "categoria"
+
+    # Cria reserva para aluno Bruno Silveira (IQ3000002) vinculando ESP1 e LIB0 na reserva
+    with patch.object(ReservaDialog, "grab_set"), \
+         patch.object(ReservaDialog, "transient"), \
+         patch.object(ReservaDialog, "wait_window"):
+        dlg_res = ReservaDialog(app_root, facade)
+        dlg_res.aluno_combobox.set("IQ3000002 - Bruno Silveira")
+        dlg_res.data_entry.entry.delete(0, "end")
+        dlg_res.data_entry.entry.insert(0, "25/11/2026")
+        dlg_res.prato_combobox.set("Vegetariano")
+        dlg_res.seletor_categorias_reserva.definir_selecionadas(["ESP1", "LIB0"])
+        dlg_res._on_save()
+        assert dlg_res.result is True
+
+    # Verifica que o estudante NÃO recebeu ESP1/LIB0 permanentemente
+    bruno = facade.repo_estudante.por_prontuarios_com_grupos({"IQ3000002"})[0]
+    assert bruno.categorias_nomes == []
+
+    # Verifica que a reserva aparece na AbaReservas com as categorias
+    aba_res = AbaReservas(app_root, facade)
+    aba_res.var_data.set("25/11/2026")
+    aba_res._filtrar_reservas()
+    app_root.update()
+    assert len(aba_res.dados_reservas_atuais) == 1
+    assert aba_res.dados_reservas_atuais[0]["categorias"] == ["ESP1", "LIB0"]
+    aba_res.destroy()

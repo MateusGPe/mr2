@@ -143,9 +143,10 @@ class AbaReservas(ttk.Frame):
             {"text": "ID", "width": 60},
             {"text": "Data", "width": 110},
             {"text": "Aluno", "stretch": True},
-            {"text": "Prontuário", "width": 140},
-            {"text": "Prato", "width": 130},
-            {"text": "Status", "width": 100},
+            {"text": "Prontuário", "width": 130},
+            {"text": "Prato", "width": 120},
+            {"text": "Categorias", "width": 140},
+            {"text": "Status", "width": 95},
         ]
         self.reservas_table = TreeviewSimples(
             master=container,
@@ -169,8 +170,8 @@ class AbaReservas(ttk.Frame):
         self.btn_toggle_cancel.configure(state="normal" if is_selected else "disabled")
         self.btn_delete_reserva.configure(state="normal" if is_selected else "disabled")
 
-        if is_selected and len(sel) >= 6:
-            status = sel[5]
+        if is_selected and len(sel) >= 7:
+            status = sel[6]
             if status == "Cancelada":
                 self.btn_toggle_cancel.configure(text="Reativar Reserva", bootstyle="success")
             else:
@@ -212,6 +213,7 @@ class AbaReservas(ttk.Frame):
                     r["nome_estudante"],
                     r["prontuario_estudante"],
                     r["prato"] or "Padrão",
+                    r.get("categorias_str") or "-",
                     "Cancelada" if r["cancelada"] else "Ativa",
                 )
                 for r in reservas
@@ -254,7 +256,7 @@ class AbaReservas(ttk.Frame):
         if not reserva_id:
             return
         sel = self._get_dados_linha_selecionada()
-        status_atual = sel[5] if sel and len(sel) >= 6 else "Ativa"
+        status_atual = sel[6] if sel and len(sel) >= 7 else "Ativa"
 
         if status_atual == "Cancelada":
             self.fachada_nucleo.reativar_reserva(reserva_id)
@@ -304,6 +306,7 @@ class AbaReservas(ttk.Frame):
                     "prontuario": r["prontuario_estudante"],
                     "nome": r["nome_estudante"],
                     "prato": r.get("prato") or "Padrão",
+                    "categorias": r.get("categorias_str") or "-",
                     "cancelada": "Sim" if r["cancelada"] else "Não",
                 }
                 for r in self.dados_reservas_atuais

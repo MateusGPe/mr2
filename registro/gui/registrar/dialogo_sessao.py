@@ -208,9 +208,9 @@ class DialogoSessao(tk.Toplevel):
             row=1, column=0, sticky=EW, pady=(0, 10)
         )
 
-        turmas_disponiveis = self._buscar_turmas_disponiveis()
+        turmas_disponiveis, categorias_disponiveis = self._buscar_grupos_separados()
         self._dados_checkbox_turmas_editar, frame_checkboxes = self._criar_checkboxes_turmas(
-            frame_turmas, turmas_disponiveis
+            frame_turmas, turmas_disponiveis, categorias_disponiveis
         )
         frame_checkboxes.grid(row=2, column=0, sticky=NSEW)
 
@@ -363,9 +363,9 @@ class DialogoSessao(tk.Toplevel):
             row=1, column=0, sticky=EW, pady=(0, 15)
         )
 
-        turmas_disponiveis = self._buscar_turmas_disponiveis()
+        turmas_disponiveis, categorias_disponiveis = self._buscar_grupos_separados()
         self._dados_checkbox_turmas, frame_checkboxes = self._criar_checkboxes_turmas(
-            frame, turmas_disponiveis
+            frame, turmas_disponiveis, categorias_disponiveis
         )
         frame_checkboxes.grid(row=2, column=0, sticky=NSEW)
 
@@ -376,29 +376,58 @@ class DialogoSessao(tk.Toplevel):
         frame_presets.grid(row=4, column=0, sticky=EW, pady=(10, 0))
         return frame
 
-    def _criar_checkboxes_turmas(self, master, turmas):
-        """Cria os checkboxes para cada turma dentro de um ScrolledFrame."""
+    def _criar_checkboxes_turmas(
+        self, master, turmas, categorias: Optional[List[str]] = None
+    ):
+        """Cria os checkboxes separados em Turmas e Categorias dentro de um ScrolledFrame."""
         container = ScrolledFrame(
-            master, auto_hide=True, bootstyle="round", height=100, width=500
+            master, auto_hide=True, bootstyle="round", height=110, width=500
         )
         dados = []
-        if not turmas:
-            ttk.Label(container, text="Nenhuma turma disponível.").pack(pady=10)
+        categorias = categorias or []
+        if not turmas and not categorias:
+            ttk.Label(container, text="Nenhuma turma ou categoria disponível.").pack(pady=10)
             return [], container
 
         num_cols = 3
         container.columnconfigure(list(range(num_cols)), weight=1)
-        for i, nome_turma in enumerate(turmas):
-            var = tk.BooleanVar(value=False)
-            cb = ttk.Checkbutton(
+
+        def _render_bloco(titulo: str, itens: List[str], row_base: int, estilo: str) -> int:
+            if not itens:
+                return row_base
+            ttk.Label(
                 container,
-                text=nome_turma,
-                variable=var,
-                bootstyle="primary-round-toggle",
-            )
-            cb.grid(row=i // num_cols, column=i %
-                    num_cols, sticky=W, padx=10, pady=4)
-            dados.append((nome_turma, var, cb))
+                text=titulo,
+                font="-size 9 -weight bold",
+                bootstyle="info",
+                anchor=W,
+            ).grid(row=row_base, column=0, columnspan=num_cols, sticky=EW, padx=10, pady=(6, 2))
+            row_base += 1
+            for i, nome in enumerate(itens):
+                var = tk.BooleanVar(value=False)
+                cb = ttk.Checkbutton(
+                    container,
+                    text=nome,
+                    variable=var,
+                    bootstyle=estilo,
+                )
+                cb.grid(
+                    row=row_base + (i // num_cols),
+                    column=i % num_cols,
+                    sticky=W,
+                    padx=10,
+                    pady=4,
+                )
+                dados.append((nome, var, cb))
+            return row_base + ((len(itens) - 1) // num_cols) + 1
+
+        prox = _render_bloco("🏫 Turmas", turmas, 0, "primary-round-toggle")
+        _render_bloco(
+            "🏷️ Categorias (PAP, ESP1, LIB0...)",
+            categorias,
+            prox,
+            "info-round-toggle",
+        )
 
         return dados, container
 
@@ -551,7 +580,7 @@ class DialogoSessao(tk.Toplevel):
 
         dia_atual = self._fachada.obter_dia_semana_atual()
         turmas_grade = self._fachada.obter_turmas_previstas_para_refeicao(
-            refeicao=refeicao, dia_semana=dia_atual
+            refeicao=refeicao, dia_semana=dia_atual, incluir_categorias=True
         )
         if turmas_grade:
             self._definir_checkboxes_turmas(
@@ -671,16 +700,31 @@ class DialogoSessao(tk.Toplevel):
 
         return True
 
-    def _buscar_turmas_disponiveis(self) -> List[str]:
-        """Busca a lista de turmas/grupos da camada de negócio."""
+    def _buscar_grupos_separados(self) -> Tuple[List[str], List[str]]:
+        """Busca e separa os grupos cadastrados em (turmas, categorias)."""
         try:
             grupos = self._fachada.listar_todos_os_grupos()
-            return sorted(g.get("nome", "") for g in grupos if g.get("nome"))
+            turmas = sorted(
+                g.get("nome", "")
+                for g in grupos
+                if g.get("nome") and g.get("tipo") != "categoria"
+            )
+            categorias = sorted(
+                g.get("nome", "")
+                for g in grupos
+                if g.get("nome") and g.get("tipo") == "categoria"
+            )
+            return turmas, categorias
         except Exception as e:  # pylint: disable=broad-exception-caught
-            logger.exception("Erro ao buscar turmas: %s", e)
+            logger.exception("Erro ao buscar turmas e categorias: %s", e)
             Messagebox.show_error(
                 "Não foi possível buscar as turmas.", parent=self)
-            return []
+            return [], []
+
+    def _buscar_turmas_disponiveis(self) -> List[str]:
+        """Busca a lista unificada de grupos da camada de negócio."""
+        turmas, categorias = self._buscar_grupos_separados()
+        return sorted(turmas + categorias)
 
     def _carregar_presets_turmas(self):
         """Carrega os presets de seleção de turmas de um arquivo JSON."""
@@ -708,7 +752,7 @@ class DialogoSessao(tk.Toplevel):
         }
         dia_chave = mapa_dias.get(dia, dia)
         turmas_grade = self._fachada.obter_turmas_previstas_para_refeicao(
-            refeicao=refeicao, dia_semana=dia_chave
+            refeicao=refeicao, dia_semana=dia_chave, incluir_categorias=True
         )
         if turmas_grade:
             self._definir_checkboxes_turmas(lambda nome, var: nome in turmas_grade)

@@ -13,6 +13,8 @@ import logging
 from datetime import datetime
 from typing import Any, Callable, Dict, Optional, Set, Tuple
 
+from sqlalchemy.orm import selectinload
+
 from registro.nucleo import models
 from registro.nucleo.repository import (
     RepositorioConsumo,
@@ -22,13 +24,47 @@ from registro.nucleo.repository import (
 )
 from registro.nucleo.services import grade_horarios_service
 from registro.nucleo.services.sessao_service import obter_detalhes_sessao
+from registro.nucleo.utils import extrair_turmas_e_categorias
 
 logger = logging.getLogger(__name__)
 
 PolicyEvaluator = Callable[
-    [models.Sessao, models.Estudante, RepositorioReserva, Optional[Set[str]], bool],
+    [
+        models.Sessao,
+        models.Estudante,
+        RepositorioReserva,
+        Optional[Set[str]],
+        bool,
+        Optional[models.Reserva],
+    ],
     Tuple[bool, str, str, Optional[int]],
 ]
+
+
+def _obter_reserva_ativa_dia(
+    repo_reserva: RepositorioReserva, estudante_id: int, data: str
+) -> Optional[models.Reserva]:
+    """Busca a reserva ativa (não cancelada) do estudante para a data informada, com grupos."""
+    reservas = repo_reserva.ler_filtrado(
+        opcoes_carregamento=[selectinload(models.Reserva.grupos)],
+        estudante_id=estudante_id,
+        data=data,
+        cancelada=False,
+    )
+    return reservas[0] if reservas else None
+
+
+def _grupos_efetivos_ids_e_nomes(
+    estudante: models.Estudante, reserva_dia: Optional[models.Reserva]
+) -> Tuple[Set[int], Set[str]]:
+    """Retorna IDs e nomes combinando os grupos do estudante e os da reserva ativa na data."""
+    ids = {g.id for g in estudante.grupos}
+    nomes = {g.nome for g in estudante.grupos}
+    if reserva_dia is not None and not getattr(reserva_dia, "cancelada", False):
+        for g in getattr(reserva_dia, "grupos", None) or []:
+            ids.add(g.id)
+            nomes.add(g.nome)
+    return ids, nomes
 
 
 def _avaliar_regra_padrao(
@@ -37,12 +73,16 @@ def _avaliar_regra_padrao(
     repo_reserva: RepositorioReserva,
     excecao_grupos: Optional[Set[str]],
     pular_grupos: bool,
+    reserva_dia: Optional[models.Reserva] = None,
 ) -> Tuple[bool, str, str, Optional[int]]:
     """Aplica as regras de validação padrão (com reserva, ignorar grupos ou exceção)."""
     autorizado = False
     motivo = "Acesso Negado"
     prato = "Sem Reserva"
     id_reserva = None
+    ids_grupos_estudante, nomes_estudante = _grupos_efetivos_ids_e_nomes(
+        estudante, reserva_dia
+    )
 
     if sessao.refeicao in ("almoço", "jantar"):
         reservas_candidatas = repo_reserva.ler_filtrado(
@@ -69,20 +109,21 @@ def _avaliar_regra_padrao(
             ids_excecao_grupos = {
                 g.id for g in sessao.grupos if g.nome in (excecao_grupos or set())
             }
-            ids_grupos_estudante = {g.id for g in estudante.grupos}
             if ids_excecao_grupos.intersection(ids_grupos_estudante):
+                autorizado = True
+                motivo = "Autorizado por exceção (grupo)."
+                prato = "Sem Reserva (Grupo)"
+            elif excecao_grupos and nomes_estudante.intersection(excecao_grupos):
                 autorizado = True
                 motivo = "Autorizado por exceção (grupo)."
                 prato = "Sem Reserva (Grupo)"
     else:
         prato = sessao.item_servido or "Lanche"
         ids_grupos_sessao = {g.id for g in sessao.grupos}
-        ids_grupos_estudante = {g.id for g in estudante.grupos}
         if pular_grupos or ids_grupos_sessao.intersection(ids_grupos_estudante):
             autorizado = True
             motivo = "Autorizado para lanche (grupo)."
         elif excecao_grupos:
-            nomes_estudante = {g.nome for g in estudante.grupos}
             if nomes_estudante.intersection(excecao_grupos):
                 autorizado = True
                 motivo = "Autorizado por exceção (grupo)."
@@ -96,6 +137,7 @@ def _avaliar_regra_com_reserva(
     repo_reserva: RepositorioReserva,
     excecao_grupos: Optional[Set[str]],
     pular_grupos: bool,
+    reserva_dia: Optional[models.Reserva] = None,
 ) -> Tuple[bool, str, str, Optional[int]]:
     """Aplica as regras estritas onde a reserva prévia é obrigatória."""
     id_reserva = None
@@ -105,7 +147,10 @@ def _avaliar_regra_com_reserva(
     reservas_candidatas = []
     if sessao.refeicao in ("almoço", "jantar"):
         reservas_candidatas = repo_reserva.ler_filtrado(
-            estudante_id=estudante.id, data=sessao.data, cancelada=False
+            opcoes_carregamento=[selectinload(models.Reserva.grupos)],
+            estudante_id=estudante.id,
+            data=sessao.data,
+            cancelada=False,
         )
         reservas = [
             r for r in reservas_candidatas
@@ -117,10 +162,13 @@ def _avaliar_regra_com_reserva(
             return False, "Reserva já utilizada nesta data.", prato, id_reserva
         return False, "Sem reserva válida.", prato, id_reserva
 
-    id_reserva = reservas[0].id
-    prato = reservas[0].prato or "Padrão"
+    reserva_ativa = reservas[0]
+    id_reserva = reserva_ativa.id
+    prato = reserva_ativa.prato or "Padrão"
 
-    nomes_grupos_estudante = {g.nome for g in estudante.grupos}
+    _, nomes_grupos_estudante = _grupos_efetivos_ids_e_nomes(
+        estudante, reserva_dia or reserva_ativa
+    )
     nomes_grupos_sessao = {g.nome for g in sessao.grupos}
 
     grupo_autorizado = False
@@ -151,6 +199,7 @@ def _processar_consumo_pipeline(
     excecao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
+    ignorar_horario_grade: bool = False,
     filtro_categoria: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -167,12 +216,12 @@ def _processar_consumo_pipeline(
         return {"autorizado": False, "motivo": "Estudante não encontrado."}
 
     estudante = estudantes[0]
-    categoria = getattr(estudante, "categoria", "REGULAR") or "REGULAR"
-    turma = (
-        ", ".join(sorted(g.nome for g in estudante.grupos))
-        if estudante.grupos
-        else "N/A"
+    reserva_dia = _obter_reserva_ativa_dia(repo_reserva, estudante.id, sessao.data)
+    turmas_efetivas, categorias_efetivas = extrair_turmas_e_categorias(
+        estudante, reserva_dia
     )
+    turma = ", ".join(turmas_efetivas) if turmas_efetivas else "N/A"
+    categoria = ", ".join(categorias_efetivas) if categorias_efetivas else "-"
 
     # 1. Duplicidade na mesma sessão
     consumo_existente = repo_consumo.ler_filtrado(
@@ -242,28 +291,13 @@ def _processar_consumo_pipeline(
                 "categoria": categoria,
             }
 
-    # Validação do filtro de categoria da sessão ativa (se aplicável e não forçado)
-    if filtro_categoria and not pular_grupos:
-        cat_filtro = filtro_categoria.strip().upper()
-        cat_aluno = categoria.strip().upper()
-        if cat_aluno != cat_filtro:
-            return {
-                "autorizado": False,
-                "motivo": f"Discente {cat_aluno} não permitido para sessão filtrada como {cat_filtro}.",
-                "aluno": estudante.nome,
-                "nome": estudante.nome,
-                "prontuario": estudante.prontuario,
-                "turma": turma,
-                "categoria": cat_aluno,
-            }
-
     # Validação de janela de horário
     if not permitir_fora_horario and not pular_grupos:
-        turmas_nomes = [g.nome for g in estudante.grupos]
         valido, motivo_horario = grade_horarios_service.validar_janela_horario(
-            turmas_estudante=turmas_nomes,
+            turmas_estudante=turmas_efetivas,
             refeicao=sessao.refeicao,
-            categoria_estudante=categoria,
+            categorias_estudante=categorias_efetivas,
+            ignorar_horario=ignorar_horario_grade,
         )
         if not valido:
             return {
@@ -274,10 +308,11 @@ def _processar_consumo_pipeline(
                 "prontuario": estudante.prontuario,
                 "turma": turma,
                 "categoria": categoria,
+                "categorias": categorias_efetivas,
             }
 
     autorizado, motivo, prato, id_reserva = avaliador_regra(
-        sessao, estudante, repo_reserva, excecao_grupos, pular_grupos
+        sessao, estudante, repo_reserva, excecao_grupos, pular_grupos, reserva_dia
     )
 
     hora_consumo = ""
@@ -317,6 +352,7 @@ def _processar_consumo_pipeline(
         "prontuario": estudante.prontuario,
         "turma": turma,
         "categoria": categoria,
+        "categorias": categorias_efetivas,
         "prato": prato,
         "hora_consumo": hora_consumo,
     }
@@ -333,6 +369,7 @@ def registrar_consumo(
     excessao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
+    ignorar_horario_grade: bool = False,
     filtro_categoria: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Aplica a lógica de autorização padrão e, se bem-sucedido, registra o consumo."""
@@ -348,6 +385,7 @@ def registrar_consumo(
         excecao_grupos=grupos_filtro,
         pular_grupos=pular_grupos,
         permitir_fora_horario=permitir_fora_horario,
+        ignorar_horario_grade=ignorar_horario_grade,
         filtro_categoria=filtro_categoria,
     )
 
@@ -363,6 +401,7 @@ def registrar_consumo_com_reserva(
     excessao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
+    ignorar_horario_grade: bool = False,
     filtro_categoria: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -380,6 +419,7 @@ def registrar_consumo_com_reserva(
         excecao_grupos=grupos_filtro,
         pular_grupos=pular_grupos,
         permitir_fora_horario=permitir_fora_horario,
+        ignorar_horario_grade=ignorar_horario_grade,
         filtro_categoria=filtro_categoria,
     )
 

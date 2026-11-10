@@ -219,22 +219,63 @@ def converter_linhas_configuracao_para_grade(
     return grade
 
 
+def _tem_restricao_especifica(valores: List[str]) -> bool:
+    """Indica se a lista possui restrições específicas (não vazia e sem coringa '*' / 'TODAS')."""
+    if not valores:
+        return False
+    norm = {str(v).strip().upper() for v in valores if v and str(v).strip()}
+    return bool(norm) and "*" not in norm and "TODAS" not in norm
+
+
 def _turmas_autorizadas_para_slot(slot: Dict[str, Any], turmas_estudante: Set[str]) -> bool:
     """Verifica se alguma turma do estudante é aceita pelo slot."""
     turmas_slot = slot.get("turmas", [])
-    if not turmas_slot or "*" in turmas_slot or "TODAS" in [t.upper() for t in turmas_slot]:
+    if not _tem_restricao_especifica(turmas_slot):
         return True
-    return bool(turmas_estudante.intersection(set(turmas_slot)))
+    turmas_norm = {t.strip().upper() for t in turmas_slot if t and str(t).strip()}
+    est_norm = {t.strip().upper() for t in turmas_estudante if t and str(t).strip()}
+    return bool(est_norm.intersection(turmas_norm))
 
 
-def _categoria_autorizada_para_slot(slot: Dict[str, Any], categoria: Optional[str]) -> bool:
-    """Verifica se a categoria do estudante é aceita pelo slot."""
+def _categorias_autorizadas_para_slot(
+    slot: Dict[str, Any], categorias_estudante: Set[str]
+) -> bool:
+    """Verifica se alguma categoria do estudante é aceita pelo slot."""
     categorias_slot = slot.get("categorias", [])
-    if not categorias_slot or "*" in categorias_slot or "TODAS" in [c.upper() for c in categorias_slot]:
+    if not _tem_restricao_especifica(categorias_slot):
         return True
-    cat_estudante = (categoria or "REGULAR").strip().upper()
-    cats_normalizadas = [c.strip().upper() for c in categorias_slot]
-    return cat_estudante in cats_normalizadas
+    cats_slot_norm = {c.strip().upper() for c in categorias_slot if c and str(c).strip()}
+    est_cats_norm = {c.strip().upper() for c in categorias_estudante if c and str(c).strip()}
+    return bool(est_cats_norm.intersection(cats_slot_norm))
+
+
+def _slot_autoriza_estudante(
+    slot: Dict[str, Any],
+    turmas_estudante: Set[str],
+    categorias_estudante: Set[str],
+) -> Tuple[bool, str]:
+    """
+    Avalia um slot com regra OU entre turmas e categorias quando ambos possuem restrições
+    específicas; quando apenas um possui restrição (e o outro é '*' ou vazio), valida só o específico.
+    """
+    turmas_slot = slot.get("turmas", [])
+    cats_slot = slot.get("categorias", [])
+    rest_turma = _tem_restricao_especifica(turmas_slot)
+    rest_cat = _tem_restricao_especifica(cats_slot)
+
+    if not rest_turma and not rest_cat:
+        return True, ""
+
+    turma_ok = _turmas_autorizadas_para_slot(slot, turmas_estudante) if rest_turma else False
+    cat_ok = (
+        _categorias_autorizadas_para_slot(slot, categorias_estudante) if rest_cat else False
+    )
+
+    if turma_ok or cat_ok:
+        return True, ""
+    if rest_cat and not rest_turma:
+        return False, "categoria"
+    return False, "turma_ou_categoria"
 
 
 def validar_janela_horario(
@@ -243,11 +284,15 @@ def validar_janela_horario(
     hora_atual: Optional[str] = None,
     dia_semana: Optional[str] = None,
     categoria_estudante: Optional[str] = None,
+    categorias_estudante: Optional[List[str]] = None,
     tolerancia_min: int = 5,
     caminho_grade: Optional[Path] = None,
+    ignorar_horario: bool = False,
 ) -> Tuple[bool, str]:
     """
-    Valida se alguma das turmas e a categoria do estudante estão autorizadas no slot de horário atual.
+    Valida se o estudante (por suas turmas ou categorias) está autorizado no slot de horário atual.
+    Quando `ignorar_horario=True`, ignora os limites de hora (início/fim), exigindo ainda que
+    turma ou categoria esteja prevista em algum slot da refeição do dia.
 
     Retorna:
         Tuple[autorizado: bool, motivo_se_bloqueado: str]
@@ -260,9 +305,43 @@ def validar_janela_horario(
     slots_refeicao = grade_dia.get(ref, [])
 
     # Fallback / Grade Inexistente: Se não houver slots configurados para o dia e refeição,
-    # a restrição horária não se aplica (validação livre por turmas da sessão).
+    # a restrição horária não se aplica (validação livre por grupos da sessão).
     if not slots_refeicao:
         return True, ""
+
+    conjunto_turmas_estudante = {t.strip() for t in turmas_estudante if t and str(t).strip()}
+    conjunto_categorias_estudante: Set[str] = set()
+    if categorias_estudante:
+        conjunto_categorias_estudante.update(
+            c.strip() for c in categorias_estudante if c and str(c).strip()
+        )
+    if categoria_estudante:
+        for parte in str(categoria_estudante).split(","):
+            p = parte.strip()
+            if p and p.upper() not in ("-", "REGULAR", "N/A"):
+                conjunto_categorias_estudante.add(p)
+
+    if ignorar_horario:
+        bloqueio_cat_livre = False
+        cats_permitidas_livre: List[str] = []
+        for slot in slots_refeicao:
+            ok, motivo_tipo = _slot_autoriza_estudante(
+                slot, conjunto_turmas_estudante, conjunto_categorias_estudante
+            )
+            if ok:
+                return True, ""
+            if motivo_tipo == "categoria":
+                bloqueio_cat_livre = True
+                cats_permitidas_livre = slot.get("categorias", [])
+
+        if bloqueio_cat_livre:
+            permitidas_str = ", ".join(cats_permitidas_livre) if cats_permitidas_livre else "Outras"
+            cats_est_str = ", ".join(sorted(conjunto_categorias_estudante)) or "Nenhuma"
+            return (
+                False,
+                f"Categoria ({cats_est_str}) não permitida para esta refeição. Permitidas: {permitidas_str}.",
+            )
+        return False, "Sua turma ou categoria não possui autorização para esta refeição hoje."
 
     if hora_atual is None:
         hora_atual = datetime.now().strftime("%H:%M")
@@ -272,9 +351,6 @@ def validar_janela_horario(
     except Exception:
         logger.warning("Formato inválido de hora: %s", hora_atual)
         return True, ""
-
-    conjunto_turmas_estudante = set(turmas_estudante)
-    cat_estudante = (categoria_estudante or "REGULAR").strip().upper()
 
     # 1. Procura se há um slot ativo no horário corrente (considerando tolerância)
     slot_corrente = None
@@ -291,23 +367,24 @@ def validar_janela_horario(
 
         if inicio_m <= minutos_atuais <= fim_m:
             slot_corrente = slot
-            turma_ok = _turmas_autorizadas_para_slot(slot, conjunto_turmas_estudante)
-            cat_ok = _categoria_autorizada_para_slot(slot, cat_estudante)
-
-            if turma_ok and cat_ok:
+            ok, motivo_tipo = _slot_autoriza_estudante(
+                slot, conjunto_turmas_estudante, conjunto_categorias_estudante
+            )
+            if ok:
                 return True, ""
-            if turma_ok and not cat_ok:
+            if motivo_tipo == "categoria":
                 bloqueio_por_categoria = True
                 categorias_permitidas_slot = slot.get("categorias", [])
 
     if bloqueio_por_categoria:
         permitidas_str = ", ".join(categorias_permitidas_slot) if categorias_permitidas_slot else "Outras"
+        cats_est_str = ", ".join(sorted(conjunto_categorias_estudante)) or "Nenhuma"
         return (
             False,
-            f"Categoria '{cat_estudante}' não permitida neste horário. Permitidas: {permitidas_str}.",
+            f"Categoria ({cats_est_str}) não permitida neste horário. Permitidas: {permitidas_str}.",
         )
 
-    # 2. Se não foi autorizado, procura qual é o horário previsto para a turma e categoria do discente
+    # 2. Se não foi autorizado, procura qual é o horário previsto para a turma ou categoria do discente
     slot_turma_previsto = None
     for slot in slots_refeicao:
         try:
@@ -315,9 +392,10 @@ def validar_janela_horario(
             _hora_para_minutos(slot.get("fim", ""))
         except (ValueError, TypeError):
             continue
-        turma_ok = _turmas_autorizadas_para_slot(slot, conjunto_turmas_estudante)
-        cat_ok = _categoria_autorizada_para_slot(slot, cat_estudante)
-        if turma_ok and cat_ok:
+        ok, _ = _slot_autoriza_estudante(
+            slot, conjunto_turmas_estudante, conjunto_categorias_estudante
+        )
+        if ok:
             slot_turma_previsto = slot
             break
 
@@ -327,7 +405,7 @@ def validar_janela_horario(
             f"Fora do horário da sua turma. Seu horário: {slot_turma_previsto['inicio']} às {slot_turma_previsto['fim']}.",
         )
 
-    # Se a turma do estudante nem sequer está prevista na grade do dia
+    # Se a turma/categoria do estudante nem sequer está prevista na grade do dia
     if slot_corrente:
         return False, "Sua turma ou categoria não possui autorização para este horário de refeição."
 
@@ -338,17 +416,22 @@ def obter_turmas_previstas_para_refeicao(
     dia_semana: str,
     refeicao: str,
     caminho_grade: Optional[Path] = None,
+    incluir_categorias: bool = False,
 ) -> List[str]:
-    """Retorna uma lista ordenada e única de turmas previstas para aquele dia e refeição."""
+    """Retorna uma lista ordenada e única de turmas (e opcionalmente categorias) previstas para o dia e refeição."""
     grade = carregar_grade_horarios(caminho_grade)
     dia = _normalizar_chave(dia_semana)
     ref = _normalizar_chave(refeicao)
 
     slots = grade.get(dia, {}).get(ref, [])
-    turmas: Set[str] = set()
+    grupos: Set[str] = set()
     for s in slots:
         for t in s.get("turmas", []):
             if t not in ("*", "Todas", "TODAS", "todas"):
-                turmas.add(t)
+                grupos.add(t)
+        if incluir_categorias:
+            for c in s.get("categorias", []):
+                if c not in ("*", "Todas", "TODAS", "todas"):
+                    grupos.add(c)
 
-    return sorted(list(turmas))
+    return sorted(list(grupos))

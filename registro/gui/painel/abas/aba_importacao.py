@@ -155,6 +155,7 @@ class AbaImportacao(ttk.Frame):
         self.file_path_var: tk.StringVar
         self.import_type_var: tk.StringVar
         self.default_prato_var: tk.StringVar = tk.StringVar(value="Almoço")
+        self.default_categoria_var: tk.StringVar = tk.StringVar(value="")
         self.entry_data_default: DateEntry
 
         self.wizard_container: ttk.Frame
@@ -350,6 +351,13 @@ class AbaImportacao(ttk.Frame):
             textvariable=self.default_prato_var,
             values=["Almoço", "Jantar", "Lanche"],
             width=15,
+        ).pack(side=LEFT, padx=(5, 15))
+
+        ttk.Label(def_frame, text="Categorias da Reserva:").pack(side=LEFT)
+        ttk.Entry(
+            def_frame,
+            textvariable=self.default_categoria_var,
+            width=18,
         ).pack(side=LEFT, padx=5)
 
         list_container = ttk.Labelframe(
@@ -420,6 +428,8 @@ class AbaImportacao(ttk.Frame):
             d["data"] = val
         if val := self.default_prato_var.get():
             d["prato"] = val
+        if val := self.default_categoria_var.get().strip():
+            d["categoria"] = val
         return d
 
     def _ir_para_preview(self):
@@ -437,7 +447,14 @@ class AbaImportacao(ttk.Frame):
 
             dados_novos = [(n["prontuario"], n["nome"]) for n in novos]
             dados_res = [
-                (r["data"], r["prontuario"], r["aluno"], r["prato"]) for r in reservas
+                (
+                    r["data"],
+                    r["prontuario"],
+                    r["aluno"],
+                    r["prato"],
+                    r.get("categoria", "-"),
+                )
+                for r in reservas
             ]
 
             self.tree_novos.construir_dados_tabela(dados_novos)
@@ -493,7 +510,8 @@ class AbaImportacao(ttk.Frame):
                 {"text": "Data", "width": 80},
                 {"text": "Prontuário", "width": 80},
                 {"text": "Nome", "stretch": True},
-                {"text": "Prato", "width": 100},
+                {"text": "Prato", "width": 90},
+                {"text": "Categorias", "width": 100},
             ],
             height=10,
         )

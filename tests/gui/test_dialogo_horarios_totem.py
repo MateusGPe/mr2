@@ -242,3 +242,40 @@ def test_totem_integracao_abrir_e_fechar_dialogo(app_root, fachada_mock_com_grad
             app_root.update()
     finally:
         app_root.withdraw()
+
+
+def test_dialogo_e_totem_horario_livre(app_root, fachada_mock_com_grade, monkeypatch):
+    """Verifica o badge discreto no Totem e o status flexibilizado no Diálogo de Horários quando Horário Livre está ativo."""
+    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    fachada_mock_com_grade.ignorar_horario_grade = True
+    fachada_mock_com_grade.filtro_categoria_sessao = None
+
+    with patch.object(FrameSelfService, "_iniciar_camera"):
+        totem = FrameSelfService(
+            master=app_root,
+            fachada=fachada_mock_com_grade,
+            notification_callback=MagicMock(),
+        )
+        totem.pack()
+        app_root.update()
+
+        assert "Horário Livre" in totem._lbl_sessao_topo.cget("text")
+
+        dialogo = DialogoGradeHorariosTotem(
+            parent=app_root,
+            fachada=fachada_mock_com_grade,
+            timeout_segundos=10,
+            hora_simulada="15:00",
+        )
+        app_root.update()
+
+        assert "Horário Livre" in dialogo._lbl_subtitulo.cget("text")
+        assert len(dialogo._cards_widgets) == 3
+        for card in dialogo._cards_widgets:
+            assert "LIBERADO (HORÁRIO LIVRE)" in card["badge"].cget("text")
+
+        dialogo.fechar()
+        totem.stop()
+        totem.destroy()
+        app_root.update()
+

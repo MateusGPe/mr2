@@ -37,8 +37,8 @@ def cenario_integrado(facade: FachadaRegistro, criar_grupo, criar_estudante, cri
     monkeypatch.setattr(constants, "CAMINHO_SESSAO", caminho_sessao)
 
     # 1. Configuração inicial da grade semanal:
-    # Slot 1: 11:30 - 12:15 -> Turma 1º A (REGULAR e PAP)
-    # Slot 2: 12:15 - 13:00 -> Turma 2º A (apenas PAP)
+    # Slot 1: 11:30 - 12:15 -> Turma 1º A (qualquer categoria)
+    # Slot 2: 12:15 - 13:00 -> Categoria PAP (independente da turma)
     grade = {
         "segunda": {
             "almoco": [
@@ -46,12 +46,12 @@ def cenario_integrado(facade: FachadaRegistro, criar_grupo, criar_estudante, cri
                     "inicio": "11:30",
                     "fim": "12:15",
                     "turmas": ["1º A"],
-                    "categorias": ["REGULAR", "PAP"],
+                    "categorias": ["*"],
                 },
                 {
                     "inicio": "12:15",
                     "fim": "13:00",
-                    "turmas": ["2º A"],
+                    "turmas": ["*"],
                     "categorias": ["PAP"],
                 },
             ]
@@ -59,45 +59,42 @@ def cenario_integrado(facade: FachadaRegistro, criar_grupo, criar_estudante, cri
     }
     grade_horarios_service.salvar_grade_horarios(grade, caminho_grade)
 
-    # 2. Criação de turmas e discentes
-    g_1a = criar_grupo(nome="1º A", ativo=True)
-    g_2a = criar_grupo(nome="2º A", ativo=True)
+    # 2. Criação de turmas, categoria PAP e discentes
+    g_1a = criar_grupo(nome="1º A", ativo=True, tipo="turma")
+    g_2a = criar_grupo(nome="2º A", ativo=True, tipo="turma")
+    g_pap = criar_grupo(nome="PAP", ativo=True, tipo="categoria")
 
-    # Estudante 1: 1º A, REGULAR
+    # Estudante 1: 1º A, sem categoria
     e_1a_reg = criar_estudante(
         prontuario="IQ1001",
         nome="Carlos Regular",
         ativo=True,
         grupos=[g_1a],
     )
-    e_1a_reg.categoria = "REGULAR"
 
-    # Estudante 2: 1º A, PAP
+    # Estudante 2: 1º A, com PAP
     e_1a_pap = criar_estudante(
         prontuario="IQ1002",
         nome="Ana PAP",
         ativo=True,
-        grupos=[g_1a],
+        grupos=[g_1a, g_pap],
     )
-    e_1a_pap.categoria = "PAP"
 
-    # Estudante 3: 2º A, REGULAR
+    # Estudante 3: 2º A, sem categoria
     e_2a_reg = criar_estudante(
         prontuario="IQ2001",
         nome="Bruno Regular",
         ativo=True,
         grupos=[g_2a],
     )
-    e_2a_reg.categoria = "REGULAR"
 
-    # Estudante 4: 2º A, PAP
+    # Estudante 4: 2º A, com PAP
     e_2a_pap = criar_estudante(
         prontuario="IQ2002",
         nome="Diana PAP",
         ativo=True,
-        grupos=[g_2a],
+        grupos=[g_2a, g_pap],
     )
-    e_2a_pap.categoria = "PAP"
 
     facade._sessao_db.commit()
 
@@ -184,17 +181,17 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
         mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: "12:30" if "%H:%M" in fmt else "12:30:00"
         mock_dt_grade.now.return_value.weekday.return_value = 0
 
-        # 3.1 Aluno 2º A REGULAR tenta comer no slot exclusivo para PAP -> Bloqueado por categoria!
+        # 3.1 Aluno 2º A sem PAP tenta comer no slot exclusivo para PAP -> Bloqueado por categoria!
         res_reg_bloqueado = facade.registrar_consumo_com_reserva(e_2a_reg.prontuario)
         assert res_reg_bloqueado["autorizado"] is False
-        assert "Categoria 'REGULAR' não permitida neste horário. Permitidas: PAP." in res_reg_bloqueado["motivo"]
+        assert "Categoria (Nenhuma) não permitida neste horário. Permitidas: PAP." in res_reg_bloqueado["motivo"]
 
     # -------------------------------------------------------------------------
     # Passo 4: Atualização Dinâmica da Grade Horária em Runtime
-    # A direção estende o slot 2 para aceitar também discentes REGULAR.
+    # A direção libera a turma 2º A no slot 2 (regra OU com PAP).
     # -------------------------------------------------------------------------
     grade_atualizada = grade_horarios_service.carregar_grade_horarios(caminho_grade)
-    grade_atualizada["segunda"]["almoco"][1]["categorias"] = ["PAP", "REGULAR"]
+    grade_atualizada["segunda"]["almoco"][1]["turmas"] = ["2º A"]
     grade_horarios_service.salvar_grade_horarios(grade_atualizada, caminho_grade)
 
     with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt, \
@@ -267,3 +264,63 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
     facade.limpar_estado_sessao()
     assert not caminho_sessao.exists()
     assert facade.id_sessao_ativa is None
+
+
+def test_horario_livre_atraso_refeicao(cenario_integrado, criar_grupo, criar_estudante, criar_reserva, monkeypatch):
+    """Testa o modo Horário Livre (ignorar_horario_grade) quando o almoço atrasa 1+ hora."""
+    facade: FachadaRegistro = cenario_integrado["facade"]
+    e_1a_reg = cenario_integrado["e_1a_reg"]
+    e_2a_reg = cenario_integrado["e_2a_reg"]
+    e_2a_pap = cenario_integrado["e_2a_pap"]
+
+    g_3c = criar_grupo(nome="3º C", ativo=True, tipo="turma")
+    e_3c = criar_estudante(prontuario="IQ3001", nome="Eduardo 3C", ativo=True, grupos=[g_3c])
+    facade._sessao_db.commit()
+    criar_reserva(estudante=e_3c, data="10/11/2026", cancelada=False, prato="Padrão")
+
+    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+
+    id_sessao = facade.iniciar_nova_sessao({
+        "refeicao": "almoço",
+        "periodo": "tarde",
+        "data": "2026-11-10",
+        "hora": "11:30",
+        "item_servido": "Almoço Completo",
+        "grupos": ["1º A", "2º A", "3º C"],
+    })
+    assert id_sessao is not None
+    assert facade.ignorar_horario_grade is False
+
+    # Almoço atrasado: são 14:15 (slots eram 11:30-12:15 e 12:15-13:00)
+    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt, \
+         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_grade:
+        mock_dt.now.return_value.strftime.side_effect = lambda fmt: "14:15" if "%H:%M" in fmt else "14:15:00"
+        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: "14:15" if "%H:%M" in fmt else "14:15:00"
+        mock_dt_grade.now.return_value.weekday.return_value = 0
+
+        # Modo normal bloqueia 1º A por horário
+        res_bloq = facade.registrar_consumo(e_1a_reg.prontuario)
+        assert res_bloq["autorizado"] is False
+        assert "Fora do horário" in res_bloq["motivo"]
+
+        # Operador ativa Horário Livre na sessão
+        facade.definir_ignorar_horario_grade(True)
+
+        # 1º A REGULAR (prevista na grade de segunda) -> Autorizado!
+        res_1a_ok = facade.registrar_consumo(e_1a_reg.prontuario)
+        assert res_1a_ok["autorizado"] is True
+
+        # 2º A PAP (prevista na grade de segunda) -> Autorizado!
+        res_2a_pap_ok = facade.registrar_consumo(e_2a_pap.prontuario)
+        assert res_2a_pap_ok["autorizado"] is True
+
+        # 2º A sem PAP (slot 2 exige PAP) -> Bloqueado por categoria!
+        res_2a_reg_bloq = facade.registrar_consumo(e_2a_reg.prontuario)
+        assert res_2a_reg_bloq["autorizado"] is False
+        assert "Categoria (Nenhuma) não permitida" in res_2a_reg_bloq["motivo"]
+
+        # 3º C (não prevista na grade de segunda) -> Bloqueado mesmo com reserva!
+        res_3c_bloq = facade.registrar_consumo(e_3c.prontuario)
+        assert res_3c_bloq["autorizado"] is False
+        assert "não permitida" in res_3c_bloq["motivo"] or "não possui autorização" in res_3c_bloq["motivo"]
+

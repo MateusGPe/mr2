@@ -145,8 +145,9 @@ def test_dialogo_filtro_turmas_grade_do_dia_com_e_sem_previsao(app_root, ambient
 
 
 def test_dialogo_filtro_turmas_aplicar_categoria_e_turmas(app_root, ambiente_gui, mock_messagebox):
-    """Testa a aplicação de filtros alterando categoria para PAP e selecionando turmas."""
+    """Testa a aplicação de filtros selecionando turmas e categorias separadas na mesma lista."""
     facade = ambiente_gui["facade"]
+    facade.criar_grupo("PAP", tipo="categoria")
     aplicados = []
 
     with patch.object(DialogoFiltroTurmas, "grab_set"), \
@@ -161,23 +162,48 @@ def test_dialogo_filtro_turmas_aplicar_categoria_e_turmas(app_root, ambiente_gui
         )
         app_root.update()
 
-        # 1. Altera categoria para PAP
-        dialogo._var_categoria.set("PAP")
-
-        # 2. Seleciona apenas 1º MEC
+        # Seleciona 1º MEC e a categoria PAP
         dialogo._ao_limpar_todas()
         for ident, var, _ in dialogo._dados_checkbox:
-            if ident == "1º MEC":
+            if ident in ("1º MEC", "PAP"):
                 var.set(True)
 
-        # 3. Clica em Aplicar
+        # Clica em Aplicar
         dialogo._ao_aplicar()
         app_root.update()
 
         # Verifica efeitos
         assert len(aplicados) == 1
         assert "1º MEC" in aplicados[0]
-        assert facade.filtro_categoria_sessao == "PAP"
+        assert "PAP" in aplicados[0]
+
+
+def test_dialogo_filtro_turmas_horario_livre(app_root, ambiente_gui, mock_messagebox, tmp_path, monkeypatch):
+    """Testa a ativação e persistência da opção Horário Livre via DialogoFiltroTurmas."""
+    import registro.nucleo.constants as constants
+
+    monkeypatch.setattr(constants, "CAMINHO_SESSAO", tmp_path / "session.json")
+    facade = ambiente_gui["facade"]
+    assert facade.ignorar_horario_grade is False
+
+    with patch.object(DialogoFiltroTurmas, "grab_set"), \
+         patch.object(DialogoFiltroTurmas, "transient"), \
+         patch.object(DialogoFiltroTurmas, "deiconify"), \
+         patch.object(DialogoFiltroTurmas, "_centralizar_janela"):
+
+        dialogo = DialogoFiltroTurmas(
+            parent=app_root,
+            fachada_nucleo=facade,
+            callback_aplicar=lambda selec: None,
+        )
+        app_root.update()
+
+        assert dialogo._var_ignorar_horario.get() is False
+        dialogo._var_ignorar_horario.set(True)
+        dialogo._ao_aplicar()
+        app_root.update()
+
+        assert facade.ignorar_horario_grade is True
 
 
 # ============================================================================

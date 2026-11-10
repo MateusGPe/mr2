@@ -12,34 +12,38 @@ lógica de processamento e inserção no banco de dados.
 import csv
 import logging
 from pathlib import Path
-from typing import Dict, Set
+from typing import Dict, List, Optional, Set, Tuple
 
+from sqlalchemy import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
+from registro.nucleo.constants import TIPO_GRUPO_CATEGORIA, TIPO_GRUPO_TURMA
 from registro.nucleo.exceptions import ErroImportacaoDados
-from registro.nucleo.models import Reserva
+from registro.nucleo.models import Reserva, associacao_reserva_grupo
 from registro.nucleo.repository import (
     RepositorioEstudante,
     RepositorioGrupo,
     RepositorioReserva,
 )
-from registro.nucleo.utils import ajustar_chaves_e_valores
+from registro.nucleo.utils import ajustar_chaves_e_valores, normalizar_lista_categorias
 
 logger = logging.getLogger(__name__)
 
 
 def _obter_ou_criar_grupos(
-    sessao_db: Session, nomes_grupos: Set[str]
+    sessao_db: Session,
+    nomes_grupos: Set[str],
+    tipo: str = TIPO_GRUPO_TURMA,
 ) -> Dict[str, int]:
-    """Busca ou cria grupos e retorna um mapeamento de nome para ID."""
+    """Busca ou cria grupos com o tipo especificado e retorna mapa nome -> ID."""
     repo_grupo = RepositorioGrupo(sessao_db)
     grupos_existentes = repo_grupo.por_nomes(nomes_grupos)
     mapa_existentes = {g.nome: g.id for g in grupos_existentes}
 
     nomes_novos_grupos = nomes_grupos - set(mapa_existentes.keys())
     if nomes_novos_grupos:
-        novas_linhas = [{"nome": nome} for nome in nomes_novos_grupos]
+        novas_linhas = [{"nome": nome, "tipo": tipo} for nome in nomes_novos_grupos]
         repo_grupo.criar_em_massa(novas_linhas)
         todos_os_grupos = repo_grupo.por_nomes(nomes_grupos)
         return {g.nome: g.id for g in todos_os_grupos}
@@ -51,12 +55,13 @@ def importar_estudantes_csv(
     repo_grupo: RepositorioGrupo,
     caminho_arquivo_csv: Path,
 ) -> int:
-    """Importa e atualiza estudantes e suas associações com grupos de um arquivo CSV."""
+    """Importa e atualiza estudantes, suas turmas e categorias de um arquivo CSV."""
     try:
         estudantes_para_criar = []
         estudantes_para_atualizar = []
         relacoes_estudante_grupo = []
-        todos_nomes_grupos = set()
+        turmas_nomes: Set[str] = set()
+        categorias_nomes: Set[str] = set()
         linhas_ignoradas = 0
         prontuarios_no_csv = set()
 
@@ -82,36 +87,34 @@ def importar_estudantes_csv(
                     linhas_ignoradas += 1
                     continue
 
-                # Processa a associação de turma em TODAS as linhas em que o estudante aparece.
+                # Processa associações de turma e categorias em TODAS as linhas em que o estudante aparece.
                 if turma := linha.get("turma"):
-                    todos_nomes_grupos.add(turma)
+                    turma_limpa = str(turma).strip()
+                    if turma_limpa:
+                        turmas_nomes.add(turma_limpa)
+                        relacoes_estudante_grupo.append(
+                            {"prontuario": pront, "nome_grupo": turma_limpa}
+                        )
+
+                for cat_nome in normalizar_lista_categorias(linha.get("categoria")):
+                    categorias_nomes.add(cat_nome)
                     relacoes_estudante_grupo.append(
-                        {"prontuario": pront, "nome_grupo": turma}
+                        {"prontuario": pront, "nome_grupo": cat_nome}
                     )
 
-                # Se o prontuário já foi processado neste CSV, pula para a próxima linha.
-                # A associação de turma acima já foi registrada.
+                # Se o prontuário já foi processado neste CSV, pula criação/atualização do aluno.
                 if pront in prontuarios_no_csv:
                     continue
                 prontuarios_no_csv.add(pront)
 
-                # Processa os dados do estudante (criar/atualizar) apenas na primeira ocorrência.
-                cat_raw = str(linha.get("categoria", "")).strip().upper()
-                categoria = "PAP" if "PAP" in cat_raw else "REGULAR"
-
                 dados_estudante = {
                     "prontuario": pront,
                     "nome": linha.get("nome", ""),
-                    "categoria": categoria,
                 }
 
                 if pront in mapa_estudantes_existentes:
                     estudante_existente = mapa_estudantes_existentes[pront]
-                    cat_existente = getattr(estudante_existente, "categoria", "REGULAR")
-                    if (
-                        estudante_existente.nome != dados_estudante["nome"]
-                        or cat_existente != dados_estudante["categoria"]
-                    ):
+                    if estudante_existente.nome != dados_estudante["nome"]:
                         payload = {**dados_estudante, "id": estudante_existente.id}
                         estudantes_para_atualizar.append(payload)
                 else:
@@ -128,9 +131,21 @@ def importar_estudantes_csv(
             repo_estudante.atualizar_em_massa(estudantes_para_atualizar)
 
         if relacoes_estudante_grupo:
-            mapa_grupos = _obter_ou_criar_grupos(
-                repo_grupo.obter_sessao(), todos_nomes_grupos
-            )
+            sessao_db = repo_grupo.obter_sessao()
+            mapa_grupos: Dict[str, int] = {}
+            if turmas_nomes:
+                mapa_grupos.update(
+                    _obter_ou_criar_grupos(sessao_db, turmas_nomes, tipo=TIPO_GRUPO_TURMA)
+                )
+            # Categorias explícitas nunca sobrescrevem o tipo se o mesmo nome já veio como turma,
+            # mas se veio apenas na coluna Categoria é criado como TIPO_GRUPO_CATEGORIA.
+            cats_novas = categorias_nomes - set(mapa_grupos.keys())
+            if cats_novas:
+                mapa_grupos.update(
+                    _obter_ou_criar_grupos(sessao_db, cats_novas, tipo=TIPO_GRUPO_CATEGORIA)
+                )
+
+            todos_nomes_grupos = turmas_nomes | categorias_nomes
             mapa_grupos_obj = {
                 g.id: g for g in repo_grupo.por_nomes(todos_nomes_grupos)
             }
@@ -168,8 +183,9 @@ def importar_reservas_csv(
     repo_estudante: RepositorioEstudante,
     repo_reserva: RepositorioReserva,
     caminho_arquivo_csv: Path,
+    repo_grupo: Optional[RepositorioGrupo] = None,
 ) -> int:
-    """Importa reservas de almoço de um arquivo CSV para o banco de dados."""
+    """Importa reservas de um arquivo CSV, vinculando categorias pontuais à reserva sem alterar o estudante."""
     try:
         # Primeira passada: coletar todas as datas do CSV para uma busca otimizada.
         datas_no_csv = set()
@@ -191,6 +207,8 @@ def importar_reservas_csv(
         mapa_estudantes = {
             s.prontuario: s.id for s in repo_estudante.ler_todos()}
         reservas_para_inserir = []
+        categorias_por_chave: Dict[Tuple[int, str], List[str]] = {}
+        todas_categorias: Set[str] = set()
         linhas_ignoradas = 0
         reservas_ignoradas_db = 0
         chaves_unicas_reserva_csv = set()
@@ -231,6 +249,11 @@ def importar_reservas_csv(
                     continue
                 chaves_unicas_reserva_csv.add(chave_reserva)
 
+                cats_linha = normalizar_lista_categorias(linha.get("categoria"))
+                if cats_linha:
+                    categorias_por_chave[chave_reserva] = cats_linha
+                    todas_categorias.update(cats_linha)
+
                 reservas_para_inserir.append(
                     {
                         "estudante_id": id_estudante,
@@ -248,6 +271,31 @@ def importar_reservas_csv(
 
         if reservas_para_inserir:
             repo_reserva.criar_em_massa(reservas_para_inserir)
+
+        if categorias_por_chave:
+            sessao_db = repo_reserva.obter_sessao()
+            rg = repo_grupo or RepositorioGrupo(sessao_db)
+            mapa_grupos = rg.obter_ou_criar_por_nomes(
+                todas_categorias, tipo=TIPO_GRUPO_CATEGORIA
+            )
+            est_ids = {k[0] for k in categorias_por_chave}
+            datas_cats = {k[1] for k in categorias_por_chave}
+            reservas_db = (
+                sessao_db.query(Reserva)
+                .filter(Reserva.estudante_id.in_(est_ids), Reserva.data.in_(datas_cats))
+                .all()
+            )
+            assoc_rows = []
+            for res in reservas_db:
+                for c_nome in categorias_por_chave.get((res.estudante_id, res.data), []):
+                    g = mapa_grupos.get(c_nome)
+                    if g:
+                        assoc_rows.append({"reserva_id": res.id, "grupo_id": g.id})
+            if assoc_rows:
+                sessao_db.execute(
+                    insert(associacao_reserva_grupo).prefix_with("OR IGNORE"),
+                    assoc_rows,
+                )
 
         repo_reserva.obter_sessao().commit()
         return len(reservas_para_inserir)

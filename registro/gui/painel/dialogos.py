@@ -14,9 +14,80 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.widgets import DateEntry
 
+from registro.nucleo.constants import TIPO_GRUPO_CATEGORIA, TIPO_GRUPO_TURMA
 from registro.nucleo.exceptions import ErroSessao
 from registro.nucleo.facade import FachadaRegistro
-from registro.nucleo.utils import DADOS_SESSAO
+from registro.nucleo.utils import (
+    DADOS_SESSAO,
+    normalizar_lista_categorias,
+)
+
+
+def _obter_categorias_selecionadas_painel(
+    vars_cats: dict[str, tk.BooleanVar], entry_extra: ttk.Entry | None
+) -> list[str]:
+    """Extrai as categorias marcadas nos checkbuttons combinadas com eventuais tags extras."""
+    selecionadas = [nome for nome, var in vars_cats.items() if var.get()]
+    if entry_extra is not None:
+        selecionadas.extend(normalizar_lista_categorias(entry_extra.get()))
+    return normalizar_lista_categorias(selecionadas)
+
+
+class _SeletorCategoriasFrame(ttk.Labelframe):
+    """Componente reutilizável de seleção múltipla de categorias (ex.: PAP, ESP1, LIB0)."""
+
+    def __init__(self, parent, titulo: str, nomes_categorias: list[str]):
+        super().__init__(parent, text=titulo, padding=8)
+        self.columnconfigure(0, weight=1)
+        self.vars_categorias: dict[str, tk.BooleanVar] = {}
+
+        if nomes_categorias:
+            grid_frame = ttk.Frame(self)
+            grid_frame.grid(row=0, column=0, sticky=EW, pady=(0, 6))
+            cols = 3
+            for idx, nome in enumerate(nomes_categorias):
+                var = tk.BooleanVar(value=False)
+                self.vars_categorias[nome] = var
+                ttk.Checkbutton(
+                    grid_frame,
+                    text=nome,
+                    variable=var,
+                    bootstyle="info-round-toggle",
+                ).grid(row=idx // cols, column=idx % cols, sticky=W, padx=6, pady=2)
+        else:
+            ttk.Label(
+                self,
+                text="Nenhuma categoria cadastrada ainda.",
+                bootstyle="secondary",
+            ).grid(row=0, column=0, sticky=W, pady=(0, 6))
+
+        extra_frame = ttk.Frame(self)
+        extra_frame.grid(row=1, column=0, sticky=EW)
+        extra_frame.columnconfigure(1, weight=1)
+        ttk.Label(extra_frame, text="Outras (vírgula):").grid(
+            row=0, column=0, sticky=W, padx=(0, 6)
+        )
+        self.entry_extras = ttk.Entry(extra_frame)
+        self.entry_extras.grid(row=0, column=1, sticky=EW)
+
+    def definir_selecionadas(self, categorias: list[str]) -> None:
+        norm_set = {c.strip().lower() for c in categorias if c and c.strip()}
+        restantes = []
+        for nome, var in self.vars_categorias.items():
+            marcado = nome.strip().lower() in norm_set
+            var.set(marcado)
+        conhecidos = {n.strip().lower() for n in self.vars_categorias}
+        for c in categorias:
+            if c.strip().lower() not in conhecidos:
+                restantes.append(c.strip())
+        self.entry_extras.delete(0, END)
+        if restantes:
+            self.entry_extras.insert(0, ", ".join(restantes))
+
+    def obter_selecionadas(self) -> list[str]:
+        return _obter_categorias_selecionadas_painel(
+            self.vars_categorias, self.entry_extras
+        )
 
 
 class StudentDialog(ttk.Toplevel):
@@ -62,20 +133,16 @@ class StudentDialog(ttk.Toplevel):
         self.prontuario_entry = ttk.Entry(form_frame, width=40)
         self.prontuario_entry.grid(row=3, column=0, sticky=EW, pady=(0, 10))
 
-        ttk.Label(form_frame, text="Turma Principal:", anchor=W).grid(
+        ttk.Label(form_frame, text="Turma Real:", anchor=W).grid(
             row=4, column=0, sticky=EW, pady=(0, 5)
         )
         self.grupo_combobox = ttk.Combobox(form_frame, state="readonly")
         self.grupo_combobox.grid(row=5, column=0, sticky=EW, pady=(0, 10))
 
-        ttk.Label(form_frame, text="Categoria do Discente:", anchor=W).grid(
-            row=6, column=0, sticky=EW, pady=(0, 5)
-        )
-        self.categoria_combobox = ttk.Combobox(
-            form_frame, values=["REGULAR", "PAP"], state="readonly"
-        )
-        self.categoria_combobox.set("REGULAR")
-        self.categoria_combobox.grid(row=7, column=0, sticky=EW, pady=(0, 15))
+        self.seletor_categorias_container = ttk.Frame(form_frame)
+        self.seletor_categorias_container.grid(row=6, column=0, sticky=EW, pady=(0, 12))
+        self.seletor_categorias_container.columnconfigure(0, weight=1)
+        self.seletor_categorias: _SeletorCategoriasFrame | None = None
 
         self.chk_ativo = ttk.Checkbutton(
             form_frame,
@@ -83,7 +150,7 @@ class StudentDialog(ttk.Toplevel):
             variable=self.var_ativo,
             bootstyle="round-toggle",
         )
-        self.chk_ativo.grid(row=8, column=0, sticky=W, pady=(0, 10))
+        self.chk_ativo.grid(row=7, column=0, sticky=W, pady=(0, 10))
 
         ttk.Separator(main_frame, orient=tk.HORIZONTAL).grid(
             row=1, column=0, sticky=EW, pady=10
@@ -106,9 +173,22 @@ class StudentDialog(ttk.Toplevel):
     def _load_data(self):
         try:
             grupos = self.fachada.listar_todos_os_grupos()
-            opcoes = ["(Nenhuma)"] + [g["nome"] for g in grupos]
+            turmas = sorted(
+                g["nome"] for g in grupos if g.get("tipo", TIPO_GRUPO_TURMA) != TIPO_GRUPO_CATEGORIA
+            )
+            categorias = sorted(
+                g["nome"] for g in grupos if g.get("tipo") == TIPO_GRUPO_CATEGORIA
+            )
+            opcoes = ["(Nenhuma)"] + turmas
             self.grupo_combobox["values"] = opcoes
             self.grupo_combobox.set(opcoes[1] if len(opcoes) > 1 else "(Nenhuma)")
+
+            self.seletor_categorias = _SeletorCategoriasFrame(
+                self.seletor_categorias_container,
+                "🏷️ Categorias Permanentes (PAP, ESP1, LIB0...)",
+                categorias,
+            )
+            self.seletor_categorias.grid(row=0, column=0, sticky=EW)
         except Exception:
             Messagebox.show_error(
                 "Não foi possível carregar a lista de turmas.", "Erro"
@@ -132,13 +212,17 @@ class StudentDialog(ttk.Toplevel):
             self.prontuario_entry.insert(0, student_data.prontuario)
             self.prontuario_entry.config(state="readonly")
             self.var_ativo.set(bool(student_data.ativo) if student_data.ativo is not None else True)
-            cat = getattr(student_data, "categoria", "REGULAR") or "REGULAR"
-            self.categoria_combobox.set(cat.strip().upper())
 
-            if student_data.grupos:
-                self.grupo_combobox.set(student_data.grupos[0].nome)
+            turmas_est = [g.nome for g in student_data.grupos if not getattr(g, "eh_categoria", False)]
+            cats_est = [g.nome for g in student_data.grupos if getattr(g, "eh_categoria", False)]
+
+            if turmas_est:
+                self.grupo_combobox.set(turmas_est[0])
             else:
                 self.grupo_combobox.set("(Nenhuma)")
+
+            if self.seletor_categorias:
+                self.seletor_categorias.definir_selecionadas(cats_est)
         except Exception:
             Messagebox.show_error(
                 "Erro ao carregar dados do aluno. Verifique o console.", "Erro"
@@ -150,7 +234,11 @@ class StudentDialog(ttk.Toplevel):
         prontuario = self.prontuario_entry.get().strip()
         grupo_selecionado = self.grupo_combobox.get()
         grupos = [grupo_selecionado] if grupo_selecionado and grupo_selecionado != "(Nenhuma)" else []
-        categoria = self.categoria_combobox.get().strip().upper() or "REGULAR"
+        categorias = (
+            self.seletor_categorias.obter_selecionadas()
+            if self.seletor_categorias
+            else []
+        )
 
         if not nome or not prontuario:
             Messagebox.show_warning("Nome e prontuário são obrigatórios.", "Validação")
@@ -160,15 +248,16 @@ class StudentDialog(ttk.Toplevel):
             if self.student_id:
                 self.fachada.atualizar_estudante(
                     self.student_id,
-                    {"nome": nome, "ativo": self.var_ativo.get(), "categoria": categoria},
+                    {"nome": nome, "ativo": self.var_ativo.get()},
                     grupos=grupos,
+                    categorias=categorias,
                 )
             else:
                 self.fachada.criar_estudante(
                     prontuario,
                     nome,
                     grupos=grupos,
-                    categoria=categoria,
+                    categorias=categorias,
                 )
             self.result = True
             self.destroy()
@@ -214,19 +303,30 @@ class TurmaDialog(ttk.Toplevel):
         form_frame.grid(row=0, column=0, sticky=EW)
         form_frame.columnconfigure(0, weight=1)
 
-        ttk.Label(form_frame, text="Nome da Turma:", anchor=W).grid(
+        ttk.Label(form_frame, text="Nome do Grupo:", anchor=W).grid(
             row=0, column=0, sticky=EW, pady=(0, 5)
         )
         self.nome_entry = ttk.Entry(form_frame, width=35)
-        self.nome_entry.grid(row=1, column=0, sticky=EW, pady=(0, 15))
+        self.nome_entry.grid(row=1, column=0, sticky=EW, pady=(0, 10))
+
+        ttk.Label(form_frame, text="Tipo do Grupo:", anchor=W).grid(
+            row=2, column=0, sticky=EW, pady=(0, 5)
+        )
+        self.tipo_combobox = ttk.Combobox(
+            form_frame,
+            values=["Turma (Real)", "Categoria (Optativa / Programa / Evento)"],
+            state="readonly",
+        )
+        self.tipo_combobox.set("Turma (Real)")
+        self.tipo_combobox.grid(row=3, column=0, sticky=EW, pady=(0, 15))
 
         self.chk_ativo = ttk.Checkbutton(
             form_frame,
-            text="Turma Ativa",
+            text="Grupo Ativo",
             variable=self.var_ativo,
             bootstyle="round-toggle",
         )
-        self.chk_ativo.grid(row=2, column=0, sticky=W, pady=(0, 10))
+        self.chk_ativo.grid(row=4, column=0, sticky=W, pady=(0, 10))
 
         ttk.Separator(main_frame, orient=tk.HORIZONTAL).grid(
             row=1, column=0, sticky=EW, pady=10
@@ -257,22 +357,34 @@ class TurmaDialog(ttk.Toplevel):
 
             self.nome_entry.insert(0, turma["nome"])
             self.var_ativo.set(turma["ativo"])
+            if turma.get("tipo") == TIPO_GRUPO_CATEGORIA:
+                self.tipo_combobox.set("Categoria (Optativa / Programa / Evento)")
+            else:
+                self.tipo_combobox.set("Turma (Real)")
         except Exception:
             traceback.print_exc()
 
     def _on_save(self):
         nome = self.nome_entry.get().strip()
         ativo = self.var_ativo.get()
+        tipo_txt = self.tipo_combobox.get()
+        tipo = (
+            TIPO_GRUPO_CATEGORIA
+            if tipo_txt.startswith("Categoria")
+            else TIPO_GRUPO_TURMA
+        )
 
         if not nome:
-            Messagebox.show_warning("O nome da turma é obrigatório.", "Validação")
+            Messagebox.show_warning("O nome da turma/categoria é obrigatório.", "Validação")
             return
 
         try:
             if self.turma_id:
-                self.fachada.atualizar_grupo(self.turma_id, {"nome": nome, "ativo": ativo})
+                self.fachada.atualizar_grupo(
+                    self.turma_id, {"nome": nome, "ativo": ativo, "tipo": tipo}
+                )
             else:
-                self.fachada.criar_grupo(nome, ativo=ativo)
+                self.fachada.criar_grupo(nome, ativo=ativo, tipo=tipo)
             self.result = True
             self.destroy()
         except ValueError as e:
@@ -460,7 +572,20 @@ class ReservaDialog(ttk.Toplevel):
             text="Reserva Cancelada",
             variable=self.cancelada_var,
             bootstyle="danger-round-toggle",
-        ).grid(row=4, column=0, columnspan=2, sticky=W, pady=10)
+        ).grid(row=4, column=0, columnspan=2, sticky=W, pady=(6, 10))
+
+        grupos = self.fachada.listar_todos_os_grupos()
+        categorias_disponiveis = sorted(
+            g["nome"] for g in grupos if g.get("tipo") == TIPO_GRUPO_CATEGORIA
+        )
+        self.seletor_categorias_reserva = _SeletorCategoriasFrame(
+            form_frame,
+            "🏷️ Categorias da Reserva (pontual — não vincula ao aluno)",
+            categorias_disponiveis,
+        )
+        self.seletor_categorias_reserva.grid(
+            row=5, column=0, columnspan=2, sticky=EW, pady=(0, 10)
+        )
 
         ttk.Separator(main_frame, orient=HORIZONTAL).grid(
             row=1, column=0, sticky=EW, pady=10
@@ -480,8 +605,14 @@ class ReservaDialog(ttk.Toplevel):
 
     def _load_reserva_data(self):
         try:
+            from sqlalchemy.orm import selectinload
+            from registro.nucleo.models import Reserva
+
             reserva = (
-                self.fachada.repo_reserva.ler_filtrado(id=self.reserva_id)
+                self.fachada.repo_reserva.ler_filtrado(
+                    opcoes_carregamento=[selectinload(Reserva.grupos)],
+                    id=self.reserva_id,
+                )
                 or [None]
             )[0]
             if not reserva:
@@ -501,6 +632,9 @@ class ReservaDialog(ttk.Toplevel):
             self.prato_combobox.set(reserva.prato)
             self.cancelada_var.set(reserva.cancelada)
 
+            cats_res = [g.nome for g in (reserva.grupos or [])]
+            self.seletor_categorias_reserva.definir_selecionadas(cats_res)
+
         except Exception:
             Messagebox.show_error(
                 "Erro ao carregar dados da reserva. Verifique o console.", "Erro"
@@ -512,6 +646,7 @@ class ReservaDialog(ttk.Toplevel):
         data = self.data_entry.entry.get()
         prato = self.prato_combobox.get()
         cancelada = self.cancelada_var.get()
+        categorias = self.seletor_categorias_reserva.obter_selecionadas()
 
         if not aluno_selecionado or not data:
             Messagebox.show_warning("Aluno e data são obrigatórios.", "Validação")
@@ -525,7 +660,12 @@ class ReservaDialog(ttk.Toplevel):
             )
             return
 
-        payload = {"data": data, "prato": prato, "cancelada": cancelada}
+        payload = {
+            "data": data,
+            "prato": prato,
+            "cancelada": cancelada,
+            "categorias": categorias,
+        }
 
         try:
             if self.reserva_id:

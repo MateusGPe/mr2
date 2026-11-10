@@ -54,20 +54,23 @@ def obter_estatisticas_dashboard(
         or 0
     )
     alunos_ativos = alunos_total - alunos_inativos
-    alunos_pap = int(
-        sessao_db.query(func.count(Estudante.id))
-        .filter(Estudante.ativo.is_(True), func.upper(Estudante.categoria) == "PAP")
-        .scalar()
-        or 0
-    )
 
-    # Grupos / Turmas
+    # Grupos / Turmas e Categorias
     grupos = (
         sessao_db.query(Grupo)
         .options(selectinload(Grupo.estudantes))
         .all()
     )
     grupos_ativos = sum(1 for g in grupos if getattr(g, "ativo", True) is not False)
+    dist_categorias_alunos: Dict[str, int] = {}
+    for g in grupos:
+        if getattr(g, "eh_categoria", False):
+            dist_categorias_alunos[g.nome] = sum(
+                1 for e in g.estudantes if getattr(e, "ativo", True) is not False
+            )
+    alunos_pap = sum(
+        qtd for nome, qtd in dist_categorias_alunos.items() if "PAP" in nome.upper()
+    )
 
     # Reservas: total ativo via SQL e carregamento detalhado apenas para hoje
     reservas_total = int(
@@ -160,6 +163,7 @@ def obter_estatisticas_dashboard(
         "alunos_ativos": alunos_ativos,
         "alunos_inativos": alunos_inativos,
         "alunos_pap": alunos_pap,
+        "distribuicao_categorias": dict(sorted(dist_categorias_alunos.items())),
         "grupos_total": len(grupos),
         "grupos_ativos": grupos_ativos,
         "reservas_hoje": len(reservas_hoje),
@@ -219,8 +223,7 @@ def obter_estatisticas_sessao(
     dist_pratos: Dict[str, int] = {}
     total_com_reserva = 0
     total_sem_reserva = 0
-    total_pap = 0
-    total_regular = 0
+    dist_categorias: Dict[str, int] = {}
     dist_turmas: Dict[str, int] = {}
     dist_horarios: Dict[str, int] = {}
 
@@ -228,11 +231,16 @@ def obter_estatisticas_sessao(
     consumidos_com_hora.sort(key=lambda x: str(x.get("hora_consumo", "")))
 
     for c in consumidos:
-        cat = str(c.get("categoria", "REGULAR")).upper()
-        if "PAP" in cat:
-            total_pap += 1
-        else:
-            total_regular += 1
+        cats_item = c.get("categorias")
+        if cats_item is None:
+            cat_str = str(c.get("categoria") or "").strip()
+            cats_item = [
+                p.strip()
+                for p in cat_str.split(",")
+                if p.strip() and p.strip() not in ("-", "REGULAR", "N/A")
+            ]
+        for cat_nome in cats_item:
+            dist_categorias[cat_nome] = dist_categorias.get(cat_nome, 0) + 1
 
         prato = str(c.get("prato") or "Sem Reserva")
         dist_pratos[prato] = dist_pratos.get(prato, 0) + 1
@@ -288,6 +296,7 @@ def obter_estatisticas_sessao(
         except Exception:
             velocidade = 0.0
 
+    total_pap = sum(qtd for nome, qtd in dist_categorias.items() if "PAP" in nome.upper())
     return {
         "id_sessao": id_sessao,
         "refeicao": sessao.refeicao,
@@ -296,7 +305,9 @@ def obter_estatisticas_sessao(
         "item_servido": sessao.item_servido,
         "total_consumidos": total_consumidos,
         "total_pap": total_pap,
-        "total_regular": total_regular,
+        "distribuicao_categorias": dict(
+            sorted(dist_categorias.items(), key=lambda x: x[1], reverse=True)
+        ),
         "total_restantes": total_restantes,
         "total_esperado": total_esperado,
         "taxa_adesao": taxa_adesao,

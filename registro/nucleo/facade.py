@@ -70,7 +70,7 @@ class FachadaRegistro:
 
         self.id_sessao_ativa: Optional[int] = None
         self.excecao_grupos: Set[str] = set()
-        self.filtro_categoria_sessao: Optional[str] = None
+        self.ignorar_horario_grade: bool = False
         self._servico_importacao_cache: Optional[Any] = None
 
     # --- Propriedades de compatibilidade para Repositórios ---
@@ -133,6 +133,7 @@ class FachadaRegistro:
         if id_sessao is None:
             return None
         self.id_sessao_ativa = id_sessao
+        self.ignorar_horario_grade = False
         return id_sessao
 
     def listar_todas_sessoes(self) -> List[Dict[str, Any]]:
@@ -142,6 +143,8 @@ class FachadaRegistro:
     def definir_sessao_ativa(self, id_sessao: int):
         """Define uma sessão existente como ativa pelo seu ID."""
         service_logic.obter_detalhes_sessao(self._repo_sessao, id_sessao)
+        if self.id_sessao_ativa != id_sessao:
+            self.ignorar_horario_grade = False
         self.id_sessao_ativa = id_sessao
 
     def obter_detalhes_sessao_ativa(self) -> Dict[str, Any]:
@@ -167,12 +170,14 @@ class FachadaRegistro:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
         service_logic.deletar_sessao(self._repo_sessao, self.id_sessao_ativa)
         self.id_sessao_ativa = None
+        self.ignorar_horario_grade = False
 
     def deletar_sessao(self, id_sessao: int):
         """Deleta uma sessão específica e todos os seus consumos associados."""
         service_logic.deletar_sessao(self._repo_sessao, id_sessao)
         if self.id_sessao_ativa == id_sessao:
             self.id_sessao_ativa = None
+            self.ignorar_horario_grade = False
 
     def atualizar_detalhes_sessao(self, id_sessao: int, dados_sessao: Dict[str, Any]):
         """Atualiza os detalhes de uma sessão (data, hora, etc.)."""
@@ -214,21 +219,18 @@ class FachadaRegistro:
             excessao_grupos=excessao_grupos,
         )
 
-    def definir_filtro_categoria_sessao(self, categoria: Optional[str]) -> None:
-        """
-        Define o filtro de categoria de discente para a sessão ativa ('REGULAR', 'PAP' ou None)
-        e persiste a alteração no estado da sessão (session.json).
-        """
-        cat_norm = categoria.strip().upper() if categoria else ""
-        self.filtro_categoria_sessao = (
-            cat_norm if cat_norm in ("REGULAR", "PAP") else None
-        )
-        if self.id_sessao_ativa is not None:
-            self.salvar_estado_sessao()
-
     def definir_excecao_grupos(self, grupos: Set[str]) -> None:
         """Define o conjunto de turmas de exceção para a sessão ativa e persiste o estado."""
         self.excecao_grupos = set(grupos)
+        if self.id_sessao_ativa is not None:
+            self.salvar_estado_sessao()
+
+    def definir_ignorar_horario_grade(self, ignorar: bool) -> None:
+        """
+        Define se a trava de horário da grade horária deve ser ignorada na sessão ativa
+        (mantendo a validação das turmas/categorias) e persiste o estado em session.json.
+        """
+        self.ignorar_horario_grade = bool(ignorar)
         if self.id_sessao_ativa is not None:
             self.salvar_estado_sessao()
 
@@ -236,11 +238,10 @@ class FachadaRegistro:
         self,
         item_servido: Optional[str] = None,
         turmas: Optional[List[str]] = None,
-        filtro_categoria: Optional[str] = None,
     ) -> bool:
         """
-        Atualiza o cardápio (item servido), as turmas participantes e o filtro
-        de categoria da sessão atualmente ativa sem precisar fechá-la.
+        Atualiza o cardápio (item servido) e as turmas/categorias participantes
+        da sessão atualmente ativa sem precisar fechá-la.
         """
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
@@ -254,13 +255,6 @@ class FachadaRegistro:
 
         if turmas is not None:
             self.atualizar_grupos_sessao(turmas)
-
-        if filtro_categoria is not None:
-            self.filtro_categoria_sessao = (
-                filtro_categoria.strip().upper()
-                if filtro_categoria.strip().upper() not in ("", "TODAS", "*")
-                else None
-            )
 
         return True
 
@@ -307,7 +301,7 @@ class FachadaRegistro:
             excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
             permitir_fora_horario=permitir_fora_horario,
-            filtro_categoria=self.filtro_categoria_sessao,
+            ignorar_horario_grade=self.ignorar_horario_grade,
         )
 
     def registrar_consumo_com_reserva(
@@ -335,7 +329,7 @@ class FachadaRegistro:
             excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
             permitir_fora_horario=permitir_fora_horario,
-            filtro_categoria=self.filtro_categoria_sessao,
+            ignorar_horario_grade=self.ignorar_horario_grade,
         )
 
     def desfazer_consumo_por_prontuario(
@@ -390,9 +384,10 @@ class FachadaRegistro:
         prontuario: str,
         nome: str,
         grupos: Optional[List[str]] = None,
-        categoria: str = "REGULAR",
+        categoria: Optional[str] = None,
+        categorias: Optional[List[str]] = None,
     ) -> Dict[str, Any]:
-        """Cria um novo estudante e associa aos grupos especificados."""
+        """Cria um novo estudante e associa às turmas e categorias especificadas."""
         return service_logic.criar_estudante(
             self._repo_estudante,
             self._repo_grupo,
@@ -400,6 +395,7 @@ class FachadaRegistro:
             nome,
             grupos,
             categoria=categoria,
+            categorias=categorias,
         )
 
     # --- Gestão de Grade Horária e Escalonamento ---
@@ -411,9 +407,12 @@ class FachadaRegistro:
         return grade_horarios_service.obter_dia_semana_atual()
 
     def obter_turmas_previstas_para_refeicao(
-        self, refeicao: str, dia_semana: Optional[str] = None
+        self,
+        refeicao: str,
+        dia_semana: Optional[str] = None,
+        incluir_categorias: bool = False,
     ) -> List[str]:
-        """Retorna as turmas previstas na grade horária para uma refeição e dia específicos."""
+        """Retorna as turmas (e opcionalmente categorias) previstas na grade horária."""
         from registro.nucleo.services import grade_horarios_service
 
         dias_validos = {
@@ -439,7 +438,9 @@ class FachadaRegistro:
             ref_final = arg1 or "lanche"
 
         return grade_horarios_service.obter_turmas_previstas_para_refeicao(
-            dia_semana=dia_final, refeicao=ref_final
+            dia_semana=dia_final,
+            refeicao=ref_final,
+            incluir_categorias=incluir_categorias,
         )
 
     def obter_grade_horarios(self) -> Dict[str, Any]:
@@ -459,14 +460,16 @@ class FachadaRegistro:
         id_estudante: int,
         dados: Dict[str, Any],
         grupos: Optional[List[str]] = None,
+        categorias: Optional[List[str]] = None,
     ) -> bool:
-        """Atualiza os dados de um estudante e seus grupos associados."""
+        """Atualiza os dados de um estudante e suas turmas/categorias associadas."""
         return service_logic.atualizar_estudante(
             self._repo_estudante,
             id_estudante,
             dados,
             repo_grupo=self._repo_grupo,
             grupos=grupos,
+            categorias=categorias,
         )
 
     def deletar_estudante(
@@ -555,12 +558,6 @@ class FachadaRegistro:
             excessao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
         )
-        if self.filtro_categoria_sessao:
-            todos_elegiveis = [
-                e
-                for e in todos_elegiveis
-                if str(e.get("categoria", "")).strip().upper() == self.filtro_categoria_sessao
-            ]
         return [
             {"pront": estudante["pront"], "nome": estudante["nome"]}
             for estudante in todos_elegiveis
@@ -579,7 +576,7 @@ class FachadaRegistro:
 
         grupos_filtro = excecao_grupos or excessao_grupos or self.excecao_grupos
 
-        estudantes = service_logic.obter_estudantes_para_sessao(
+        return service_logic.obter_estudantes_para_sessao(
             repo_sessao=self._repo_sessao,
             repo_estudante=self._repo_estudante,
             repo_reserva=self._repo_reserva,
@@ -590,13 +587,6 @@ class FachadaRegistro:
             excessao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
         )
-        if self.filtro_categoria_sessao:
-            estudantes = [
-                e
-                for e in estudantes
-                if str(e.get("categoria", "")).strip().upper() == self.filtro_categoria_sessao
-            ]
-        return estudantes
 
     # --- Gestão de Reservas e Grupos ---
 
@@ -609,7 +599,11 @@ class FachadaRegistro:
     ) -> Dict[str, Any]:
         """Cria uma nova reserva para um estudante."""
         return service_logic.criar_reserva(
-            self._repo_estudante, self._repo_reserva, prontuario_estudante, dados_reserva
+            self._repo_estudante,
+            self._repo_reserva,
+            prontuario_estudante,
+            dados_reserva,
+            repo_grupo=self._repo_grupo,
         )
 
     def listar_reservas(
@@ -627,7 +621,7 @@ class FachadaRegistro:
     def atualizar_reserva(self, id_reserva: int, dados: Dict[str, Any]) -> bool:
         """Atualiza os dados de uma reserva existente."""
         return service_logic.atualizar_reserva(
-            self._repo_reserva, id_reserva, dados
+            self._repo_reserva, id_reserva, dados, repo_grupo=self._repo_grupo
         )
 
     def deletar_reserva(self, id_reserva: int) -> bool:
@@ -769,7 +763,10 @@ class FachadaRegistro:
     def salvar_importacao_dados(self, dados: List[Dict[str, Any]]) -> Dict[str, int]:
         """Persiste em lote estudantes e reservas decorrentes de um processo de importação."""
         return service_logic.salvar_importacao_dados(
-            self._repo_estudante, self._repo_reserva, dados
+            self._repo_estudante,
+            self._repo_reserva,
+            dados,
+            repo_grupo=self._repo_grupo,
         )
 
     def _obter_servico_importacao(self):
@@ -832,12 +829,16 @@ class FachadaRegistro:
 
     # --- Gestão de Turmas / Grupos ---
 
-    def criar_grupo(self, nome: str, ativo: bool = True) -> Dict[str, Any]:
-        """Cria uma nova turma no sistema."""
-        return service_logic.criar_grupo(self._repo_grupo, nome, ativo=ativo)
+    def criar_grupo(
+        self, nome: str, ativo: bool = True, tipo: str = "turma"
+    ) -> Dict[str, Any]:
+        """Cria uma nova turma ou categoria no sistema."""
+        return service_logic.criar_grupo(
+            self._repo_grupo, nome, ativo=ativo, tipo=tipo
+        )
 
     def atualizar_grupo(self, id_grupo: int, dados: Dict[str, Any]) -> bool:
-        """Atualiza nome e/ou status de uma turma."""
+        """Atualiza nome, tipo e/ou status de uma turma ou categoria."""
         return service_logic.atualizar_grupo(self._repo_grupo, id_grupo, dados)
 
     def deletar_grupo(self, id_grupo: int, forcar: bool = False) -> Dict[str, Any]:
@@ -845,11 +846,11 @@ class FachadaRegistro:
         return service_logic.deletar_grupo(self._repo_grupo, id_grupo, forcar=forcar)
 
     def listar_turmas_detalhadas(
-        self, termo_busca: Optional[str] = None
+        self, termo_busca: Optional[str] = None, tipo: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Lista todas as turmas com quantidade de alunos e status."""
+        """Lista grupos (turmas e categorias) com quantidade de alunos, tipo e status."""
         return service_logic.listar_turmas_detalhadas(
-            self._repo_grupo, termo_busca=termo_busca
+            self._repo_grupo, termo_busca=termo_busca, tipo=tipo
         )
 
     def listar_alunos_por_turma(self, id_grupo: int) -> List[Dict[str, Any]]:

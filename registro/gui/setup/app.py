@@ -811,7 +811,7 @@ class AppSetup(ttk.Window):
         self.entry_grade_turmas.insert(0, "*")
         self.entry_grade_turmas.grid(row=1, column=2, sticky="ew", padx=5)
 
-        ttk.Label(f_inputs, text="Categorias (*, REGULAR, PAP):").grid(row=0, column=3, sticky="w", padx=5)
+        ttk.Label(f_inputs, text="Categorias (*, PAP, ESP1, LIB0...):").grid(row=0, column=3, sticky="w", padx=5)
         self.entry_grade_cats = ttk.Entry(f_inputs, width=22)
         self.entry_grade_cats.insert(0, "*")
         self.entry_grade_cats.grid(row=1, column=3, sticky="ew", padx=5)

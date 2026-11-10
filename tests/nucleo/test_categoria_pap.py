@@ -1,5 +1,5 @@
 """
-Testes unitários para importação e contagem segregada de categoria PAP vs REGULAR.
+Testes unitários para importação de múltiplas categorias (PAP, ESP1, LIB0) e contagem em estatísticas.
 """
 
 from pathlib import Path
@@ -15,7 +15,7 @@ def test_importar_estudantes_com_categoria_pap(
         "Matrícula,Nome,Turma,Categoria\n"
         "IQ3011111,Aluno Bolsista,1º BEM,PAP\n"
         "IQ3022222,Aluno Regular,1º BEM,REGULAR\n"
-        "IQ3033333,Aluno Sem Coluna,1º BEM,\n"
+        "IQ3033333,Aluno Optativa,1º BEM,\"ESP1, LIB0\"\n"
     )
     csv_file.write_text(csv_content, encoding="utf-8")
 
@@ -25,20 +25,24 @@ def test_importar_estudantes_com_categoria_pap(
 
     aluno_pap = facade.repo_estudante.ler_filtrado(prontuario="IQ3011111")[0]
     assert aluno_pap is not None
-    assert aluno_pap.categoria == "PAP"
+    assert aluno_pap.turmas_nomes == ["1º BEM"]
+    assert aluno_pap.categorias_nomes == ["PAP"]
 
     aluno_reg = facade.repo_estudante.ler_filtrado(prontuario="IQ3022222")[0]
     assert aluno_reg is not None
-    assert aluno_reg.categoria == "REGULAR"
+    assert aluno_reg.turmas_nomes == ["1º BEM"]
+    assert aluno_reg.categorias_nomes == []
 
-    aluno_vazio = facade.repo_estudante.ler_filtrado(prontuario="IQ3033333")[0]
-    assert aluno_vazio is not None
-    assert aluno_vazio.categoria == "REGULAR"
+    aluno_opt = facade.repo_estudante.ler_filtrado(prontuario="IQ3033333")[0]
+    assert aluno_opt is not None
+    assert aluno_opt.turmas_nomes == ["1º BEM"]
+    assert aluno_opt.categorias_nomes == ["ESP1", "LIB0"]
 
-    # Consumo e agregação em estatísticas
+    # Consumo e agregação em estatísticas dinâmicas
     data = "26/10/2026"
     criar_reserva(estudante=aluno_pap, data=data, prato="Padrão")
     criar_reserva(estudante=aluno_reg, data=data, prato="Padrão")
+    criar_reserva(estudante=aluno_opt, data=data, prato="Padrão")
 
     grupo_db = facade.repo_grupo.por_nome("1º BEM")
     sessao = criar_sessao(refeicao="almoço", data=data, grupos=[grupo_db])
@@ -50,9 +54,13 @@ def test_importar_estudantes_com_categoria_pap(
 
     res_reg = facade.registrar_consumo("IQ3022222")
     assert res_reg["autorizado"] is True
-    assert res_reg["categoria"] == "REGULAR"
+    assert res_reg["categoria"] == "-"
+
+    res_opt = facade.registrar_consumo("IQ3033333")
+    assert res_opt["autorizado"] is True
+    assert res_opt["categoria"] == "ESP1, LIB0"
 
     stats = facade.obter_estatisticas_sessao(sessao.id)
-    assert stats["total_consumidos"] == 2
+    assert stats["total_consumidos"] == 3
     assert stats["total_pap"] == 1
-    assert stats["total_regular"] == 1
+    assert stats["distribuicao_categorias"] == {"PAP": 1, "ESP1": 1, "LIB0": 1}

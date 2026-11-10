@@ -60,14 +60,14 @@ def test_validar_janela_horario_com_categoria(tmp_path):
                 {
                     "inicio": "11:30",
                     "fim": "12:15",
-                    "turmas": ["1º BEM"],
+                    "turmas": ["*"],
                     "categorias": ["PAP"],
                 },
                 {
                     "inicio": "12:15",
                     "fim": "13:00",
                     "turmas": ["1º BEM"],
-                    "categorias": ["REGULAR"],
+                    "categorias": ["*"],
                 },
             ],
             "lanche": [],
@@ -82,31 +82,31 @@ def test_validar_janela_horario_com_categoria(tmp_path):
         refeicao="almoco",
         hora_atual="11:45",
         dia_semana="segunda",
-        categoria_estudante="PAP",
+        categorias_estudante=["PAP"],
         caminho_grade=caminho_grade,
     )
     assert aut is True
     assert motivo == ""
 
-    # Às 11:45, aluno 1º BEM com categoria REGULAR -> DEVE BLOQUEAR por categoria
+    # Às 11:45, aluno 1º BEM sem categoria -> DEVE BLOQUEAR por categoria
     aut, motivo = grade_horarios_service.validar_janela_horario(
         turmas_estudante=["1º BEM"],
         refeicao="almoco",
         hora_atual="11:45",
         dia_semana="segunda",
-        categoria_estudante="REGULAR",
+        categorias_estudante=[],
         caminho_grade=caminho_grade,
     )
     assert aut is False
-    assert "Categoria 'REGULAR' não permitida" in motivo
+    assert "Categoria (Nenhuma) não permitida" in motivo
 
-    # Às 12:30, aluno 1º BEM com categoria REGULAR -> DEVE autorizar
+    # Às 12:30, aluno 1º BEM sem categoria -> DEVE autorizar (slot de 1º BEM)
     aut, motivo = grade_horarios_service.validar_janela_horario(
         turmas_estudante=["1º BEM"],
         refeicao="almoco",
         hora_atual="12:30",
         dia_semana="segunda",
-        categoria_estudante="REGULAR",
+        categorias_estudante=[],
         caminho_grade=caminho_grade,
     )
     assert aut is True
@@ -169,16 +169,16 @@ def test_atualizar_sessao_ativa_facade(facade):
     assert facade.id_sessao_ativa == id_sessao
 
     # Atualiza sessão ativa
+    facade.criar_grupo("PAP", tipo="categoria")
     sucesso = facade.atualizar_sessao_ativa(
         item_servido="Fruta e Suco",
-        turmas=[],
-        filtro_categoria="PAP",
+        turmas=["PAP"],
     )
     assert sucesso is True
-    assert facade.filtro_categoria_sessao == "PAP"
 
     detalhes = facade.obter_detalhes_sessao_ativa()
     assert detalhes["item_servido"] == "Fruta e Suco"
+    assert "PAP" in detalhes["grupos"]
 
 
 def test_sincronizacao_lanches_e_configuracao(facade, monkeypatch, tmp_path):

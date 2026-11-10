@@ -12,12 +12,13 @@ import csv
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import xlsxwriter
 from sqlalchemy.orm import selectinload
 
-from registro.nucleo.models import Consumo, Estudante
+from registro.nucleo.constants import TIPO_GRUPO_TURMA
+from registro.nucleo.models import Consumo, Estudante, Reserva
 from registro.nucleo.repository import (
     RepositorioConsumo,
     RepositorioEstudante,
@@ -27,7 +28,10 @@ from registro.nucleo.repository import (
 )
 from registro.nucleo.services.reserva_service import listar_reservas
 from registro.nucleo.services.sessao_service import obter_detalhes_sessao
-from registro.nucleo.utils import obter_caminho_documentos
+from registro.nucleo.utils import (
+    formatar_turma_e_categoria,
+    obter_caminho_documentos,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -51,11 +55,37 @@ def _sanitizar_linhas_csv(dados: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     ]
 
 
+def _carregar_mapa_reservas_ativas(
+    sessao_db: Any, consumos: Sequence[Consumo]
+) -> Dict[Tuple[int, str], Reserva]:
+    """Carrega reservas ativas por (estudante_id, data) para enriquecer categorias de consumos sem reserva direta."""
+    datas = {
+        c.sessao.data
+        for c in consumos
+        if c.sessao and c.sessao.data and c.reserva is None
+    }
+    est_ids = {c.estudante_id for c in consumos if c.reserva is None}
+    if not datas or not est_ids or sessao_db is None:
+        return {}
+    reservas = (
+        sessao_db.query(Reserva)
+        .options(selectinload(Reserva.grupos))
+        .filter(
+            Reserva.estudante_id.in_(est_ids),
+            Reserva.data.in_(datas),
+            Reserva.cancelada.is_(False),
+        )
+        .all()
+    )
+    return {(r.estudante_id, r.data): r for r in reservas}
+
+
 def _escrever_consumos_em_planilha(
     workbook: xlsxwriter.Workbook,
     worksheet_name: str,
     consumos: Sequence[Consumo],
     incluir_sessao_id: bool,
+    mapa_reservas_dia: Optional[Dict[Tuple[int, str], Reserva]] = None,
 ):
     """Função auxiliar para escrever uma lista de consumos em uma planilha XLSX."""
     worksheet = workbook.add_worksheet(worksheet_name)
@@ -73,14 +103,16 @@ def _escrever_consumos_em_planilha(
         elif sessao_consumo and sessao_consumo.refeicao == "lanche":
             prato = sessao_consumo.item_servido or "Lanche"
 
-        turma = (
-            consumo.estudante.grupos[0].nome if consumo.estudante.grupos else "N/A"
-        )
-        categoria = getattr(consumo.estudante, "categoria", "REGULAR")
+        data_sessao = sessao_consumo.data if sessao_consumo else "N/A"
+        reserva_ref = consumo.reserva
+        if reserva_ref is None and mapa_reservas_dia and sessao_consumo:
+            reserva_ref = mapa_reservas_dia.get((consumo.estudante_id, data_sessao))
+
+        turma, categoria = formatar_turma_e_categoria(consumo.estudante, reserva_ref)
 
         dados_linha = [
             consumo.estudante.prontuario,
-            sessao_consumo.data if sessao_consumo else "N/A",
+            data_sessao,
             consumo.estudante.nome,
             turma,
             prato,
@@ -99,7 +131,7 @@ def exportar_todos_os_consumos_para_xlsx(
 ) -> str:
     """Exporta todos os dados de consumo do banco de dados para um arquivo XLSX."""
     opcoes = [
-        selectinload(Consumo.reserva),
+        selectinload(Consumo.reserva).selectinload(Reserva.grupos),
         selectinload(Consumo.sessao),
         selectinload(Consumo.estudante).selectinload(Estudante.grupos),
     ]
@@ -116,6 +148,8 @@ def exportar_todos_os_consumos_para_xlsx(
     if not consumos:
         raise ValueError("Nenhum consumo registrado para exportar.")
 
+    mapa_reservas = _carregar_mapa_reservas_ativas(db_session, consumos)
+
     if nome_arquivo_arg:
         caminho_arquivo = nome_arquivo_arg
     else:
@@ -129,6 +163,7 @@ def exportar_todos_os_consumos_para_xlsx(
             worksheet_name="Todos os Consumos",
             consumos=consumos,
             incluir_sessao_id=True,
+            mapa_reservas_dia=mapa_reservas,
         )
     return str(caminho_arquivo)
 
@@ -142,12 +177,15 @@ def exportar_sessao_para_xlsx(
     """Exporta os dados de consumo de uma sessão específica para um arquivo XLSX."""
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
     opcoes = [
-        selectinload(Consumo.reserva),
+        selectinload(Consumo.reserva).selectinload(Reserva.grupos),
         selectinload(Consumo.sessao),
         selectinload(Consumo.estudante).selectinload(Estudante.grupos),
     ]
     consumos = repo_consumo.ler_filtrado(
         opcoes_carregamento=opcoes, sessao_id=id_sessao
+    )
+    mapa_reservas = _carregar_mapa_reservas_ativas(
+        repo_consumo.obter_sessao(), consumos
     )
 
     if nome_arquivo_arg:
@@ -170,12 +208,16 @@ def exportar_sessao_para_xlsx(
             worksheet_name=nome_arquivo[:31],
             consumos=consumos,
             incluir_sessao_id=False,
+            mapa_reservas_dia=mapa_reservas,
         )
 
         consumos_cancelados = repo_consumo.ler_filtrado(
             opcoes_carregamento=opcoes, sessao_id=id_sessao, ativo=False
         )
         if consumos_cancelados:
+            mapa_res_canc = _carregar_mapa_reservas_ativas(
+                repo_consumo.obter_sessao(), consumos_cancelados
+            )
             ws_cancelados = workbook.add_worksheet("Cancelados")
             cab_cancelados = [
                 "Matrícula",
@@ -190,10 +232,11 @@ def exportar_sessao_para_xlsx(
             ]
             ws_cancelados.write_row(0, 0, cab_cancelados)
             for j, c_canc in enumerate(consumos_cancelados):
-                turma_canc = (
-                    c_canc.estudante.grupos[0].nome
-                    if c_canc.estudante.grupos
-                    else "N/A"
+                res_ref = c_canc.reserva or mapa_res_canc.get(
+                    (c_canc.estudante_id, sessao.data)
+                )
+                turma_canc, cat_canc = formatar_turma_e_categoria(
+                    c_canc.estudante, res_ref
                 )
                 prato_canc = (
                     c_canc.reserva.prato
@@ -210,12 +253,33 @@ def exportar_sessao_para_xlsx(
                         turma_canc,
                         prato_canc,
                         c_canc.hora_consumo,
-                        getattr(c_canc.estudante, "categoria", "REGULAR"),
+                        cat_canc,
                         c_canc.deletado_por or "",
                         c_canc.motivo_cancelamento or "",
                     ],
                 )
     return str(caminho_arquivo)
+
+
+def _montar_dados_exportacao_estudantes(
+    repo_estudante: RepositorioEstudante,
+) -> List[Dict[str, Any]]:
+    """Monta linhas padronizadas de estudantes separando turmas e categorias."""
+    estudantes = repo_estudante.ler_todos_com_grupos()
+    dados = []
+    for est in estudantes:
+        turma_str, cat_str = formatar_turma_e_categoria(est, turma_vazia="")
+        dados.append(
+            {
+                "id": est.id,
+                "prontuario": est.prontuario,
+                "nome": est.nome,
+                "grupos": turma_str,
+                "categoria": cat_str,
+                "ativo": "Sim" if getattr(est, "ativo", True) else "Não",
+            }
+        )
+    return dados
 
 
 def exportar_estudantes_para_csv(
@@ -227,21 +291,11 @@ def exportar_estudantes_para_csv(
     caminho = Path(caminho_arquivo)
     caminho.parent.mkdir(parents=True, exist_ok=True)
 
-    if estudantes_dados is not None:
-        dados = estudantes_dados
-    else:
-        estudantes = repo_estudante.ler_todos()
-        dados = [
-            {
-                "id": est.id,
-                "prontuario": est.prontuario,
-                "nome": est.nome,
-                "grupos": ", ".join(g.nome for g in est.grupos) if est.grupos else "",
-                "categoria": getattr(est, "categoria", "REGULAR") or "REGULAR",
-                "ativo": "Sim" if getattr(est, "ativo", True) else "Não",
-            }
-            for est in estudantes
-        ]
+    dados = (
+        estudantes_dados
+        if estudantes_dados is not None
+        else _montar_dados_exportacao_estudantes(repo_estudante)
+    )
 
     keys = (
         list(dados[0].keys())
@@ -264,27 +318,20 @@ def exportar_estudantes_para_xlsx(
     caminho = Path(caminho_arquivo)
     caminho.parent.mkdir(parents=True, exist_ok=True)
 
-    if estudantes_dados is not None:
-        dados = estudantes_dados
-    else:
-        estudantes = repo_estudante.ler_todos()
-        dados = [
-            {
-                "id": est.id,
-                "prontuario": est.prontuario,
-                "nome": est.nome,
-                "grupos": ", ".join(g.nome for g in est.grupos) if est.grupos else "",
-                "categoria": getattr(est, "categoria", "REGULAR") or "REGULAR",
-                "ativo": "Sim" if getattr(est, "ativo", True) else "Não",
-            }
-            for est in estudantes
-        ]
+    dados = (
+        estudantes_dados
+        if estudantes_dados is not None
+        else _montar_dados_exportacao_estudantes(repo_estudante)
+    )
 
     with xlsxwriter.Workbook(str(caminho), _OPCOES_XLSX_SEGURO) as workbook:
         ws = workbook.add_worksheet("Alunos")
-        cabecalho = ["ID", "Prontuário", "Nome", "Turmas", "Ativo"]
+        cabecalho = ["ID", "Prontuário", "Nome", "Turmas", "Categorias", "Ativo"]
         ws.write_row(0, 0, cabecalho)
         for i, row in enumerate(dados):
+            turmas_val = row.get("turma") if "turma" in row else row.get("grupos", "")
+            if isinstance(turmas_val, list):
+                turmas_val = ", ".join(turmas_val)
             ws.write_row(
                 i + 1,
                 0,
@@ -292,7 +339,8 @@ def exportar_estudantes_para_xlsx(
                     row.get("id", ""),
                     _sanitizar_celula_planilha(row.get("prontuario", "")),
                     _sanitizar_celula_planilha(row.get("nome", "")),
-                    _sanitizar_celula_planilha(row.get("grupos", "")),
+                    _sanitizar_celula_planilha(turmas_val),
+                    _sanitizar_celula_planilha(row.get("categoria", "-")),
                     row.get("ativo", "Sim"),
                 ],
             )
@@ -320,6 +368,7 @@ def exportar_reservas_para_csv(
                 "prontuario": r.get("prontuario_estudante"),
                 "nome": r.get("nome_estudante"),
                 "prato": r.get("prato"),
+                "categorias": r.get("categorias_str", "-"),
                 "cancelada": "Sim" if r.get("cancelada") else "Não",
             }
             for r in reservas
@@ -328,7 +377,7 @@ def exportar_reservas_para_csv(
     keys = (
         list(dados[0].keys())
         if dados
-        else ["id", "data", "prontuario", "nome", "prato", "cancelada"]
+        else ["id", "data", "prontuario", "nome", "prato", "categorias", "cancelada"]
     )
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
@@ -358,6 +407,7 @@ def exportar_reservas_para_xlsx(
                 "prontuario": r.get("prontuario_estudante"),
                 "nome": r.get("nome_estudante"),
                 "prato": r.get("prato"),
+                "categorias": r.get("categorias_str", "-"),
                 "cancelada": "Sim" if r.get("cancelada") else "Não",
             }
             for r in reservas
@@ -365,7 +415,7 @@ def exportar_reservas_para_xlsx(
 
     with xlsxwriter.Workbook(str(caminho), _OPCOES_XLSX_SEGURO) as workbook:
         ws = workbook.add_worksheet("Reservas")
-        cabecalho = ["ID", "Data", "Prontuário", "Nome Aluno", "Prato", "Cancelada"]
+        cabecalho = ["ID", "Data", "Prontuário", "Nome Aluno", "Prato", "Categorias", "Cancelada"]
         ws.write_row(0, 0, cabecalho)
         for i, row in enumerate(dados):
             ws.write_row(
@@ -377,6 +427,7 @@ def exportar_reservas_para_xlsx(
                     _sanitizar_celula_planilha(row.get("prontuario", "")),
                     _sanitizar_celula_planilha(row.get("nome", "")),
                     _sanitizar_celula_planilha(row.get("prato", "")),
+                    _sanitizar_celula_planilha(row.get("categorias", row.get("categorias_str", "-"))),
                     row.get("cancelada", "Não"),
                 ],
             )
@@ -400,6 +451,7 @@ def exportar_turmas_para_csv(
             {
                 "id": g.id,
                 "nome": g.nome,
+                "tipo": "Categoria" if getattr(g, "eh_categoria", False) else "Turma",
                 "ativo": "Sim" if getattr(g, "ativo", True) else "Não",
                 "total_alunos": len(g.estudantes) if hasattr(g, "estudantes") else 0,
             }
@@ -409,7 +461,7 @@ def exportar_turmas_para_csv(
     keys = (
         list(dados[0].keys())
         if dados
-        else ["id", "nome", "ativo", "total_alunos"]
+        else ["id", "nome", "tipo", "ativo", "total_alunos"]
     )
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
@@ -435,6 +487,7 @@ def exportar_turmas_para_xlsx(
             {
                 "id": g.id,
                 "nome": g.nome,
+                "tipo": "Categoria" if getattr(g, "eh_categoria", False) else "Turma",
                 "ativo": "Sim" if getattr(g, "ativo", True) else "Não",
                 "total_alunos": len(g.estudantes) if hasattr(g, "estudantes") else 0,
             }
@@ -443,15 +496,18 @@ def exportar_turmas_para_xlsx(
 
     with xlsxwriter.Workbook(str(caminho), _OPCOES_XLSX_SEGURO) as workbook:
         ws = workbook.add_worksheet("Turmas")
-        cabecalho = ["ID", "Nome da Turma", "Status Ativo", "Total de Alunos"]
+        cabecalho = ["ID", "Nome", "Tipo", "Status Ativo", "Total de Alunos"]
         ws.write_row(0, 0, cabecalho)
         for i, row in enumerate(dados):
+            tipo_val = row.get("tipo", TIPO_GRUPO_TURMA)
+            tipo_label = "Categoria" if str(tipo_val).lower() == "categoria" else "Turma"
             ws.write_row(
                 i + 1,
                 0,
                 [
                     row.get("id", ""),
                     _sanitizar_celula_planilha(row.get("nome", "")),
+                    tipo_label,
                     row.get("ativo", "Sim"),
                     row.get("total_alunos", 0),
                 ],

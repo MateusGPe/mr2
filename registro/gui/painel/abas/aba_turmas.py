@@ -94,7 +94,7 @@ class AbaTurmas(ttk.Frame):
         self.btn_export_turmas["menu"] = menu_exp_turmas
         self.btn_export_turmas.pack(side=RIGHT, padx=(5, 0))
 
-        # Busca de Turmas
+        # Busca e Filtro de Tipo
         busca_turma_frame = ttk.Frame(frame_esquerdo)
         busca_turma_frame.grid(row=1, column=0, sticky=EW, pady=(0, 10))
         ttk.Label(busca_turma_frame, text="Buscar:").pack(side=LEFT, padx=(0, 5))
@@ -103,13 +103,25 @@ class AbaTurmas(ttk.Frame):
         ttk.Entry(busca_turma_frame, textvariable=self.busca_turma_var).pack(
             side=LEFT, fill=X, expand=True
         )
+        ttk.Label(busca_turma_frame, text="Tipo:").pack(side=LEFT, padx=(8, 4))
+        self.filtro_tipo_var = tk.StringVar(value="Todos")
+        cbo_tipo = ttk.Combobox(
+            busca_turma_frame,
+            textvariable=self.filtro_tipo_var,
+            values=["Todos", "Turma", "Categoria"],
+            state="readonly",
+            width=11,
+        )
+        cbo_tipo.pack(side=LEFT)
+        cbo_tipo.bind("<<ComboboxSelected>>", lambda *_: self._carregar_turmas())
 
-        # Tabela de Turmas
+        # Tabela de Turmas e Categorias
         self.turmas_coldata = [
             {"text": "ID", "width": 50},
-            {"text": "Nome da Turma", "stretch": True},
-            {"text": "Qtd Alunos", "width": 90},
-            {"text": "Ativa", "width": 70},
+            {"text": "Nome", "stretch": True},
+            {"text": "Tipo", "width": 90},
+            {"text": "Qtd Alunos", "width": 85},
+            {"text": "Ativa", "width": 65},
         ]
         self.turmas_table = TreeviewSimples(
             master=frame_esquerdo,
@@ -186,11 +198,16 @@ class AbaTurmas(ttk.Frame):
     def _carregar_turmas(self):
         try:
             termo = self.busca_turma_var.get().strip()
-            turmas = self.fachada_nucleo.listar_turmas_detalhadas(termo_busca=termo)
+            tipo_sel = self.filtro_tipo_var.get().strip().lower()
+            tipo_filtro = tipo_sel if tipo_sel in ("turma", "categoria") else None
+            turmas = self.fachada_nucleo.listar_turmas_detalhadas(
+                termo_busca=termo, tipo=tipo_filtro
+            )
             dados = [
                 (
                     t["id"],
                     t["nome"],
+                    "Categoria" if t.get("tipo") == "categoria" else "Turma",
                     t["total_alunos"],
                     "Sim" if t["ativo"] else "Não",
                 )

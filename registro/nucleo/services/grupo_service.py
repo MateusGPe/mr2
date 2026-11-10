@@ -12,6 +12,10 @@ import logging
 from typing import Any, Dict, List, Optional
 from sqlalchemy.orm import selectinload
 
+from registro.nucleo.constants import (
+    TIPOS_GRUPO_VALIDOS,
+    TIPO_GRUPO_TURMA,
+)
 from registro.nucleo.exceptions import ErroNucleoRegistro
 from registro.nucleo.models import Estudante, Grupo
 from registro.nucleo.repository import RepositorioEstudante, RepositorioGrupo
@@ -19,31 +23,44 @@ from registro.nucleo.repository import RepositorioEstudante, RepositorioGrupo
 logger = logging.getLogger(__name__)
 
 
+def _normalizar_tipo_grupo(tipo: Optional[str]) -> str:
+    """Valida e normaliza o tipo do grupo ('turma' ou 'categoria')."""
+    tipo_norm = (tipo or TIPO_GRUPO_TURMA).strip().lower()
+    if tipo_norm not in TIPOS_GRUPO_VALIDOS:
+        raise ValueError(
+            f"Tipo de grupo inválido: '{tipo}'. Valores permitidos: {', '.join(sorted(TIPOS_GRUPO_VALIDOS))}."
+        )
+    return tipo_norm
+
+
 def criar_grupo(
     repo_grupo: RepositorioGrupo,
     nome: str,
     ativo: bool = True,
+    tipo: str = TIPO_GRUPO_TURMA,
 ) -> Dict[str, Any]:
-    """Cria uma nova turma / grupo."""
+    """Cria uma nova turma ou categoria."""
     nome_limpo = nome.strip()
     if not nome_limpo:
-        raise ValueError("O nome da turma não pode estar vazio.")
+        raise ValueError("O nome da turma/categoria não pode estar vazio.")
+
+    tipo_norm = _normalizar_tipo_grupo(tipo)
 
     existente = repo_grupo.por_nome(nome_limpo)
     if existente:
-        raise ValueError(f"A turma '{nome_limpo}' já existe.")
+        raise ValueError(f"O grupo '{nome_limpo}' já existe.")
 
-    grupo = repo_grupo.criar({"nome": nome_limpo, "ativo": ativo})
+    grupo = repo_grupo.criar({"nome": nome_limpo, "ativo": ativo, "tipo": tipo_norm})
     try:
         repo_grupo.obter_sessao().commit()
     except Exception as e:
-        logger.exception("Falha ao criar turma %s: %s", nome_limpo, e)
+        logger.exception("Falha ao criar grupo %s: %s", nome_limpo, e)
         try:
             repo_grupo.obter_sessao().rollback()
         except Exception:
             pass
-        raise ErroNucleoRegistro(f"Falha ao criar turma no banco: {e}") from e
-    return {"id": grupo.id, "nome": grupo.nome, "ativo": grupo.ativo}
+        raise ErroNucleoRegistro(f"Falha ao criar grupo no banco: {e}") from e
+    return {"id": grupo.id, "nome": grupo.nome, "ativo": grupo.ativo, "tipo": grupo.tipo}
 
 
 def atualizar_grupo(
@@ -51,7 +68,7 @@ def atualizar_grupo(
     id_grupo: int,
     dados: Dict[str, Any],
 ) -> bool:
-    """Atualiza o nome e/ou status de uma turma."""
+    """Atualiza o nome, tipo e/ou status de uma turma/categoria."""
     sessao = repo_grupo.obter_sessao()
     grupo = repo_grupo.ler_um(id_grupo)
     if not grupo:
@@ -60,11 +77,14 @@ def atualizar_grupo(
     if "nome" in dados:
         novo_nome = dados["nome"].strip()
         if not novo_nome:
-            raise ValueError("O nome da turma não pode estar vazio.")
+            raise ValueError("O nome da turma/categoria não pode estar vazio.")
         outro = repo_grupo.por_nome(novo_nome)
         if outro and outro.id != id_grupo:
-            raise ValueError(f"Já existe uma turma cadastrada com o nome '{novo_nome}'.")
+            raise ValueError(f"Já existe um grupo cadastrado com o nome '{novo_nome}'.")
         grupo.nome = novo_nome
+
+    if "tipo" in dados:
+        grupo.tipo = _normalizar_tipo_grupo(dados["tipo"])
 
     if "ativo" in dados:
         grupo.ativo = bool(dados["ativo"])
@@ -134,20 +154,25 @@ def deletar_grupo(
 def listar_turmas_detalhadas(
     repo_grupo: RepositorioGrupo,
     termo_busca: Optional[str] = None,
+    tipo: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Lista todas as turmas com quantidade de estudantes e status."""
+    """Lista grupos (turmas e categorias) com quantidade de estudantes, tipo e status."""
     sessao = repo_grupo.obter_sessao()
     query = sessao.query(Grupo).options(selectinload(Grupo.estudantes))
+
+    if tipo and tipo.strip().lower() in TIPOS_GRUPO_VALIDOS:
+        query = query.filter(Grupo.tipo == tipo.strip().lower())
 
     if termo_busca and termo_busca.strip():
         termo = f"%{termo_busca.strip()}%"
         query = query.filter(Grupo.nome.ilike(termo))
 
-    grupos = query.order_by(Grupo.nome).all()
+    grupos = query.order_by(Grupo.tipo, Grupo.nome).all()
     return [
         {
             "id": g.id,
             "nome": g.nome,
+            "tipo": getattr(g, "tipo", TIPO_GRUPO_TURMA) or TIPO_GRUPO_TURMA,
             "ativo": bool(g.ativo) if g.ativo is not None else True,
             "total_alunos": len(g.estudantes),
         }
