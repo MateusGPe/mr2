@@ -367,6 +367,7 @@ def exportar_reservas_para_csv(
                 "data": r.get("data"),
                 "prontuario": r.get("prontuario_estudante"),
                 "nome": r.get("nome_estudante"),
+                "turnos": r.get("turnos_str", "Almoço"),
                 "prato": r.get("prato"),
                 "categorias": r.get("categorias_str", "-"),
                 "cancelada": "Sim" if r.get("cancelada") else "Não",
@@ -377,7 +378,7 @@ def exportar_reservas_para_csv(
     keys = (
         list(dados[0].keys())
         if dados
-        else ["id", "data", "prontuario", "nome", "prato", "categorias", "cancelada"]
+        else ["id", "data", "prontuario", "nome", "turnos", "prato", "categorias", "cancelada"]
     )
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
@@ -406,6 +407,7 @@ def exportar_reservas_para_xlsx(
                 "data": r.get("data"),
                 "prontuario": r.get("prontuario_estudante"),
                 "nome": r.get("nome_estudante"),
+                "turnos": r.get("turnos_str", "Almoço"),
                 "prato": r.get("prato"),
                 "categorias": r.get("categorias_str", "-"),
                 "cancelada": "Sim" if r.get("cancelada") else "Não",
@@ -415,7 +417,7 @@ def exportar_reservas_para_xlsx(
 
     with xlsxwriter.Workbook(str(caminho), _OPCOES_XLSX_SEGURO) as workbook:
         ws = workbook.add_worksheet("Reservas")
-        cabecalho = ["ID", "Data", "Prontuário", "Nome Aluno", "Prato", "Categorias", "Cancelada"]
+        cabecalho = ["ID", "Data", "Prontuário", "Nome Aluno", "Turnos", "Prato", "Categorias", "Cancelada"]
         ws.write_row(0, 0, cabecalho)
         for i, row in enumerate(dados):
             ws.write_row(
@@ -426,6 +428,7 @@ def exportar_reservas_para_xlsx(
                     _sanitizar_celula_planilha(row.get("data", "")),
                     _sanitizar_celula_planilha(row.get("prontuario", "")),
                     _sanitizar_celula_planilha(row.get("nome", "")),
+                    _sanitizar_celula_planilha(row.get("turnos", row.get("turnos_str", "Almoço"))),
                     _sanitizar_celula_planilha(row.get("prato", "")),
                     _sanitizar_celula_planilha(row.get("categorias", row.get("categorias_str", "-"))),
                     row.get("cancelada", "Não"),

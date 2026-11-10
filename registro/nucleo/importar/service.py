@@ -16,6 +16,10 @@ from registro.nucleo.importar.definitions import ItemRevisao, ResumoImportacao
 from registro.nucleo.importar.strategies import EstrategiaCarregamento
 from registro.nucleo.exceptions import ErroImportacaoDados
 from registro.nucleo.facade import FachadaRegistro
+from registro.nucleo.utils import (
+    formatar_turnos_reserva,
+    resolver_turnos_reserva,
+)
 
 
 class ServicoImportacao:
@@ -94,6 +98,8 @@ class ServicoImportacao:
             
             nome_display = linha.get("nome")
             
+            alm = bool(linha.get("almoco", True))
+            jan = bool(linha.get("jantar", False))
             reservas.append(
                 {
                     "data": data,
@@ -101,6 +107,9 @@ class ServicoImportacao:
                     "aluno": nome_display,
                     "prontuario": pront,
                     "categoria": linha.get("categoria") or "-",
+                    "almoco": alm,
+                    "jantar": jan,
+                    "turnos_str": formatar_turnos_reserva(alm, jan),
                 }
             )
 
@@ -121,8 +130,8 @@ class ServicoImportacao:
         valores_padrao: Optional[Dict[str, Any]],
     ) -> List[Dict]:
         """Lógica interna: Junta Automáticos + Revisados + Defaults."""
-        lista_final = list(self._cache_automaticos)
-        
+        lista_final = [dict(item) for item in self._cache_automaticos]
+
         for item in itens_revisados:
             decisao = item["resolucao_escolhida"]
             dados = item["dados_csv"]
@@ -148,12 +157,29 @@ class ServicoImportacao:
                 dados.pop("_id_banco", None)
                 lista_final.append(dados)
 
-        
-        if valores_padrao:
-            for linha in lista_final:
-                for chave, valor in valores_padrao.items():
-                    if not linha.get(chave):
-                        linha[chave] = valor
+        defaults = valores_padrao or {}
+        default_almoco = bool(defaults.get("almoco", True))
+        default_jantar = bool(defaults.get("jantar", False))
+
+        for linha in lista_final:
+            for chave, valor in defaults.items():
+                if chave in ("almoco", "jantar"):
+                    continue
+                if not linha.get(chave):
+                    linha[chave] = valor
+
+            almoco, jantar = resolver_turnos_reserva(
+                linha,
+                default_almoco=default_almoco,
+                default_jantar=default_jantar,
+            )
+            if linha.get("data") and not almoco and not jantar:
+                raise ErroImportacaoDados(
+                    "Selecione ou informe pelo menos Almoço ou Jantar para as reservas."
+                )
+            linha["almoco"] = almoco
+            linha["jantar"] = jantar
+
         return lista_final
 
     def _persistir_dados(self, dados: List[Dict]) -> Dict[str, int]:

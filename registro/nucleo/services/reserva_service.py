@@ -24,10 +24,24 @@ from registro.nucleo.repository import (
 )
 from registro.nucleo.utils import (
     extrair_turmas_e_categorias,
+    formatar_turnos_reserva,
     normalizar_lista_categorias,
+    resolver_turnos_reserva,
 )
 
 logger = logging.getLogger(__name__)
+
+
+def _validar_turnos_reserva(almoco: bool, jantar: bool) -> None:
+    """Garante que a reserva possua pelo menos um turno (almoço ou jantar) marcado."""
+    if not almoco and not jantar:
+        raise ValueError("A reserva deve incluir pelo menos Almoço ou Jantar.")
+
+
+def _limpar_chaves_turno_payload(payload: Dict[str, Any]) -> None:
+    """Remove chaves auxiliares de turno antes de persistir no modelo Reserva."""
+    for chave in ("almoço", "turno", "tipo_refeicao"):
+        payload.pop(chave, None)
 
 
 def _sincronizar_categorias_reserva(
@@ -68,6 +82,11 @@ def criar_reserva(
     else:
         payload.pop("categoria", None)
 
+    almoco, jantar = resolver_turnos_reserva(payload)
+    _validar_turnos_reserva(almoco, jantar)
+    _limpar_chaves_turno_payload(payload)
+    payload["almoco"] = almoco
+    payload["jantar"] = jantar
     payload["estudante_id"] = estudantes[0].id
 
     nova_reserva = repo_reserva.criar(payload)
@@ -91,6 +110,9 @@ def criar_reserva(
         "estudante_id": nova_reserva.estudante_id,
         "prato": nova_reserva.prato,
         "data": nova_reserva.data,
+        "almoco": bool(nova_reserva.almoco),
+        "jantar": bool(nova_reserva.jantar),
+        "turnos_str": formatar_turnos_reserva(bool(nova_reserva.almoco), bool(nova_reserva.jantar)),
         "cancelada": nova_reserva.cancelada,
         "categorias": cats_salvas,
     }
@@ -111,9 +133,29 @@ def atualizar_reserva(
     else:
         payload.pop("categoria", None)
 
-    reserva = repo_reserva.atualizar(id_reserva, payload) if payload else repo_reserva.ler_um(
+    chaves_turno = {"almoco", "almoço", "jantar", "turno", "tipo_refeicao"}
+    tem_turno = any(k in payload for k in chaves_turno)
+
+    reserva = repo_reserva.ler_um(
         id_reserva, opcoes_carregamento=[selectinload(Reserva.grupos)]
     )
+    if not reserva:
+        return False
+
+    if tem_turno:
+        almoco, jantar = resolver_turnos_reserva(
+            payload,
+            default_almoco=bool(getattr(reserva, "almoco", True)),
+            default_jantar=bool(getattr(reserva, "jantar", False)),
+        )
+        _validar_turnos_reserva(almoco, jantar)
+        _limpar_chaves_turno_payload(payload)
+        payload["almoco"] = almoco
+        payload["jantar"] = jantar
+
+    if payload:
+        reserva = repo_reserva.atualizar(id_reserva, payload)
+
     if reserva:
         if has_cats:
             rg = repo_grupo or RepositorioGrupo(repo_reserva.obter_sessao())
@@ -190,6 +232,12 @@ def listar_reservas(
         reservas = repo_reserva.por_data_e_grupos(
             grupos_ids=grupos_ids, data_formatada=filtros.get("data")
         )
+        if "almoco" in filtros:
+            reservas = [r for r in reservas if bool(r.almoco) == bool(filtros["almoco"])]
+        if "jantar" in filtros:
+            reservas = [r for r in reservas if bool(r.jantar) == bool(filtros["jantar"])]
+        if "cancelada" in filtros:
+            reservas = [r for r in reservas if bool(r.cancelada) == bool(filtros["cancelada"])]
     else:
         reservas = repo_reserva.ler_filtrado(
             opcoes_carregamento=[
@@ -203,6 +251,8 @@ def listar_reservas(
     for res in reservas:
         turmas_est, _ = extrair_turmas_e_categorias(res.estudante)
         cats_reserva = sorted(g.nome for g in (res.grupos or []))
+        alm = bool(getattr(res, "almoco", True))
+        jan = bool(getattr(res, "jantar", False))
         resultado.append(
             {
                 "id": res.id,
@@ -211,6 +261,9 @@ def listar_reservas(
                 "turma_estudante": ", ".join(turmas_est) if turmas_est else "N/A",
                 "prato": res.prato,
                 "data": res.data,
+                "almoco": alm,
+                "jantar": jan,
+                "turnos_str": formatar_turnos_reserva(alm, jan),
                 "cancelada": res.cancelada,
                 "categorias": cats_reserva,
                 "categorias_str": ", ".join(cats_reserva) if cats_reserva else "-",
@@ -239,6 +292,129 @@ def atualizar_cancelamento_reserva(
         raise ErroNucleoRegistro(f"Falha ao atualizar cancelamento da reserva: {e}") from e
 
 
+def persistir_ou_mesclar_reservas(
+    repo_reserva: RepositorioReserva,
+    itens: List[Dict[str, Any]],
+    repo_grupo: Optional[RepositorioGrupo] = None,
+) -> Tuple[int, int]:
+    """
+    Persiste reservas em lote mesclando turnos (`almoco` / `jantar` via OR) e
+    categorias quando já houver reserva para o mesmo `(estudante_id, data)`
+    no mesmo lote ou no banco de dados.
+
+    Retorna `(quantidade_criadas, quantidade_atualizadas)`.
+    """
+    if not itens:
+        return 0, 0
+
+    consolidado: Dict[Tuple[int, str], Dict[str, Any]] = {}
+    todas_categorias: Set[str] = set()
+
+    for item in itens:
+        est_id = item["estudante_id"]
+        data = item["data"]
+        almoco = bool(item.get("almoco", True))
+        jantar = bool(item.get("jantar", False))
+        _validar_turnos_reserva(almoco, jantar)
+
+        cats = normalizar_lista_categorias(item.get("categorias"))
+        todas_categorias.update(cats)
+        chave = (est_id, data)
+
+        if chave not in consolidado:
+            consolidado[chave] = {
+                "estudante_id": est_id,
+                "data": data,
+                "prato": item.get("prato"),
+                "almoco": almoco,
+                "jantar": jantar,
+                "cancelada": bool(item.get("cancelada", False)),
+                "categorias": list(cats),
+            }
+        else:
+            prev = consolidado[chave]
+            prev["almoco"] = prev["almoco"] or almoco
+            prev["jantar"] = prev["jantar"] or jantar
+            if (not prev["prato"] or prev["prato"] == "Não especificado") and item.get("prato"):
+                prev["prato"] = item.get("prato")
+            for c in cats:
+                if c not in prev["categorias"]:
+                    prev["categorias"].append(c)
+
+    sessao_db = repo_reserva.obter_sessao()
+    est_ids = {k[0] for k in consolidado}
+    datas = {k[1] for k in consolidado}
+    existentes = (
+        sessao_db.query(Reserva)
+        .filter(Reserva.estudante_id.in_(est_ids), Reserva.data.in_(datas))
+        .all()
+    )
+    mapa_existentes: Dict[Tuple[int, str], Reserva] = {
+        (r.estudante_id, r.data): r for r in existentes
+    }
+
+    para_inserir: List[Dict[str, Any]] = []
+    atualizadas = 0
+    categorias_por_chave: Dict[Tuple[int, str], List[str]] = {}
+
+    for chave, item in consolidado.items():
+        if item["categorias"]:
+            categorias_por_chave[chave] = item["categorias"]
+
+        res_db = mapa_existentes.get(chave)
+        if res_db is not None:
+            novo_alm = bool(getattr(res_db, "almoco", True)) or item["almoco"]
+            novo_jan = bool(getattr(res_db, "jantar", False)) or item["jantar"]
+            mudou = (novo_alm != bool(res_db.almoco)) or (novo_jan != bool(res_db.jantar))
+            res_db.almoco = novo_alm
+            res_db.jantar = novo_jan
+            if (not res_db.prato or res_db.prato == "Não especificado") and item["prato"]:
+                res_db.prato = item["prato"]
+                mudou = True
+            if mudou:
+                atualizadas += 1
+        else:
+            para_inserir.append(
+                {
+                    "estudante_id": item["estudante_id"],
+                    "prato": item["prato"],
+                    "data": item["data"],
+                    "almoco": item["almoco"],
+                    "jantar": item["jantar"],
+                    "cancelada": item["cancelada"],
+                }
+            )
+
+    if para_inserir:
+        repo_reserva.criar_em_massa(para_inserir)
+
+    if categorias_por_chave:
+        rg = repo_grupo or RepositorioGrupo(sessao_db)
+        mapa_grupos = rg.obter_ou_criar_por_nomes(
+            todas_categorias, tipo=TIPO_GRUPO_CATEGORIA
+        )
+        est_cats = {k[0] for k in categorias_por_chave}
+        datas_cats = {k[1] for k in categorias_por_chave}
+        reservas_db = (
+            sessao_db.query(Reserva)
+            .filter(Reserva.estudante_id.in_(est_cats), Reserva.data.in_(datas_cats))
+            .all()
+        )
+        assoc_rows = []
+        for res in reservas_db:
+            for c_nome in categorias_por_chave.get((res.estudante_id, res.data), []):
+                g = mapa_grupos.get(c_nome)
+                if g:
+                    assoc_rows.append({"reserva_id": res.id, "grupo_id": g.id})
+        if assoc_rows:
+            sessao_db.execute(
+                insert(associacao_reserva_grupo).prefix_with("OR IGNORE"),
+                assoc_rows,
+            )
+
+    return len(para_inserir), atualizadas
+
+
 def salvar_importacao_dados(
     repo_estudante: RepositorioEstudante,
     repo_reserva: RepositorioReserva,
@@ -248,7 +424,6 @@ def salvar_importacao_dados(
     """Persiste dados importados de estudantes e reservas de forma atômica."""
     novos_estudantes = []
     reservas_para_criar = []
-    todas_categorias_reservas: Set[str] = set()
 
     for linha in dados:
         id_banco = linha.get("_id_banco")
@@ -256,6 +431,9 @@ def salvar_importacao_dados(
 
         if not (data := linha.get("data")):
             continue
+
+        almoco, jantar = resolver_turnos_reserva(linha)
+        _validar_turnos_reserva(almoco, jantar)
 
         if not id_banco and pront:
             novos_estudantes.append(
@@ -269,13 +447,14 @@ def salvar_importacao_dados(
         cats_linha = normalizar_lista_categorias(
             linha.get("categorias") if linha.get("categorias") is not None else linha.get("categoria")
         )
-        todas_categorias_reservas.update(cats_linha)
 
         reservas_para_criar.append(
             {
                 "payload": {
                     "prato": linha.get("prato"),
                     "data": data,
+                    "almoco": almoco,
+                    "jantar": jantar,
                     "cancelada": False,
                 },
                 "chave": id_banco if id_banco else pront,
@@ -297,8 +476,7 @@ def salvar_importacao_dados(
         objs = repo_estudante.por_prontuarios(pronts)
         mapa_ids = {e.prontuario: e.id for e in objs}
 
-    reservas_finais = []
-    categorias_por_chave: Dict[Tuple[int, str], List[str]] = {}
+    itens_reservas: List[Dict[str, Any]] = []
     for item in reservas_para_criar:
         chave = item["chave"]
         id_final = None
@@ -310,39 +488,21 @@ def salvar_importacao_dados(
 
         if id_final:
             payload = item["payload"]
-            payload["estudante_id"] = id_final
-            reservas_finais.append(payload)
-            if item["categorias"]:
-                categorias_por_chave[(id_final, payload["data"])] = item["categorias"]
-
-    if reservas_finais:
-        repo_reserva.criar_em_massa(reservas_finais)
-
-    if categorias_por_chave:
-        sessao_db = repo_estudante.obter_sessao()
-        rg = repo_grupo or RepositorioGrupo(sessao_db)
-        mapa_grupos = rg.obter_ou_criar_por_nomes(
-            todas_categorias_reservas, tipo=TIPO_GRUPO_CATEGORIA
-        )
-        est_ids = {k[0] for k in categorias_por_chave}
-        datas = {k[1] for k in categorias_por_chave}
-        reservas_db = (
-            sessao_db.query(Reserva)
-            .filter(Reserva.estudante_id.in_(est_ids), Reserva.data.in_(datas))
-            .all()
-        )
-        assoc_rows = []
-        for res in reservas_db:
-            cats = categorias_por_chave.get((res.estudante_id, res.data), [])
-            for c_nome in cats:
-                g = mapa_grupos.get(c_nome)
-                if g:
-                    assoc_rows.append({"reserva_id": res.id, "grupo_id": g.id})
-        if assoc_rows:
-            sessao_db.execute(
-                insert(associacao_reserva_grupo).prefix_with("OR IGNORE"),
-                assoc_rows,
+            itens_reservas.append(
+                {
+                    "estudante_id": id_final,
+                    "prato": payload["prato"],
+                    "data": payload["data"],
+                    "almoco": payload["almoco"],
+                    "jantar": payload["jantar"],
+                    "cancelada": payload["cancelada"],
+                    "categorias": item["categorias"],
+                }
             )
+
+    criadas, atualizadas = persistir_ou_mesclar_reservas(
+        repo_reserva, itens_reservas, repo_grupo=repo_grupo
+    )
 
     try:
         repo_estudante.obter_sessao().commit()
@@ -356,5 +516,6 @@ def salvar_importacao_dados(
 
     return {
         "estudantes_criados": len(unicos),
-        "reservas_criadas": len(reservas_finais),
+        "reservas_criadas": criadas,
+        "reservas_atualizadas": atualizadas,
     }

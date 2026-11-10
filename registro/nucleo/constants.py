@@ -123,6 +123,9 @@ CABECALHO_RESERVAS: List[str] = [
     "TURMA",
     "REFEIÇÃO",
     "DIA DA SEMANA",
+    "CATEGORIA",
+    "ALMOÇO",
+    "JANTAR",
 ]
 
 CABECALHO_CONFIGURACAO: List[str] = [

@@ -254,3 +254,77 @@ def test_dialogo_sessao_editar_sessao_ativa(app_root, ambiente_gui, mock_message
         detalhes = facade.obter_detalhes_sessao_ativa()
         assert detalhes["item_servido"] == "Salada de Frutas Especial"
         assert set(detalhes["grupos"]) == {"2º BEM"}
+
+
+def test_grade_do_dia_com_coringa_seleciona_todas_turmas_e_categorias(
+    app_root, ambiente_gui, mock_messagebox, tmp_path, monkeypatch
+):
+    """Garante que '*' / '*' na grade preenche todas as turmas e categorias nos diálogos."""
+    facade = ambiente_gui["facade"]
+    facade.criar_grupo("PAP", tipo="categoria")
+    app_root.fachada_nucleo = facade
+
+    caminho_grade = tmp_path / "grade_coringa_gui.json"
+    grade = {
+        "terca": {
+            "almoco": [
+                {"inicio": "11:30", "fim": "13:30", "turmas": ["*"], "categorias": ["*"]}
+            ],
+            "lanche": [
+                {"inicio": "09:30", "fim": "10:00", "turmas": ["*"], "categorias": ["*"]}
+            ],
+        }
+    }
+    grade_horarios_service.salvar_grade_horarios(grade, caminho_grade)
+    monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
+    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "terca")
+
+    with patch.object(DialogoFiltroTurmas, "grab_set"), \
+         patch.object(DialogoFiltroTurmas, "transient"), \
+         patch.object(DialogoFiltroTurmas, "deiconify"), \
+         patch.object(DialogoFiltroTurmas, "_centralizar_janela"):
+
+        dialogo_filtro = DialogoFiltroTurmas(
+            parent=app_root,
+            fachada_nucleo=facade,
+            callback_aplicar=lambda s: None,
+        )
+        app_root.update()
+
+        dialogo_filtro._ao_limpar_todas()
+        dialogo_filtro._ao_selecionar_grade()
+        app_root.update()
+
+        assert mock_messagebox.info_calls == []
+        marcados_filtro = {
+            ident
+            for ident, var, _ in dialogo_filtro._dados_checkbox
+            if var.get() and not ident.startswith("#")
+        }
+        assert {"1º BEM", "2º BEM", "1º MEC", "PAP"}.issubset(marcados_filtro)
+        dialogo_filtro.destroy()
+
+    with patch.object(DialogoSessao, "grab_set"), \
+         patch.object(DialogoSessao, "transient"), \
+         patch.object(DialogoSessao, "deiconify"), \
+         patch.object(DialogoSessao, "_centralizar_janela"):
+
+        dialogo_sessao = DialogoSessao(
+            title="Sessão",
+            callback=lambda sid: True,
+            parente_app=app_root,
+        )
+        app_root.update()
+
+        dialogo_sessao._notebook.select(1)
+        dialogo_sessao._combobox_refeicao.set("Almoço")
+        dialogo_sessao._ao_limpar_turmas(modo_edicao=False)
+        dialogo_sessao._ao_selecionar_grade_do_dia(modo_edicao=False)
+        app_root.update()
+
+        assert mock_messagebox.info_calls == []
+        marcados_sessao = {
+            nome for nome, var, _ in dialogo_sessao._dados_checkbox_turmas if var.get()
+        }
+        assert {"1º BEM", "2º BEM", "1º MEC", "PAP"}.issubset(marcados_sessao)
+        dialogo_sessao.destroy()

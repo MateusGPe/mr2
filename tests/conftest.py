@@ -161,18 +161,22 @@ def criar_sessao(db_session: Session) -> Callable[..., Sessao]:
 
 @pytest.fixture
 def criar_reserva(db_session: Session) -> Callable[..., Reserva]:
-    """Factory para criar instâncias de Reserva de almoço."""
+    """Factory para criar instâncias de Reserva de almoço e/ou jantar."""
 
     def _criar(
         estudante: Estudante,
         data: str = "21/10/2026",
         prato: Optional[str] = "Padrão",
+        almoco: bool = True,
+        jantar: bool = False,
         cancelada: bool = False,
     ) -> Reserva:
         reserva = Reserva(
             estudante_id=estudante.id,
             data=data,
             prato=prato,
+            almoco=almoco,
+            jantar=jantar,
             cancelada=cancelada,
         )
         db_session.add(reserva)

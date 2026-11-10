@@ -10,10 +10,10 @@ Script para geração de massa de dados complexa, válida e realista para testes
 Sistema de Registro de Refeições (mr2), com opção de envio direto ao Google Sheets.
 
 Gera dados coerentes para todas as abas:
-  - Discentes: Estudantes com prontuários, nomes, turmas e categorias (REGULAR / PAP).
+  - Discentes: Estudantes com prontuários, nomes, turmas reais e categorias/tags (PAP, ESP1, LIB0, etc.).
   - Configuração: Grade semanal de horários com turnos de almoço, jantar e lanche.
   - Lanches: Cardápio com opções diversificadas de lanches.
-  - DB: Reservas de refeições com pratos variados e dias da semana alinhados com as datas.
+  - DB: Reservas de refeições com pratos variados, dias da semana e categorias pontuais opcionais.
   - Almoço, Jantar, Lanche: Consumos realistas com estudantes com reserva e exceções.
   - Consumo_Cancelados: Auditoria de cancelamentos de consumos (soft deletes).
 """
@@ -24,7 +24,7 @@ import random
 import sys
 from datetime import date, datetime, timedelta
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 # Garante importação do pacote registro caso executado da raiz do projeto
 DIRETORIO_RAIZ = Path(__file__).resolve().parent.parent
@@ -40,8 +40,6 @@ from registro.nucleo.constants import (
     CABECALHO_EXPORTACAO,
     CABECALHO_LANCHES,
     CABECALHO_RESERVAS,
-    CATEGORIA_PADRAO,
-    CATEGORIA_PAP,
     NOME_ABA_CANCELADOS,
     NOME_ABA_CONFIGURACAO,
     NOME_ABA_ESTUDANTES,
@@ -79,16 +77,33 @@ SOBRENOMES = [
 ]
 
 TURMAS_PADRAO = [
+    "1º A - MAC",
     "1º A - MEC",
     "1º B - MEC",
+    "2º A - MAC",
     "2º A - MEC",
     "2º B - MEC",
+    "3º A - MAC",
     "3º A - MEC",
     "3º B - MEC",
-    "ESP1 - MEC",
-    "1º INF",
-    "2º INF",
-    "3º INF",
+]
+
+CATEGORIAS_PERMANENTES_OPCOES = [
+    [],
+    [],
+    [],
+    ["PAP"],
+    ["ESP1"],
+    ["LIB0"],
+    ["PAP", "ESP1"],
+    ["PAP", "LIB0"],
+]
+
+CATEGORIAS_PONTUAIS_RESERVA = [
+    "ESP1",
+    "LIB0",
+    "EVENTO_ESPORTIVO",
+    "VISITA_TECNICA",
 ]
 
 PRATOS_ALMOCO = [
@@ -166,7 +181,7 @@ class GeradorDadosTeste:
         self.estudantes: List[Dict[str, str]] = []
 
     def gerar_estudantes(self) -> List[List[str]]:
-        """Gera discentes com matrícula, nome, turma e categoria."""
+        """Gera discentes com matrícula, nome, turma real e categorias/tags permanentes."""
         self.estudantes = []
         linhas = []
         matricula_base = 3010000
@@ -181,17 +196,18 @@ class GeradorDadosTeste:
             nome_completo = f"{primeiro} {sobrenome1} {sobrenome2}"
             turma = self.rng.choice(TURMAS_PADRAO)
 
-            # ~25% PAP e ~75% REGULAR
-            categoria = CATEGORIA_PAP if self.rng.random() < 0.25 else CATEGORIA_PADRAO
+            cats_perm = sorted(self.rng.choice(CATEGORIAS_PERMANENTES_OPCOES))
+            categoria_str = ", ".join(cats_perm) if cats_perm else "-"
 
-            estudante_info = {
+            estudante_info: Dict[str, Any] = {
                 "matricula": matricula,
                 "nome": nome_completo,
                 "turma": turma,
-                "categoria": categoria,
+                "categorias_perm": cats_perm,
+                "categoria": categoria_str,
             }
             self.estudantes.append(estudante_info)
-            linhas.append([matricula, nome_completo, turma, categoria])
+            linhas.append([matricula, nome_completo, turma, categoria_str])
 
         return linhas
 
@@ -247,7 +263,7 @@ class GeradorDadosTeste:
     def gerar_reservas(self, dias: List[date]) -> List[List[str]]:
         """
         Gera as reservas para a aba 'DB'.
-        Formato: [DATA, MATRÍCULA, NOME, TURMA, REFEIÇÃO, DIA DA SEMANA]
+        Formato: [DATA, MATRÍCULA, NOME, TURMA, REFEIÇÃO, DIA DA SEMANA, CATEGORIA, ALMOÇO, JANTAR]
         """
         linhas = []
         for d in dias:
@@ -259,7 +275,24 @@ class GeradorDadosTeste:
             alunos_sorteados = self.rng.sample(self.estudantes, qtd_reservas)
 
             for aluno in alunos_sorteados:
-                prato = self.rng.choice(PRATOS_ALMOCO)
+                sorteio_turno = self.rng.random()
+                if sorteio_turno < 0.65:
+                    tem_almoco, tem_jantar = True, False
+                elif sorteio_turno < 0.85:
+                    tem_almoco, tem_jantar = True, True
+                else:
+                    tem_almoco, tem_jantar = False, True
+
+                prato = (
+                    self.rng.choice(PRATOS_JANTAR)
+                    if (tem_jantar and not tem_almoco)
+                    else self.rng.choice(PRATOS_ALMOCO)
+                )
+                cat_reserva = ""
+                if self.rng.random() < 0.20:
+                    qtd_tags = 1 if self.rng.random() < 0.80 else 2
+                    tags = sorted(self.rng.sample(CATEGORIAS_PONTUAIS_RESERVA, qtd_tags))
+                    cat_reserva = ", ".join(tags)
                 linhas.append([
                     data_str,
                     aluno["matricula"],
@@ -267,14 +300,29 @@ class GeradorDadosTeste:
                     aluno["turma"],
                     prato,
                     dia_semana_str,
+                    cat_reserva,
+                    "Sim" if tem_almoco else "Não",
+                    "Sim" if tem_jantar else "Não",
                 ])
 
         return linhas
 
+    def _categoria_efetiva_no_dia(
+        self,
+        aluno: Dict[str, Any],
+        data_str: str,
+        cats_reserva_por_data_matr: Dict[Tuple[str, str], List[str]],
+    ) -> str:
+        """Combina categorias permanentes do aluno com categorias pontuais da reserva na data."""
+        cats = set(aluno.get("categorias_perm", []))
+        cats.update(cats_reserva_por_data_matr.get((data_str, aluno["matricula"]), []))
+        return ", ".join(sorted(cats)) if cats else "-"
+
     def gerar_consumos(
         self,
         dias: List[date],
-        reservas_por_data_matr: Dict[Tuple[str, str], str],
+        reservas_por_data_matr: Dict[Tuple[str, str], Any],
+        cats_reserva_por_data_matr: Dict[Tuple[str, str], List[str]] | None = None,
     ) -> Dict[str, List[List[str]]]:
         """
         Gera os consumos realizados para os dias passados e presente (até horário atual).
@@ -286,6 +334,15 @@ class GeradorDadosTeste:
         consumos_almoco: List[List[str]] = []
         consumos_jantar: List[List[str]] = []
         consumos_lanche: List[List[str]] = []
+        cats_res_mapa = cats_reserva_por_data_matr or {}
+
+        def _info_reserva(data_s: str, matr: str) -> Optional[Dict[str, Any]]:
+            val = reservas_por_data_matr.get((data_s, matr))
+            if val is None:
+                return None
+            if isinstance(val, dict):
+                return val
+            return {"prato": str(val), "almoco": True, "jantar": False}
 
         # Apenas dias até hoje
         hoje = date.today()
@@ -294,17 +351,17 @@ class GeradorDadosTeste:
         for d in dias_consumo:
             data_str = d.strftime("%Y-%m-%d")
 
-            # 1. Almoço
-            # Entre 80% e 95% dos que tinham reserva comparecem
-            alunos_com_reserva = [
-                a for a in self.estudantes if (data_str, a["matricula"]) in reservas_por_data_matr
+            # 1. Almoço (entre 80% e 95% dos que tinham reserva de almoço comparecem)
+            alunos_com_almoco = [
+                a for a in self.estudantes
+                if (info := _info_reserva(data_str, a["matricula"])) and info.get("almoco")
             ]
-            qtd_comparecimento = int(len(alunos_com_reserva) * self.rng.uniform(0.80, 0.95))
-            presentes_com_reserva = self.rng.sample(alunos_com_reserva, qtd_comparecimento)
-
-            for aluno in presentes_com_reserva:
+            qtd_comp_alm = int(len(alunos_com_almoco) * self.rng.uniform(0.80, 0.95))
+            for aluno in self.rng.sample(alunos_com_almoco, qtd_comp_alm):
                 hora = self._gerar_horario_aleatorio(11, 35, 13, 25)
-                prato = reservas_por_data_matr[(data_str, aluno["matricula"])]
+                info = _info_reserva(data_str, aluno["matricula"]) or {}
+                prato = info.get("prato", "Padrão")
+                cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
                 consumos_almoco.append([
                     aluno["matricula"],
                     data_str,
@@ -312,17 +369,19 @@ class GeradorDadosTeste:
                     aluno["turma"],
                     prato,
                     hora,
-                    aluno["categoria"],
+                    cat_efetiva,
                 ])
 
-            # Exceções: alunos sem reserva que almoçaram (3 a 6 alunos)
-            alunos_sem_reserva = [
-                a for a in self.estudantes if (data_str, a["matricula"]) not in reservas_por_data_matr
+            # Exceções: alunos sem reserva de almoço que almoçaram (3 a 6 alunos)
+            alunos_sem_almoco = [
+                a for a in self.estudantes
+                if not ((info := _info_reserva(data_str, a["matricula"])) and info.get("almoco"))
             ]
-            if alunos_sem_reserva:
-                qtd_excecao = min(len(alunos_sem_reserva), self.rng.randint(3, 6))
-                for aluno in self.rng.sample(alunos_sem_reserva, qtd_excecao):
+            if alunos_sem_almoco:
+                qtd_excecao = min(len(alunos_sem_almoco), self.rng.randint(3, 6))
+                for aluno in self.rng.sample(alunos_sem_almoco, qtd_excecao):
                     hora = self._gerar_horario_aleatorio(12, 10, 13, 15)
+                    cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
                     consumos_almoco.append([
                         aluno["matricula"],
                         data_str,
@@ -330,7 +389,7 @@ class GeradorDadosTeste:
                         aluno["turma"],
                         "Sem Reserva (Exceção)",
                         hora,
-                        aluno["categoria"],
+                        cat_efetiva,
                     ])
 
             # 2. Lanche (Manhã e Tarde)
@@ -344,6 +403,7 @@ class GeradorDadosTeste:
                 else:
                     hora = self._gerar_horario_aleatorio(15, 32, 15, 58)
 
+                cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
                 consumos_lanche.append([
                     aluno["matricula"],
                     data_str,
@@ -351,15 +411,20 @@ class GeradorDadosTeste:
                     aluno["turma"],
                     item,
                     hora,
-                    aluno["categoria"],
+                    cat_efetiva,
                 ])
 
-            # 3. Jantar (Prioritariamente alunos PAP ou períodos integrais)
-            # 20% a 35% dos alunos
-            qtd_jantar = int(len(self.estudantes) * self.rng.uniform(0.20, 0.35))
-            for aluno in self.rng.sample(self.estudantes, qtd_jantar):
+            # 3. Jantar (entre 80% e 95% dos que tinham reserva de jantar comparecem + 1 a 3 exceções)
+            alunos_com_jantar = [
+                a for a in self.estudantes
+                if (info := _info_reserva(data_str, a["matricula"])) and info.get("jantar")
+            ]
+            qtd_comp_jan = int(len(alunos_com_jantar) * self.rng.uniform(0.80, 0.95))
+            for aluno in self.rng.sample(alunos_com_jantar, qtd_comp_jan):
                 hora = self._gerar_horario_aleatorio(17, 50, 19, 10)
-                prato = self.rng.choice(PRATOS_JANTAR)
+                info = _info_reserva(data_str, aluno["matricula"]) or {}
+                prato = info.get("prato") or self.rng.choice(PRATOS_JANTAR)
+                cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
                 consumos_jantar.append([
                     aluno["matricula"],
                     data_str,
@@ -367,8 +432,27 @@ class GeradorDadosTeste:
                     aluno["turma"],
                     prato,
                     hora,
-                    aluno["categoria"],
+                    cat_efetiva,
                 ])
+
+            alunos_sem_jantar = [
+                a for a in self.estudantes
+                if not ((info := _info_reserva(data_str, a["matricula"])) and info.get("jantar"))
+            ]
+            if alunos_sem_jantar:
+                qtd_excecao_jan = min(len(alunos_sem_jantar), self.rng.randint(1, 3))
+                for aluno in self.rng.sample(alunos_sem_jantar, qtd_excecao_jan):
+                    hora = self._gerar_horario_aleatorio(18, 20, 19, 5)
+                    cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
+                    consumos_jantar.append([
+                        aluno["matricula"],
+                        data_str,
+                        aluno["nome"],
+                        aluno["turma"],
+                        "Sem Reserva (Exceção)",
+                        hora,
+                        cat_efetiva,
+                    ])
 
         # Ordenar cada refeição cronologicamente por (Data, Hora)
         for lista in (consumos_almoco, consumos_jantar, consumos_lanche):
@@ -451,11 +535,21 @@ class GeradorDadosTeste:
         # 3. Reservas (DB)
         linhas_reservas = self.gerar_reservas(dias)
         mapa_reservas = {
-            (r[0], r[1]): r[4] for r in linhas_reservas
+            (r[0], r[1]): {
+                "prato": r[4],
+                "almoco": r[7] == "Sim",
+                "jantar": r[8] == "Sim",
+            }
+            for r in linhas_reservas
+        }
+        mapa_cats_reservas = {
+            (r[0], r[1]): [c.strip() for c in r[6].split(",") if c.strip()]
+            for r in linhas_reservas
+            if len(r) > 6 and r[6]
         }
 
         # 4. Consumos
-        consumos = self.gerar_consumos(dias, mapa_reservas)
+        consumos = self.gerar_consumos(dias, mapa_reservas, mapa_cats_reservas)
 
         # 5. Cancelados
         linhas_cancelados = self.gerar_cancelados(consumos["Almoço"])

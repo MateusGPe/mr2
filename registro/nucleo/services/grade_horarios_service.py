@@ -417,21 +417,42 @@ def obter_turmas_previstas_para_refeicao(
     refeicao: str,
     caminho_grade: Optional[Path] = None,
     incluir_categorias: bool = False,
+    turmas_disponiveis: Optional[List[str]] = None,
+    categorias_disponiveis: Optional[List[str]] = None,
 ) -> List[str]:
-    """Retorna uma lista ordenada e única de turmas (e opcionalmente categorias) previstas para o dia e refeição."""
+    """Retorna uma lista ordenada e única de turmas (e opcionalmente categorias) previstas para o dia e refeição.
+
+    Quando um slot não possui restrição específica (ex.: usa '*' / 'Todas' em turmas e
+    categorias) e as listas de grupos cadastrados são informadas, expande o acesso livre
+    para incluir todas as turmas (e categorias, se ``incluir_categorias=True``).
+    """
     grade = carregar_grade_horarios(caminho_grade)
     dia = _normalizar_chave(dia_semana)
     ref = _normalizar_chave(refeicao)
 
     slots = grade.get(dia, {}).get(ref, [])
     grupos: Set[str] = set()
+    coringas = {"*", "TODAS"}
     for s in slots:
-        for t in s.get("turmas", []):
-            if t not in ("*", "Todas", "TODAS", "todas"):
-                grupos.add(t)
+        turmas_slot = s.get("turmas", [])
+        cats_slot = s.get("categorias", [])
+        rest_turma = _tem_restricao_especifica(turmas_slot)
+        rest_cat = _tem_restricao_especifica(cats_slot)
+
+        for t in turmas_slot:
+            t_limpo = str(t).strip()
+            if t_limpo and t_limpo.upper() not in coringas:
+                grupos.add(t_limpo)
         if incluir_categorias:
-            for c in s.get("categorias", []):
-                if c not in ("*", "Todas", "TODAS", "todas"):
-                    grupos.add(c)
+            for c in cats_slot:
+                c_limpo = str(c).strip()
+                if c_limpo and c_limpo.upper() not in coringas:
+                    grupos.add(c_limpo)
+
+        if not rest_turma and not rest_cat:
+            if turmas_disponiveis:
+                grupos.update(t for t in turmas_disponiveis if t)
+            if incluir_categorias and categorias_disponiveis:
+                grupos.update(c for c in categorias_disponiveis if c)
 
     return sorted(list(grupos))

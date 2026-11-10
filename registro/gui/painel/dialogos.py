@@ -566,13 +566,31 @@ class ReservaDialog(ttk.Toplevel):
         self.prato_combobox.grid(row=3, column=1, sticky=EW, pady=(0, 10), padx=(5, 0))
         self.prato_combobox.set("Tradicional")
 
+        turnos_frame = ttk.Frame(form_frame)
+        turnos_frame.grid(row=4, column=0, columnspan=2, sticky=EW, pady=(2, 8))
+        ttk.Label(turnos_frame, text="Refeições:", anchor=W).pack(side=LEFT, padx=(0, 10))
+        self.almoco_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(
+            turnos_frame,
+            text="Almoço",
+            variable=self.almoco_var,
+            bootstyle="primary",
+        ).pack(side=LEFT, padx=(0, 12))
+        self.jantar_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(
+            turnos_frame,
+            text="Jantar",
+            variable=self.jantar_var,
+            bootstyle="info",
+        ).pack(side=LEFT)
+
         self.cancelada_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(
             form_frame,
             text="Reserva Cancelada",
             variable=self.cancelada_var,
             bootstyle="danger-round-toggle",
-        ).grid(row=4, column=0, columnspan=2, sticky=W, pady=(6, 10))
+        ).grid(row=5, column=0, columnspan=2, sticky=W, pady=(2, 10))
 
         grupos = self.fachada.listar_todos_os_grupos()
         categorias_disponiveis = sorted(
@@ -584,7 +602,7 @@ class ReservaDialog(ttk.Toplevel):
             categorias_disponiveis,
         )
         self.seletor_categorias_reserva.grid(
-            row=5, column=0, columnspan=2, sticky=EW, pady=(0, 10)
+            row=6, column=0, columnspan=2, sticky=EW, pady=(0, 10)
         )
 
         ttk.Separator(main_frame, orient=HORIZONTAL).grid(
@@ -630,6 +648,8 @@ class ReservaDialog(ttk.Toplevel):
             self.data_entry.entry.delete(0, END)
             self.data_entry.entry.insert(0, reserva.data)
             self.prato_combobox.set(reserva.prato)
+            self.almoco_var.set(bool(getattr(reserva, "almoco", True)))
+            self.jantar_var.set(bool(getattr(reserva, "jantar", False)))
             self.cancelada_var.set(reserva.cancelada)
 
             cats_res = [g.nome for g in (reserva.grupos or [])]
@@ -645,11 +665,19 @@ class ReservaDialog(ttk.Toplevel):
         aluno_selecionado = self.aluno_combobox.get().strip()
         data = self.data_entry.entry.get()
         prato = self.prato_combobox.get()
+        almoco = bool(self.almoco_var.get())
+        jantar = bool(self.jantar_var.get())
         cancelada = self.cancelada_var.get()
         categorias = self.seletor_categorias_reserva.obter_selecionadas()
 
         if not aluno_selecionado or not data:
             Messagebox.show_warning("Aluno e data são obrigatórios.", "Validação")
+            return
+
+        if not almoco and not jantar:
+            Messagebox.show_warning(
+                "Selecione pelo menos Almoço ou Jantar para a reserva.", "Validação"
+            )
             return
 
         try:
@@ -663,6 +691,8 @@ class ReservaDialog(ttk.Toplevel):
         payload = {
             "data": data,
             "prato": prato,
+            "almoco": almoco,
+            "jantar": jantar,
             "cancelada": cancelada,
             "categorias": categorias,
         }
@@ -834,7 +864,7 @@ class SessionDialog(ttk.Toplevel):
             self.result = self.fachada.iniciar_nova_sessao(dados_sessao)
             if self.result is None:
                 raise ErroSessao(
-                    "Não é possível iniciar uma sessão de almoço sem reservas ativas para a data."
+                    f"Não é possível iniciar uma sessão de {dados_sessao['refeicao']} sem reservas ativas para a data."
                 )
             self.destroy()
         except Exception as e:

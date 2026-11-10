@@ -413,6 +413,7 @@ class FachadaRegistro:
         incluir_categorias: bool = False,
     ) -> List[str]:
         """Retorna as turmas (e opcionalmente categorias) previstas na grade horária."""
+        from registro.nucleo import constants
         from registro.nucleo.services import grade_horarios_service
 
         dias_validos = {
@@ -436,11 +437,26 @@ class FachadaRegistro:
                 else grade_horarios_service.obter_dia_semana_atual()
             )
             ref_final = arg1 or "lanche"
+        ref_final = ref_final.replace("ç", "c")
+
+        grupos_cadastrados = self.listar_todos_os_grupos()
+        turmas_disponiveis = [
+            g["nome"]
+            for g in grupos_cadastrados
+            if g.get("nome") and g.get("tipo") != constants.TIPO_GRUPO_CATEGORIA
+        ]
+        categorias_disponiveis = [
+            g["nome"]
+            for g in grupos_cadastrados
+            if g.get("nome") and g.get("tipo") == constants.TIPO_GRUPO_CATEGORIA
+        ]
 
         return grade_horarios_service.obter_turmas_previstas_para_refeicao(
             dia_semana=dia_final,
             refeicao=ref_final,
             incluir_categorias=incluir_categorias,
+            turmas_disponiveis=turmas_disponiveis,
+            categorias_disponiveis=categorias_disponiveis,
         )
 
     def obter_grade_horarios(self) -> Dict[str, Any]:

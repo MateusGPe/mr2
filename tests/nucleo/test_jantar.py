@@ -17,7 +17,13 @@ def test_jantar_com_reserva_e_sem_reserva(
     )
 
     data_jantar = "25/10/2026"
-    criar_reserva(estudante=estudante_com_reserva, data=data_jantar, prato="Tradicional")
+    criar_reserva(
+        estudante=estudante_com_reserva,
+        data=data_jantar,
+        prato="Tradicional",
+        almoco=False,
+        jantar=True,
+    )
 
     sessao = criar_sessao(
         refeicao="jantar",

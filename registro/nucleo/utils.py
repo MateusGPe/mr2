@@ -70,6 +70,16 @@ MAPEAMENTO_CHAVES = {
     "categoria": "categoria",
     "tag": "categoria",
     "tags": "categoria",
+    "almoço": "almoco",
+    "almoco": "almoco",
+    "jantar": "jantar",
+    "janta": "jantar",
+    "turno": "turno",
+    "turnos": "turno",
+    "tipo": "turno",
+    "tipo refeição": "turno",
+    "tipo de refeição": "turno",
+    "tipo_refeicao": "turno",
 }
 
 
@@ -313,4 +323,99 @@ def formatar_turma_e_categoria(
     turmas_str = ", ".join(turmas) if turmas else turma_vazia
     cats_str = ", ".join(categorias) if categorias else "-"
     return turmas_str, cats_str
+
+
+_VALORES_VERDADEIROS = {"1", "true", "sim", "s", "yes", "y", "x", "ok", "ativo", "ativa"}
+_VALORES_FALSOS = {"0", "false", "nao", "não", "n", "no", "inativo", "inativa"}
+
+
+def interpretar_booleano(valor: Any, padrao: Optional[bool] = None) -> Optional[bool]:
+    """Converte representações comuns de texto/número em bool, retornando `padrao` se vazio/inválido."""
+    if valor is None:
+        return padrao
+    if isinstance(valor, bool):
+        return valor
+    if isinstance(valor, (int, float)):
+        return bool(valor)
+    texto = str(valor).strip().lower()
+    if not texto:
+        return padrao
+    if texto in _VALORES_VERDADEIROS:
+        return True
+    if texto in _VALORES_FALSOS:
+        return False
+    return padrao
+
+
+def _normalizar_texto_turno(texto: str) -> str:
+    """Remove acentuação básica de almoço/jantar para comparação uniforme."""
+    return (
+        texto.strip()
+        .lower()
+        .replace("ç", "c")
+        .replace("ã", "a")
+        .replace("á", "a")
+        .replace("â", "a")
+    )
+
+
+def resolver_turnos_reserva(
+    dados: Dict[str, Any],
+    default_almoco: bool = True,
+    default_jantar: bool = False,
+) -> Tuple[bool, bool]:
+    """
+    Resolve os flags (almoco, jantar) de um dicionário de reserva/importação.
+    Suporta chaves booleanas (`almoco`/`almoço`, `jantar`) e/ou coluna textual `turno`/`tipo_refeicao`.
+    Colunas explícitas prevalecem sobre os defaults informados.
+    """
+    alm_raw = dados.get("almoco") if "almoco" in dados else dados.get("almoço")
+    jan_raw = dados.get("jantar")
+    turno_raw = (
+        dados.get("turno")
+        if dados.get("turno") not in (None, "")
+        else dados.get("tipo_refeicao")
+    )
+
+    alm_parsed = interpretar_booleano(alm_raw, padrao=None)
+    jan_parsed = interpretar_booleano(jan_raw, padrao=None)
+
+    turno_alm: Optional[bool] = None
+    turno_jan: Optional[bool] = None
+    if turno_raw is not None and str(turno_raw).strip():
+        t_norm = _normalizar_texto_turno(str(turno_raw))
+        if t_norm in {"ambos", "ambas", "todos", "todas", "almoco e jantar", "almoco/jantar", "almoco, jantar"}:
+            turno_alm, turno_jan = True, True
+        else:
+            tem_alm = "almoco" in t_norm
+            tem_jan = "jantar" in t_norm or "janta" in t_norm
+            if tem_alm or tem_jan:
+                turno_alm = tem_alm
+                turno_jan = tem_jan
+
+    if alm_parsed is not None or jan_parsed is not None:
+        almoco = alm_parsed if alm_parsed is not None else (
+            turno_alm if turno_alm is not None else default_almoco
+        )
+        jantar = jan_parsed if jan_parsed is not None else (
+            turno_jan if turno_jan is not None else default_jantar
+        )
+        return bool(almoco), bool(jantar)
+
+    if turno_alm is not None and turno_jan is not None:
+        return turno_alm, turno_jan
+
+    return bool(default_almoco), bool(default_jantar)
+
+
+def formatar_turnos_reserva(almoco: bool, jantar: bool) -> str:
+    """Retorna rótulo legível para os turnos de uma reserva."""
+    if almoco and jantar:
+        return "Almoço e Jantar"
+    if almoco:
+        return "Almoço"
+    if jantar:
+        return "Jantar"
+    return "-"
+
 

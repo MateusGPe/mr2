@@ -144,6 +144,7 @@ class AbaReservas(ttk.Frame):
             {"text": "Data", "width": 110},
             {"text": "Aluno", "stretch": True},
             {"text": "Prontuário", "width": 130},
+            {"text": "Refeição", "width": 130},
             {"text": "Prato", "width": 120},
             {"text": "Categorias", "width": 140},
             {"text": "Status", "width": 95},
@@ -170,8 +171,8 @@ class AbaReservas(ttk.Frame):
         self.btn_toggle_cancel.configure(state="normal" if is_selected else "disabled")
         self.btn_delete_reserva.configure(state="normal" if is_selected else "disabled")
 
-        if is_selected and len(sel) >= 7:
-            status = sel[6]
+        if is_selected and len(sel) >= 8:
+            status = sel[-1]
             if status == "Cancelada":
                 self.btn_toggle_cancel.configure(text="Reativar Reserva", bootstyle="success")
             else:
@@ -212,6 +213,7 @@ class AbaReservas(ttk.Frame):
                     r["data"],
                     r["nome_estudante"],
                     r["prontuario_estudante"],
+                    r.get("turnos_str") or "Almoço",
                     r["prato"] or "Padrão",
                     r.get("categorias_str") or "-",
                     "Cancelada" if r["cancelada"] else "Ativa",
@@ -305,6 +307,7 @@ class AbaReservas(ttk.Frame):
                     "data": r["data"],
                     "prontuario": r["prontuario_estudante"],
                     "nome": r["nome_estudante"],
+                    "turnos": r.get("turnos_str") or "Almoço",
                     "prato": r.get("prato") or "Padrão",
                     "categorias": r.get("categorias_str") or "-",
                     "cancelada": "Sim" if r["cancelada"] else "Não",

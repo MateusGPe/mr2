@@ -163,7 +163,7 @@ class Estudante(Base):
 
 
 class Reserva(Base):
-    """Representa uma reserva de almoço feita por um estudante para uma data específica."""
+    """Representa uma reserva de refeição (almoço e/ou jantar) feita por um estudante para uma data específica."""
 
     __tablename__ = "reservas"
 
@@ -174,6 +174,10 @@ class Reserva(Base):
     )
     prato: Mapped[Optional[str]] = mapped_column(String(255), nullable=True)
     data: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
+    almoco: Mapped[bool] = mapped_column(
+        Boolean, default=True, nullable=False)
+    jantar: Mapped[bool] = mapped_column(
+        Boolean, default=False, nullable=False)
     cancelada: Mapped[bool] = mapped_column(
         Boolean, default=False, nullable=False)
 
@@ -183,9 +187,17 @@ class Reserva(Base):
     grupos: Mapped[List["Grupo"]] = relationship(
         secondary=associacao_reserva_grupo, back_populates="reservas", lazy="select"
     )
-    consumo: Mapped[Optional["Consumo"]] = relationship(
-        back_populates="reserva", uselist=False, lazy="select"
+    consumos: Mapped[List["Consumo"]] = relationship(
+        back_populates="reserva", lazy="select"
     )
+
+    @property
+    def consumo(self) -> Optional["Consumo"]:
+        """Retorna o consumo ativo mais recente vinculado à reserva (retrocompatibilidade)."""
+        ativos = [c for c in self.consumos if getattr(c, "ativo", False)]
+        if ativos:
+            return ativos[0]
+        return self.consumos[0] if self.consumos else None
 
     @property
     def categorias_nomes(self) -> List[str]:
@@ -202,7 +214,14 @@ class Reserva(Base):
     )
 
     def __repr__(self) -> str:
-        status = "Cancelada" if self.cancelada else "Almoço"
+        if self.cancelada:
+            status = "Cancelada"
+        elif self.almoco and self.jantar:
+            status = "Almoço e Jantar"
+        elif self.jantar:
+            status = "Jantar"
+        else:
+            status = "Almoço"
         return (
             f"<Reserva(id={self.id}, estudante_id={self.estudante_id}, data='{self.data}', "
             f"tipo='{status}', prato='{self.prato}')>"
@@ -276,7 +295,7 @@ class Consumo(Base):
     sessao: Mapped["Sessao"] = relationship(
         back_populates="consumos", lazy="joined")
     reserva: Mapped[Optional["Reserva"]] = relationship(
-        back_populates="consumo", lazy="select"
+        back_populates="consumos", lazy="select"
     )
 
     __table_args__ = (

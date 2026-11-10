@@ -209,3 +209,69 @@ def test_validar_janela_horario_ignorar_horario_atraso_refeicao(tmp_path: Path):
     assert "não permitida" in motivo_3c or "não possui autorização" in motivo_3c
 
 
+def test_obter_turmas_previstas_expande_coringas_irrestritos(tmp_path: Path):
+    """Expande '*' / 'Todas' para todos os grupos cadastrados apenas quando o slot é irrestrito."""
+    caminho_grade = tmp_path / "grade_coringas.json"
+    grade = {
+        "terca": {
+            "almoco": [
+                {"inicio": "11:30", "fim": "13:30", "turmas": ["*"], "categorias": ["*"]},
+            ],
+            "jantar": [
+                {"inicio": "17:45", "fim": "19:15", "turmas": ["*"], "categorias": ["PAP"]},
+            ],
+            "lanche": [
+                {"inicio": "09:30", "fim": "10:00", "turmas": ["1º A"], "categorias": ["*"]},
+            ],
+        }
+    }
+    grade_horarios_service.salvar_grade_horarios(grade, caminho_grade)
+
+    turmas_cadastradas = ["1º A", "2º A"]
+    cats_cadastradas = ["ESP1", "PAP"]
+
+    # Slot irrestrito ('*' em turmas e categorias) seleciona tudo
+    almoco = grade_horarios_service.obter_turmas_previstas_para_refeicao(
+        dia_semana="terca",
+        refeicao="almoço",
+        caminho_grade=caminho_grade,
+        incluir_categorias=True,
+        turmas_disponiveis=turmas_cadastradas,
+        categorias_disponiveis=cats_cadastradas,
+    )
+    assert almoco == ["1º A", "2º A", "ESP1", "PAP"]
+
+    # Sem incluir_categorias retorna apenas turmas
+    almoco_sem_cats = grade_horarios_service.obter_turmas_previstas_para_refeicao(
+        dia_semana="terca",
+        refeicao="almoço",
+        caminho_grade=caminho_grade,
+        incluir_categorias=False,
+        turmas_disponiveis=turmas_cadastradas,
+        categorias_disponiveis=cats_cadastradas,
+    )
+    assert almoco_sem_cats == ["1º A", "2º A"]
+
+    # Slot restrito por categoria ('*' em turmas, 'PAP' em categorias) mantém só 'PAP'
+    jantar = grade_horarios_service.obter_turmas_previstas_para_refeicao(
+        dia_semana="terca",
+        refeicao="jantar",
+        caminho_grade=caminho_grade,
+        incluir_categorias=True,
+        turmas_disponiveis=turmas_cadastradas,
+        categorias_disponiveis=cats_cadastradas,
+    )
+    assert jantar == ["PAP"]
+
+    # Slot restrito por turma ('1º A' em turmas, '*' em categorias) mantém só '1º A'
+    lanche = grade_horarios_service.obter_turmas_previstas_para_refeicao(
+        dia_semana="terca",
+        refeicao="lanche",
+        caminho_grade=caminho_grade,
+        incluir_categorias=True,
+        turmas_disponiveis=turmas_cadastradas,
+        categorias_disponiveis=cats_cadastradas,
+    )
+    assert lanche == ["1º A"]
+
+

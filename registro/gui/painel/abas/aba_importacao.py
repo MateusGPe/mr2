@@ -155,6 +155,8 @@ class AbaImportacao(ttk.Frame):
         self.file_path_var: tk.StringVar
         self.import_type_var: tk.StringVar
         self.default_prato_var: tk.StringVar = tk.StringVar(value="Almoço")
+        self.default_almoco_var: tk.BooleanVar = tk.BooleanVar(value=True)
+        self.default_jantar_var: tk.BooleanVar = tk.BooleanVar(value=False)
         self.default_categoria_var: tk.StringVar = tk.StringVar(value="")
         self.entry_data_default: DateEntry
 
@@ -345,15 +347,28 @@ class AbaImportacao(ttk.Frame):
         )
         self.entry_data_default.pack(side=LEFT, padx=(5, 15))
 
-        ttk.Label(def_frame, text="Refeição:").pack(side=LEFT)
+        ttk.Label(def_frame, text="Prato:").pack(side=LEFT)
         ttk.Combobox(
             def_frame,
             textvariable=self.default_prato_var,
             values=["Almoço", "Jantar", "Lanche"],
             width=15,
-        ).pack(side=LEFT, padx=(5, 15))
+        ).pack(side=LEFT, padx=(5, 12))
 
-        ttk.Label(def_frame, text="Categorias da Reserva:").pack(side=LEFT)
+        ttk.Checkbutton(
+            def_frame,
+            text="Almoço",
+            variable=self.default_almoco_var,
+            bootstyle="primary",
+        ).pack(side=LEFT, padx=(0, 8))
+        ttk.Checkbutton(
+            def_frame,
+            text="Jantar",
+            variable=self.default_jantar_var,
+            bootstyle="info",
+        ).pack(side=LEFT, padx=(0, 12))
+
+        ttk.Label(def_frame, text="Categorias:").pack(side=LEFT)
         ttk.Entry(
             def_frame,
             textvariable=self.default_categoria_var,
@@ -423,7 +438,10 @@ class AbaImportacao(ttk.Frame):
 
     def _obter_defaults(self) -> Dict[str, Any]:
         """Captura os valores padrão definidos na UI."""
-        d = {}
+        d: Dict[str, Any] = {
+            "almoco": bool(self.default_almoco_var.get()),
+            "jantar": bool(self.default_jantar_var.get()),
+        }
         if val := self.entry_data_default.entry.get():
             d["data"] = val
         if val := self.default_prato_var.get():
@@ -451,6 +469,7 @@ class AbaImportacao(ttk.Frame):
                     r["data"],
                     r["prontuario"],
                     r["aluno"],
+                    r.get("turnos_str", "Almoço"),
                     r["prato"],
                     r.get("categoria", "-"),
                 )
@@ -510,6 +529,7 @@ class AbaImportacao(ttk.Frame):
                 {"text": "Data", "width": 80},
                 {"text": "Prontuário", "width": 80},
                 {"text": "Nome", "stretch": True},
+                {"text": "Refeição", "width": 95},
                 {"text": "Prato", "width": 90},
                 {"text": "Categorias", "width": 100},
             ],

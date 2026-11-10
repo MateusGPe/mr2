@@ -48,8 +48,9 @@ def iniciar_nova_sessao(
     )
 
     if refeicao in ("almoço", "jantar"):
+        filtro_ref = {"almoco": True} if refeicao == "almoço" else {"jantar": True}
         reservas = repo_reserva.ler_filtrado(
-            data=data_formatada, cancelada=False
+            data=data_formatada, cancelada=False, **filtro_ref
         )
         if not reservas:
             return None
@@ -155,9 +156,13 @@ def obter_estudantes_para_sessao(
         EstudanteGrupo.c.grupo_id.in_(ids_excecao_grupos)
     )
 
-    q3 = select(Reserva.estudante_id).where(
-        Reserva.data == sessao.data, Reserva.cancelada.is_(False)
-    )
+    condicoes_q3 = [Reserva.data == sessao.data, Reserva.cancelada.is_(False)]
+    if sessao.refeicao == "almoço":
+        condicoes_q3.append(Reserva.almoco.is_(True))
+    elif sessao.refeicao == "jantar":
+        condicoes_q3.append(Reserva.jantar.is_(True))
+
+    q3 = select(Reserva.estudante_id).where(*condicoes_q3)
 
     query_ids_elegiveis = union(q1, q2, q3).subquery()
 
@@ -214,7 +219,11 @@ def obter_estudantes_para_sessao(
             ids_grupos_estudante |= {g.id for g in reserva.grupos}
 
         if sessao.refeicao in ("almoço", "jantar"):
-            if reserva and (
+            reserva_ref_valida = reserva is not None and (
+                (sessao.refeicao == "almoço" and bool(getattr(reserva, "almoco", True)))
+                or (sessao.refeicao == "jantar" and bool(getattr(reserva, "jantar", False)))
+            )
+            if reserva_ref_valida and (
                 ids_grupos_sessao.intersection(ids_grupos_estudante)
                 or ids_excecao_grupos.intersection(ids_grupos_estudante)
                 or pular_grupos

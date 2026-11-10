@@ -205,3 +205,44 @@ def test_painel_dialogs_turma_tipo_e_reserva_categoria_pontual(
     assert len(aba_res.dados_reservas_atuais) == 1
     assert aba_res.dados_reservas_atuais[0]["categorias"] == ["ESP1", "LIB0"]
     aba_res.destroy()
+
+
+def test_painel_reserva_dialog_almoco_jantar_e_aba_reservas(
+    app_root, painel_dados, mock_messagebox
+):
+    """Testa seleção de Almoço e/ou Jantar em ReservaDialog, validação e exibição na AbaReservas."""
+    from registro.gui.painel.abas.aba_reservas import AbaReservas
+    from registro.gui.painel.dialogos import ReservaDialog
+
+    facade = painel_dados["facade"]
+
+    with patch.object(ReservaDialog, "grab_set"), \
+         patch.object(ReservaDialog, "transient"), \
+         patch.object(ReservaDialog, "wait_window"):
+        dlg = ReservaDialog(app_root, facade)
+        dlg.aluno_combobox.set("IQ3000001 - Alice Ferreira")
+        dlg.data_entry.entry.delete(0, "end")
+        dlg.data_entry.entry.insert(0, "26/11/2026")
+
+        # Desmarcar ambos deve exibir aviso e impedir salvamento
+        dlg.almoco_var.set(False)
+        dlg.jantar_var.set(False)
+        dlg._on_save()
+        assert dlg.result is False
+        assert len(mock_messagebox.warning_calls) == 1
+
+        # Marcar ambos salva corretamente
+        dlg.almoco_var.set(True)
+        dlg.jantar_var.set(True)
+        dlg._on_save()
+        assert dlg.result is True
+
+    aba_res = AbaReservas(app_root, facade)
+    aba_res.var_data.set("26/11/2026")
+    aba_res._filtrar_reservas()
+    app_root.update()
+    assert len(aba_res.dados_reservas_atuais) == 1
+    assert aba_res.dados_reservas_atuais[0]["almoco"] is True
+    assert aba_res.dados_reservas_atuais[0]["jantar"] is True
+    assert aba_res.dados_reservas_atuais[0]["turnos_str"] == "Almoço e Jantar"
+    aba_res.destroy()

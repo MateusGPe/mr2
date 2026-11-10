@@ -34,6 +34,16 @@ MAPEAMENTO_CHAVES = {
     "categoria": "categoria",
     "tag": "categoria",
     "tags": "categoria",
+    "almoço": "almoco",
+    "almoco": "almoco",
+    "jantar": "jantar",
+    "janta": "jantar",
+    "turno": "turno",
+    "turnos": "turno",
+    "tipo": "turno",
+    "tipo refeição": "turno",
+    "tipo de refeição": "turno",
+    "tipo_refeicao": "turno",
 }
 
 

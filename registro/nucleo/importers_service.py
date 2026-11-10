@@ -14,19 +14,22 @@ import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Set, Tuple
 
-from sqlalchemy import insert
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from registro.nucleo.constants import TIPO_GRUPO_CATEGORIA, TIPO_GRUPO_TURMA
 from registro.nucleo.exceptions import ErroImportacaoDados
-from registro.nucleo.models import Reserva, associacao_reserva_grupo
 from registro.nucleo.repository import (
     RepositorioEstudante,
     RepositorioGrupo,
     RepositorioReserva,
 )
-from registro.nucleo.utils import ajustar_chaves_e_valores, normalizar_lista_categorias
+from registro.nucleo.services.reserva_service import persistir_ou_mesclar_reservas
+from registro.nucleo.utils import (
+    ajustar_chaves_e_valores,
+    normalizar_lista_categorias,
+    resolver_turnos_reserva,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -185,33 +188,12 @@ def importar_reservas_csv(
     caminho_arquivo_csv: Path,
     repo_grupo: Optional[RepositorioGrupo] = None,
 ) -> int:
-    """Importa reservas de um arquivo CSV, vinculando categorias pontuais à reserva sem alterar o estudante."""
+    """Importa reservas de um arquivo CSV, mesclando turnos e vinculando categorias pontuais."""
     try:
-        # Primeira passada: coletar todas as datas do CSV para uma busca otimizada.
-        datas_no_csv = set()
-        with open(caminho_arquivo_csv, "r", encoding="utf-8") as f:
-            leitor_datas = csv.DictReader(f)
-            for linha in leitor_datas:
-                if not any(v and str(v).strip() for v in linha.values()):
-                    continue
-                linha_ajustada = ajustar_chaves_e_valores(linha)
-                if data := linha_ajustada.get("data"):
-                    datas_no_csv.add(data)
-
-        # Buscar todas as reservas existentes no banco de dados para as datas encontradas.
-        reservas_existentes_db = {
-            (r.estudante_id, r.data)
-            for r in repo_reserva.ler_filtrado(data=Reserva.data.in_(datas_no_csv))
-        } if datas_no_csv else set()
-
         mapa_estudantes = {
             s.prontuario: s.id for s in repo_estudante.ler_todos()}
-        reservas_para_inserir = []
-        categorias_por_chave: Dict[Tuple[int, str], List[str]] = {}
-        todas_categorias: Set[str] = set()
+        itens_reservas = []
         linhas_ignoradas = 0
-        reservas_ignoradas_db = 0
-        chaves_unicas_reserva_csv = set()
 
         with open(caminho_arquivo_csv, "r", encoding="utf-8") as arquivo_csv:
             leitor = csv.DictReader(arquivo_csv)
@@ -220,7 +202,7 @@ def importar_reservas_csv(
                 if not any(v and str(v).strip() for v in linha_original.values()):
                     continue
                 linha = ajustar_chaves_e_valores(linha)
-                pront = linha.get("pront")
+                pront = linha.get("pront") or linha.get("prontuario")
                 data = linha.get("data")
                 id_estudante = mapa_estudantes.get(pront) if pront else None
 
@@ -233,74 +215,31 @@ def importar_reservas_csv(
                     linhas_ignoradas += 1
                     continue
 
-                chave_reserva = (id_estudante, data)
+                almoco, jantar = resolver_turnos_reserva(linha)
+                cats_linha = normalizar_lista_categorias(
+                    linha.get("categorias") if linha.get("categorias") is not None else linha.get("categoria")
+                )
 
-                if chave_reserva in reservas_existentes_db:
-                    reservas_ignoradas_db += 1
-                    continue
-
-                if chave_reserva in chaves_unicas_reserva_csv:
-                    logger.warning(
-                        "Reserva duplicada para prontuário '%s' na data '%s' (linha %d do CSV) ignorada.",
-                        pront,
-                        data,
-                        i + 2,
-                    )
-                    continue
-                chaves_unicas_reserva_csv.add(chave_reserva)
-
-                cats_linha = normalizar_lista_categorias(linha.get("categoria"))
-                if cats_linha:
-                    categorias_por_chave[chave_reserva] = cats_linha
-                    todas_categorias.update(cats_linha)
-
-                reservas_para_inserir.append(
+                itens_reservas.append(
                     {
                         "estudante_id": id_estudante,
                         "prato": linha.get("prato", "Não especificado"),
                         "data": data,
+                        "almoco": almoco,
+                        "jantar": jantar,
                         "cancelada": False,
+                        "categorias": cats_linha,
                     }
                 )
 
-        if reservas_ignoradas_db > 0:
-            logger.info(
-                "%d reservas do CSV foram ignoradas por já existirem no banco de dados.",
-                reservas_ignoradas_db,
-            )
-
-        if reservas_para_inserir:
-            repo_reserva.criar_em_massa(reservas_para_inserir)
-
-        if categorias_por_chave:
-            sessao_db = repo_reserva.obter_sessao()
-            rg = repo_grupo or RepositorioGrupo(sessao_db)
-            mapa_grupos = rg.obter_ou_criar_por_nomes(
-                todas_categorias, tipo=TIPO_GRUPO_CATEGORIA
-            )
-            est_ids = {k[0] for k in categorias_por_chave}
-            datas_cats = {k[1] for k in categorias_por_chave}
-            reservas_db = (
-                sessao_db.query(Reserva)
-                .filter(Reserva.estudante_id.in_(est_ids), Reserva.data.in_(datas_cats))
-                .all()
-            )
-            assoc_rows = []
-            for res in reservas_db:
-                for c_nome in categorias_por_chave.get((res.estudante_id, res.data), []):
-                    g = mapa_grupos.get(c_nome)
-                    if g:
-                        assoc_rows.append({"reserva_id": res.id, "grupo_id": g.id})
-            if assoc_rows:
-                sessao_db.execute(
-                    insert(associacao_reserva_grupo).prefix_with("OR IGNORE"),
-                    assoc_rows,
-                )
+        criadas, atualizadas = persistir_ou_mesclar_reservas(
+            repo_reserva, itens_reservas, repo_grupo=repo_grupo
+        )
 
         repo_reserva.obter_sessao().commit()
-        return len(reservas_para_inserir)
+        return criadas + atualizadas
 
-    except (FileNotFoundError, csv.Error, KeyError, SQLAlchemyError) as e:
+    except (FileNotFoundError, csv.Error, KeyError, ValueError, SQLAlchemyError) as e:
         repo_reserva.obter_sessao().rollback()
         raise ErroImportacaoDados(
             f"Falha ao importar reservas de '{caminho_arquivo_csv}': {e}"

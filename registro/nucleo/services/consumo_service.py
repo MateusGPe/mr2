@@ -46,12 +46,64 @@ def _obter_reserva_ativa_dia(
 ) -> Optional[models.Reserva]:
     """Busca a reserva ativa (não cancelada) do estudante para a data informada, com grupos."""
     reservas = repo_reserva.ler_filtrado(
-        opcoes_carregamento=[selectinload(models.Reserva.grupos)],
+        opcoes_carregamento=[
+            selectinload(models.Reserva.grupos),
+            selectinload(models.Reserva.consumos).selectinload(models.Consumo.sessao),
+        ],
         estudante_id=estudante_id,
         data=data,
         cancelada=False,
     )
     return reservas[0] if reservas else None
+
+
+def _reserva_atende_refeicao(reserva: models.Reserva, refeicao: str) -> bool:
+    """Verifica se a reserva está habilitada para o tipo de refeição ('almoço' ou 'jantar')."""
+    ref = (refeicao or "").strip().lower()
+    if ref == "almoço":
+        return bool(getattr(reserva, "almoco", True))
+    if ref == "jantar":
+        return bool(getattr(reserva, "jantar", False))
+    return False
+
+
+def _reserva_ja_consumida_na_refeicao(reserva: models.Reserva, refeicao: str) -> bool:
+    """Verifica se já existe consumo ativo vinculado à reserva para a mesma refeição."""
+    ref = (refeicao or "").strip().lower()
+    for consumo in getattr(reserva, "consumos", None) or []:
+        if not getattr(consumo, "ativo", False):
+            continue
+        ref_consumo = (
+            (consumo.sessao.refeicao or "").strip().lower()
+            if getattr(consumo, "sessao", None)
+            else ""
+        )
+        if not ref_consumo or ref_consumo == ref:
+            return True
+    return False
+
+
+def _buscar_reservas_para_refeicao(
+    repo_reserva: RepositorioReserva,
+    estudante_id: int,
+    data: str,
+    refeicao: str,
+):
+    """Retorna `(candidatas_para_refeicao, disponiveis_sem_consumo_na_refeicao)`."""
+    todas = repo_reserva.ler_filtrado(
+        opcoes_carregamento=[
+            selectinload(models.Reserva.grupos),
+            selectinload(models.Reserva.consumos).selectinload(models.Consumo.sessao),
+        ],
+        estudante_id=estudante_id,
+        data=data,
+        cancelada=False,
+    )
+    candidatas = [r for r in todas if _reserva_atende_refeicao(r, refeicao)]
+    disponiveis = [
+        r for r in candidatas if not _reserva_ja_consumida_na_refeicao(r, refeicao)
+    ]
+    return candidatas, disponiveis
 
 
 def _grupos_efetivos_ids_e_nomes(
@@ -85,13 +137,9 @@ def _avaliar_regra_padrao(
     )
 
     if sessao.refeicao in ("almoço", "jantar"):
-        reservas_candidatas = repo_reserva.ler_filtrado(
-            estudante_id=estudante.id, data=sessao.data, cancelada=False
+        reservas_candidatas, reservas = _buscar_reservas_para_refeicao(
+            repo_reserva, estudante.id, sessao.data, sessao.refeicao
         )
-        reservas = [
-            r for r in reservas_candidatas
-            if not (r.consumo and getattr(r.consumo, "ativo", False))
-        ]
         if reservas:
             autorizado = True
             id_reserva = reservas[0].id
@@ -146,16 +194,9 @@ def _avaliar_regra_com_reserva(
     reservas = []
     reservas_candidatas = []
     if sessao.refeicao in ("almoço", "jantar"):
-        reservas_candidatas = repo_reserva.ler_filtrado(
-            opcoes_carregamento=[selectinload(models.Reserva.grupos)],
-            estudante_id=estudante.id,
-            data=sessao.data,
-            cancelada=False,
+        reservas_candidatas, reservas = _buscar_reservas_para_refeicao(
+            repo_reserva, estudante.id, sessao.data, sessao.refeicao
         )
-        reservas = [
-            r for r in reservas_candidatas
-            if not (r.consumo and getattr(r.consumo, "ativo", False))
-        ]
 
     if not reservas:
         if sessao.refeicao in ("almoço", "jantar") and reservas_candidatas:
@@ -513,11 +554,16 @@ def atualizar_consumo(
                     reserva.prato = prato_limpo
                     consumo.reserva_id = reserva.id
                 else:
+                    ref_sessao = (consumo.sessao.refeicao or "").strip().lower()
+                    eh_jantar = ref_sessao == "jantar"
+                    eh_almoco = ref_sessao == "almoço" or not eh_jantar
                     nova_reserva = repo_reserva.criar(
                         {
                             "estudante_id": consumo.estudante_id,
                             "data": data_sessao,
                             "prato": prato_limpo,
+                            "almoco": eh_almoco,
+                            "jantar": eh_jantar,
                             "cancelada": False,
                         }
                     )
