@@ -27,12 +27,42 @@ CAMINHO_SETTINGS: Path = DIRETORIO_CONFIG / "settings.json"
 CAMINHO_SESSAO: Path = DIRETORIO_CONFIG / "session.json"
 CAMINHO_JSON_LANCHES: Path = DIRETORIO_CONFIG / "lanches.json"
 CAMINHO_JSON_PRESETS_TURMAS: Path = DIRETORIO_CONFIG / "presets_turmas.json"
+CAMINHO_JSON_TURMAS_INTEGRADO: Path = DIRETORIO_CONFIG / "turmas_integrado.json"
+CAMINHO_JSON_MAPEAMENTO_COLUNAS: Path = DIRETORIO_CONFIG / "mapeamento_colunas.json"
 CAMINHO_GRADE_HORARIOS: Path = DIRETORIO_CONFIG / "grade_horarios.json"
 JSON_ID_PLANILHA: Path = DIRETORIO_CONFIG / "spreadsheet.json"
 CAMINHO_CSV_ESTUDANTES: Path = DIRETORIO_CONFIG / "students.csv"
 CAMINHO_CSV_RESERVAS: Path = DIRETORIO_CONFIG / "reserves.csv"
 
 URL_BANCO_DADOS: str = f"sqlite:///{DIRETORIO_CONFIG.resolve()}/registro.db"
+
+# Valores padrão com fallback para configurações extraíveis em JSON
+TURMAS_INTEGRADO_PADRAO: List[str] = [
+    "1º A - MAC",
+    "1º A - MEC",
+    "1º B - MEC",
+    "2º A - MAC",
+    "2º A - MEC",
+    "2º B - MEC",
+    "3º A - MAC",
+    "3º A - MEC",
+    "3º B - MEC",
+]
+
+MAPEAMENTO_COLUNAS_PADRAO: Dict[str, str] = {
+    "matrícula iq": "pront",
+    "matrícula": "pront",
+    "prontuário": "pront",
+    "refeição": "dish",
+    "curso": "turma",
+    "situação": "status",
+    "nome completo": "nome",
+}
+
+AUDIO_FREQ_SUCESSO_PADRAO: int = 1000
+AUDIO_DUR_SUCESSO_MS_PADRAO: int = 200
+AUDIO_FREQ_ERRO_PADRAO: int = 400
+AUDIO_DUR_ERRO_MS_PADRAO: int = 1000
 
 ESCOPOS: List[str] = [
     "https://www.googleapis.com/auth/spreadsheets",

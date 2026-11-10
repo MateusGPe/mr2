@@ -19,14 +19,22 @@ from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from registro.nucleo.constants import (
+    AUDIO_DUR_ERRO_MS_PADRAO,
+    AUDIO_DUR_SUCESSO_MS_PADRAO,
+    AUDIO_FREQ_ERRO_PADRAO,
+    AUDIO_FREQ_SUCESSO_PADRAO,
     CAMINHO_CREDENCIAS,
     CAMINHO_JSON_LANCHES,
+    CAMINHO_JSON_MAPEAMENTO_COLUNAS,
     CAMINHO_JSON_PRESETS_TURMAS,
+    CAMINHO_JSON_TURMAS_INTEGRADO,
     CAMINHO_SETTINGS,
     CAMINHO_TOKEN,
     DIRETORIO_BACKUPS,
     DIRETORIO_CONFIG,
     JSON_ID_PLANILHA,
+    MAPEAMENTO_COLUNAS_PADRAO,
+    TURMAS_INTEGRADO_PADRAO,
 )
 
 logger = logging.getLogger(__name__)
@@ -39,6 +47,14 @@ CONFIG_PADRAO: Dict[str, Any] = {
         "camera_on_start": True,
         "require_pin_to_exit": True,
         "feedback_delay_ms": 1500,
+        "camera_index": 0,
+    },
+    "audio": {
+        "habilitado": True,
+        "freq_sucesso": AUDIO_FREQ_SUCESSO_PADRAO,
+        "dur_sucesso_ms": AUDIO_DUR_SUCESSO_MS_PADRAO,
+        "freq_erro": AUDIO_FREQ_ERRO_PADRAO,
+        "dur_erro_ms": AUDIO_DUR_ERRO_MS_PADRAO,
     },
 }
 
@@ -74,6 +90,12 @@ def obter_configuracoes() -> Dict[str, Any]:
     if isinstance(dados.get("totem"), dict):
         totem_config.update(dados["totem"])
     resultado["totem"] = totem_config
+
+    audio_config = dict(CONFIG_PADRAO["audio"])
+    if isinstance(dados.get("audio"), dict):
+        audio_config.update(dados["audio"])
+    resultado["audio"] = audio_config
+
     return resultado
 
 
@@ -87,6 +109,11 @@ def obter_config_totem() -> Dict[str, Any]:
     return obter_configuracoes().get("totem", CONFIG_PADRAO["totem"])
 
 
+def obter_config_audio() -> Dict[str, Any]:
+    """Retorna as preferências configuradas para áudio e feedback sonoro."""
+    return obter_configuracoes().get("audio", CONFIG_PADRAO["audio"])
+
+
 def atualizar_config_totem(chave: str, valor: Any) -> None:
     """Atualiza uma chave específica nas opções do Totem."""
     config = obter_configuracoes()
@@ -94,6 +121,36 @@ def atualizar_config_totem(chave: str, valor: Any) -> None:
         config["totem"] = dict(CONFIG_PADRAO["totem"])
     config["totem"][chave] = valor
     salvar_configuracoes(config)
+
+
+def obter_turmas_integrado() -> List[str]:
+    """Retorna a lista de turmas do integrado a partir de JSON ou padrão."""
+    turmas = _carregar_json_seguro(
+        CAMINHO_JSON_TURMAS_INTEGRADO, TURMAS_INTEGRADO_PADRAO
+    )
+    if isinstance(turmas, list) and all(isinstance(t, str) for t in turmas):
+        return list(turmas)
+    return list(TURMAS_INTEGRADO_PADRAO)
+
+
+def salvar_turmas_integrado(turmas: List[str]) -> None:
+    """Salva a lista de turmas integradas no arquivo JSON."""
+    _salvar_json_atomico(CAMINHO_JSON_TURMAS_INTEGRADO, turmas)
+
+
+def obter_mapeamento_colunas() -> Dict[str, str]:
+    """Retorna o dicionário de mapeamento de colunas externas a partir de JSON ou padrão."""
+    mapeamento = _carregar_json_seguro(
+        CAMINHO_JSON_MAPEAMENTO_COLUNAS, MAPEAMENTO_COLUNAS_PADRAO
+    )
+    if isinstance(mapeamento, dict):
+        return dict(mapeamento)
+    return dict(MAPEAMENTO_COLUNAS_PADRAO)
+
+
+def salvar_mapeamento_colunas(mapeamento: Dict[str, str]) -> None:
+    """Salva o dicionário de mapeamento de colunas externas no arquivo JSON."""
+    _salvar_json_atomico(CAMINHO_JSON_MAPEAMENTO_COLUNAS, mapeamento)
 
 
 # ----------------------------------------------------------------------------

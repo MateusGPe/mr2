@@ -35,6 +35,7 @@ from registro.gui.registrar.constants import (
     NOME_LANCHE_PADRAO,
     TURMAS_INTEGRADO,
     DadosNovaSessao,
+    obter_turmas_integrado,
 )
 from registro.gui.comum.utils import capitalizar
 from registro.nucleo.facade import FachadaRegistro
@@ -567,13 +568,15 @@ class DialogoSessao(tk.Toplevel):
         self._definir_checkboxes_turmas(lambda n, v: False, modo_edicao=modo_edicao)
 
     def _ao_selecionar_integral(self, modo_edicao: bool = False):
+        turmas_integrado = set(obter_turmas_integrado())
         self._definir_checkboxes_turmas(
-            lambda n, v: n in TURMAS_INTEGRADO, modo_edicao=modo_edicao
+            lambda n, v: n in turmas_integrado, modo_edicao=modo_edicao
         )
 
     def _ao_selecionar_outros(self, modo_edicao: bool = False):
+        turmas_integrado = set(obter_turmas_integrado())
         self._definir_checkboxes_turmas(
-            lambda n, v: n not in TURMAS_INTEGRADO, modo_edicao=modo_edicao
+            lambda n, v: n not in turmas_integrado, modo_edicao=modo_edicao
         )
 
     def _ao_inverter_turmas(self, modo_edicao: bool = False):

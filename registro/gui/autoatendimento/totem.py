@@ -22,6 +22,7 @@ from PIL import Image, ImageTk
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, CENTER, EW, NSEW, X
 
+from registro.gui.comum.utils import emitir_feedback_sonoro
 from registro.nucleo.config_service import obter_config_totem
 
 if TYPE_CHECKING:
@@ -96,6 +97,7 @@ class FrameSelfService(ttk.Frame):
         self._separador: Optional[tk.Frame] = None
         self._frame_estudante: Optional[tk.Frame] = None
         self._frame_manual: Optional[tk.LabelFrame] = None
+        self._dialogo_horarios: Optional[Any] = None
 
         self._criar_interface()
         self.recarregar_sessao()
@@ -116,6 +118,7 @@ class FrameSelfService(ttk.Frame):
     def stop(self):
         """Libera recursos, como a câmera."""
         self._running = False
+        self.fechar_dialogo_horarios()
         if self._cap:
             try:
                 self._cap.release()
@@ -131,6 +134,8 @@ class FrameSelfService(ttk.Frame):
             # Se houver diálogo Toplevel aberto e visível, o totem está em segundo plano
             for w in topo.winfo_children():
                 if isinstance(w, tk.Toplevel) and w.winfo_exists() and w.winfo_viewable():
+                    if getattr(w, "permite_leitura_totem", False):
+                        continue
                     return False
             return True
         except Exception:
@@ -186,6 +191,42 @@ class FrameSelfService(ttk.Frame):
         """Dispara a exibição do menu de contexto de controles do operador."""
         if self._abrir_controles_callback:
             self._abrir_controles_callback(widget=widget, event=event)
+
+    def _abrir_dialogo_horarios(self):
+        """Abre o diálogo de consulta de horários e turmas ativas/desativadas pelo horário."""
+        if self._dialogo_horarios and self._dialogo_horarios.winfo_exists():
+            try:
+                self._dialogo_horarios.lift()
+                self._dialogo_horarios.focus_set()
+                return
+            except Exception:
+                pass
+
+        from registro.gui.autoatendimento.dialogo_horarios import (
+            DialogoGradeHorariosTotem,
+        )
+
+        topo = self.winfo_toplevel()
+        self._dialogo_horarios = DialogoGradeHorariosTotem(
+            parent=topo,
+            fachada=self._fachada,
+            on_codigo_lido=self.processar_codigo_externo,
+            timeout_segundos=15,
+        )
+
+    def fechar_dialogo_horarios(self):
+        """Fecha o diálogo de horários caso esteja aberto."""
+        if self._dialogo_horarios and self._dialogo_horarios.winfo_exists():
+            try:
+                self._dialogo_horarios.fechar()
+            except Exception:
+                pass
+            self._dialogo_horarios = None
+
+    def processar_codigo_externo(self, codigo: str):
+        """Permite que diálogos ou periféricos externos injetem um código para processamento rápido."""
+        self.fechar_dialogo_horarios()
+        self._processar_codigo(codigo, manual=True)
 
     def recarregar_sessao(self):
         """Atualiza a UI com base na sessão ativa na fachada."""
@@ -318,7 +359,7 @@ class FrameSelfService(ttk.Frame):
         )
         self._lbl_video.grid(row=0, column=0, sticky=NSEW, padx=2, pady=2)
 
-        # Barra inferior da câmera com botão discreto de controles
+        # Barra inferior da câmera com botões de controles e consulta de horários
         frame_cam_bottom = ttk.Frame(frame_cam_container, bootstyle="dark")
         frame_cam_bottom.grid(row=1, column=0, sticky="ew", pady=(6, 2))
 
@@ -332,6 +373,15 @@ class FrameSelfService(ttk.Frame):
             command=lambda b=btn_controles: self._ao_clicar_controles(widget=b)
         )
         btn_controles.pack(side="left")
+
+        btn_horarios = ttk.Button(
+            frame_cam_bottom,
+            text=" 🕒 Horários por Turma ",
+            bootstyle="info",
+            padding=(8, 4),
+            command=self._abrir_dialogo_horarios,
+        )
+        btn_horarios.pack(side="left", padx=(8, 0))
 
         # Clique com o botão direito para exibir o menu de contexto
         self.bind("<Button-3>", lambda e: self._ao_clicar_controles(event=e))
@@ -368,8 +418,12 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg="#9CA3AF",
             anchor="center",
+            cursor="hand2",
         )
         self._lbl_refeicao_ativa.pack(fill=X, pady=(4, 0))
+        self._lbl_refeicao_ativa.bind(
+            "<Button-1>", lambda _e: self._abrir_dialogo_horarios()
+        )
 
         # Separador visual
         self._separador = tk.Frame(self._frame_info, height=2, bg="#374151")
@@ -500,8 +554,13 @@ class FrameSelfService(ttk.Frame):
         )
 
     def _exibir_erro_dependencia(self):
+        dica_so = (
+            " (No Linux: sudo apt install libzbar0)"
+            if sys.platform != "win32"
+            else ""
+        )
         msg = (
-            "Bibliotecas 'opencv-python' e/ou 'pyzbar' não encontradas.\n"
+            f"Bibliotecas 'opencv-python' e/ou 'pyzbar' não encontradas{dica_so}.\n"
             "Instale-as para usar o recurso de câmera."
         )
         self._lbl_video.config(text=msg, bootstyle="danger")
@@ -510,7 +569,8 @@ class FrameSelfService(ttk.Frame):
     def _iniciar_camera(self):
         """Inicializa a captura de vídeo."""
         try:
-            self._cap = cv2.VideoCapture(0)
+            indice_camera = int(self._totem_cfg.get("camera_index", 0))
+            self._cap = cv2.VideoCapture(indice_camera)
             if not self._cap.isOpened():
                 self._lbl_video.config(
                     text="Não foi possível acessar a webcam.\nO leitor USB continua funcionando normalmente.",
@@ -556,6 +616,7 @@ class FrameSelfService(ttk.Frame):
             for obj in decoded_objects:
                 codigo = obj.data.decode("utf-8").strip()
                 if codigo:
+                    self.fechar_dialogo_horarios()
                     self._processar_codigo(codigo)
                     pts = obj.polygon
                     if len(pts) == 4:
@@ -894,12 +955,5 @@ class FrameSelfService(ttk.Frame):
             self._lbl_sugestao_manual.config(bg=cor_bg, fg=fg_sugestao)
 
     def _tocar_som(self, sucesso: bool):
-        """Toca som de feedback no Windows."""
-        try:
-            import winsound
-
-            freq = 1000 if sucesso else 400
-            dur = 200 if sucesso else 1000
-            winsound.Beep(freq, dur)
-        except Exception:
-            pass
+        """Toca som de feedback compatível com Windows e Linux."""
+        emitir_feedback_sonoro(sucesso, widget=self)

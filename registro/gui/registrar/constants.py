@@ -21,6 +21,7 @@ from registro.nucleo.constants import (
     CAMINHO_CSV_RESERVAS,
     CAMINHO_JSON_LANCHES,
     CAMINHO_JSON_PRESETS_TURMAS,
+    CAMINHO_JSON_TURMAS_INTEGRADO,
     CAMINHO_SESSAO,
     CAMINHO_TOKEN,
     DIRETORIO_APP,
@@ -32,29 +33,26 @@ from registro.nucleo.constants import (
     NOME_ABA_RESERVAS,
     NOME_LANCHE_PADRAO,
     NOME_PRATO_SEM_RESERVA,
+    TURMAS_INTEGRADO_PADRAO,
     URL_BANCO_DADOS,
+)
+from registro.nucleo.config_service import (
+    obter_turmas_integrado,
+    salvar_turmas_integrado,
 )
 
 from registro.gui.comum.constants import (
     CSIDL_PERSONAL,
     EXCECOES_CAPITALIZACAO,
+    FONTE_UI_PADRAO,
     MAPA_OFUSCAMENTO_PRONTUARIO,
     REGEX_LIMPEZA_PRONTUARIO,
     SHGFP_TYPE_CURRENT,
     TRADUCAO_CHAVE_EXTERNA,
 )
 
-TURMAS_INTEGRADO: List[str] = [
-    "1º A - MAC",
-    "1º A - MEC",
-    "1º B - MEC",
-    "2º A - MAC",
-    "2º A - MEC",
-    "2º B - MEC",
-    "3º A - MAC",
-    "3º A - MEC",
-    "3º B - MEC",
-]
+# Lista inicial carregada do JSON configurável com fallback seguro
+TURMAS_INTEGRADO: List[str] = obter_turmas_integrado()
 
 DadosNovaSessao = TypedDict(
     "DadosNovaSessao",

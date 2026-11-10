@@ -12,11 +12,11 @@ específicas do sistema operacional.
 
 import csv
 import ctypes
-import ctypes.wintypes
 import json
 import logging
 import os
 import platform
+import sys
 from json import JSONDecodeError
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
@@ -132,6 +132,8 @@ def obter_caminho_documentos() -> str:
 
     if sistema == "Windows":
         try:
+            import ctypes.wintypes
+
             buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
             ctypes.windll.shell32.SHGetFolderPathW(
                 None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf
@@ -145,9 +147,12 @@ def obter_caminho_documentos() -> str:
             caminho = caminho_padrao
     elif sistema == "Linux":
         xdg_path = os.environ.get("XDG_DOCUMENTS_DIR")
-        caminho = (
-            Path(xdg_path) if xdg_path and Path(xdg_path).is_dir() else caminho_padrao
-        )
+        if xdg_path and Path(xdg_path).is_dir():
+            caminho = Path(xdg_path)
+        elif (Path.home() / "Documentos").is_dir():
+            caminho = Path.home() / "Documentos"
+        else:
+            caminho = caminho_padrao
     else:
         caminho = caminho_padrao
 
@@ -159,6 +164,52 @@ def obter_caminho_documentos() -> str:
         )
 
     return str(caminho.resolve())
+
+
+def emitir_feedback_sonoro(sucesso: bool = True, widget: Optional[Any] = None) -> None:
+    """
+    Emite feedback sonoro de forma compatível com múltiplos sistemas operacionais.
+
+    - No Windows: preserva a reprodução via winsound.Beep com frequências e durações
+      configuradas (ou padrões: 1000Hz/200ms para sucesso, 400Hz/1000ms para erro).
+    - No Linux / Unix: emite o alerta nativo via bell() do widget Tkinter ou beep de terminal.
+
+    Args:
+        sucesso: Se o feedback é de operação bem-sucedida (True) ou falha (False).
+        widget: Widget Tkinter opcional para disparo de bell().
+    """
+    from registro.nucleo.config_service import obter_config_audio
+
+    config_audio = obter_config_audio()
+    if not config_audio.get("habilitado", True):
+        return
+
+    if sys.platform == "win32":
+        try:
+            import winsound
+
+            freq = (
+                config_audio.get("freq_sucesso", 1000)
+                if sucesso
+                else config_audio.get("freq_erro", 400)
+            )
+            dur = (
+                config_audio.get("dur_sucesso_ms", 200)
+                if sucesso
+                else config_audio.get("dur_erro_ms", 1000)
+            )
+            winsound.Beep(int(freq), int(dur))
+        except Exception as e:
+            logger.debug("Falha ao emitir feedback sonoro via winsound: %s", e)
+    else:
+        # Linux e outros sistemas Unix-like
+        try:
+            if widget is not None and hasattr(widget, "bell"):
+                widget.bell()
+            else:
+                print("\a", end="", flush=True)
+        except Exception as e:
+            logger.debug("Falha ao emitir feedback sonoro no Linux: %s", e)
 
 
 from registro.nucleo.utils import (

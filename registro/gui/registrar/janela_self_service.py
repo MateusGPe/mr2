@@ -15,6 +15,8 @@ from PIL import Image, ImageTk
 from ttkbootstrap.constants import CENTER, LEFT, NSEW, RIGHT, X
 
 from registro.gui.comum.constants import REGEX_LIMPEZA_PRONTUARIO
+from registro.gui.comum.utils import emitir_feedback_sonoro
+from registro.nucleo.config_service import obter_config_totem
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
@@ -233,7 +235,8 @@ class JanelaSelfService(tk.Toplevel):
     def _iniciar_camera(self):
         """Inicializa a captura de vídeo."""
         try:
-            self._cap = cv2.VideoCapture(0)
+            indice_camera = int(obter_config_totem().get("camera_index", 0))
+            self._cap = cv2.VideoCapture(indice_camera)
             if not self._cap.isOpened():
                 self._lbl_video.config(
                     text="Não foi possível acessar a webcam.", bootstyle="danger"
@@ -519,17 +522,8 @@ class JanelaSelfService(tk.Toplevel):
         self._lbl_status.config(text=texto_status)
 
     def _tocar_som(self, sucesso: bool):
-        """Tenta tocar um som de feedback."""
-        try:
-            import winsound
-
-            freq = 1000 if sucesso else 400
-            dur = 200 if sucesso else 1000
-            winsound.Beep(freq, dur)
-        except ImportError:
-            pass
-        except Exception:  # pylint: disable=broad-exception-caught
-            pass
+        """Toca som de feedback compatível com Windows e Linux."""
+        emitir_feedback_sonoro(sucesso, widget=self)
 
     def _ao_fechar(self):
         """Limpa recursos ao fechar a janela."""

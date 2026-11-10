@@ -99,6 +99,10 @@ def obter_caminho_documentos() -> Path:
     if xdg_documents := os.environ.get("XDG_DOCUMENTS_DIR"):
         return Path(xdg_documents.strip('"'))
 
+    caminho_pt = Path.home() / "Documentos"
+    if caminho_pt.is_dir():
+        return caminho_pt
+
     return Path.home() / "Documents"
 
 

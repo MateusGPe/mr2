@@ -476,6 +476,10 @@ class AppSelfService(ttk.Window):
             label="🎯  Filtros de Turmas e Exceções",
             command=self._abrir_dialogo_filtro_turmas,
         )
+        menu.add_command(
+            label="🕒  Horários das Turmas (Grade)",
+            command=self._abrir_dialogo_horarios,
+        )
         menu.add_separator()
 
         # Sincronização com Google Sheets
@@ -671,6 +675,12 @@ class AppSelfService(ttk.Window):
             fachada_nucleo=self.fachada_nucleo,
             callback_aplicar=self.ao_aplicar_filtro_turmas,
         )
+
+    def _abrir_dialogo_horarios(self):
+        """Abre o diálogo de consulta de horários e turmas a partir do menu do operador."""
+        frame_selfservice = self.frames.get("selfservice")
+        if frame_selfservice and hasattr(frame_selfservice, "_abrir_dialogo_horarios"):
+            frame_selfservice._abrir_dialogo_horarios()
 
     def ao_aplicar_filtro_turmas(self, identificadores: List[str]):
         """Aplica os novos filtros de turmas e exceções em tempo real."""

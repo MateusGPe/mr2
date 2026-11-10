@@ -13,7 +13,7 @@ import ttkbootstrap as ttk
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap import ScrolledFrame
 
-from registro.gui.registrar.constants import TURMAS_INTEGRADO
+from registro.gui.registrar.constants import TURMAS_INTEGRADO, obter_turmas_integrado
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
@@ -315,9 +315,10 @@ class DialogoFiltroTurmas(tk.Toplevel):
 
     def _ao_selecionar_integrado(self):
         """Marca apenas as turmas do integrado na coluna com reserva."""
+        turmas_integrado = set(obter_turmas_integrado())
         for ident, var, _ in self._dados_checkbox:
             if not ident.startswith("#"):
-                var.set(ident in TURMAS_INTEGRADO)
+                var.set(ident in turmas_integrado)
         self._atualizar_contador()
 
     def _ao_inverter_selecoes(self):

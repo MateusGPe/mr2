@@ -21,6 +21,8 @@ def temp_config_dir(tmp_path, monkeypatch):
     settings_file = cfg_dir / "settings.json"
     lanches_file = cfg_dir / "lanches.json"
     presets_file = cfg_dir / "presets_turmas.json"
+    turmas_file = cfg_dir / "turmas_integrado.json"
+    mapeamento_file = cfg_dir / "mapeamento_colunas.json"
     spreadsheet_file = cfg_dir / "spreadsheet.json"
     credentials_file = cfg_dir / "credentials.json"
     token_file = cfg_dir / "token.json"
@@ -29,6 +31,8 @@ def temp_config_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(config_service, "CAMINHO_SETTINGS", settings_file)
     monkeypatch.setattr(config_service, "CAMINHO_JSON_LANCHES", lanches_file)
     monkeypatch.setattr(config_service, "CAMINHO_JSON_PRESETS_TURMAS", presets_file)
+    monkeypatch.setattr(config_service, "CAMINHO_JSON_TURMAS_INTEGRADO", turmas_file)
+    monkeypatch.setattr(config_service, "CAMINHO_JSON_MAPEAMENTO_COLUNAS", mapeamento_file)
     monkeypatch.setattr(config_service, "JSON_ID_PLANILHA", spreadsheet_file)
     monkeypatch.setattr(config_service, "CAMINHO_CREDENCIAS", credentials_file)
     monkeypatch.setattr(config_service, "CAMINHO_TOKEN", token_file)
@@ -182,3 +186,47 @@ def test_obter_status_sistema_com_contagem_sql(temp_config_dir, monkeypatch):
     assert status["banco_dados"]["total_alunos"] == 1
     assert status["banco_dados"]["total_consumos"] == 0
     engine_tmp.dispose()
+
+
+def test_turmas_integrado_lifecycle(temp_config_dir):
+    """Testa leitura com fallback e persistência de turmas integradas em JSON."""
+    # Inicialmente o arquivo não existe no temp_config_dir -> fallback para padrão
+    turmas_padrao = config_service.obter_turmas_integrado()
+    assert isinstance(turmas_padrao, list)
+    assert len(turmas_padrao) > 0
+    assert "1º A - MAC" in turmas_padrao
+
+    # Salva nova lista
+    novas_turmas = ["Turma X", "Turma Y"]
+    config_service.salvar_turmas_integrado(novas_turmas)
+
+    # Lê novamente
+    carregadas = config_service.obter_turmas_integrado()
+    assert carregadas == novas_turmas
+
+
+def test_mapeamento_colunas_lifecycle(temp_config_dir):
+    """Testa leitura com fallback e persistência de mapeamento de colunas em JSON."""
+    # Inicialmente o arquivo não existe no temp_config_dir -> fallback para padrão
+    mapa_padrao = config_service.obter_mapeamento_colunas()
+    assert isinstance(mapa_padrao, dict)
+    assert mapa_padrao["matrícula"] == "pront"
+    assert mapa_padrao["curso"] == "turma"
+
+    # Salva novo mapeamento
+    novo_mapa = {"codigo": "pront", "turma": "turma"}
+    config_service.salvar_mapeamento_colunas(novo_mapa)
+
+    carregado = config_service.obter_mapeamento_colunas()
+    assert carregado == novo_mapa
+
+
+def test_config_audio_get_and_totem_camera(temp_config_dir):
+    """Testa obtenção de configurações de áudio e índice de câmera do totem."""
+    audio_cfg = config_service.obter_config_audio()
+    assert audio_cfg["habilitado"] is True
+    assert audio_cfg["freq_sucesso"] == 1000
+    assert audio_cfg["dur_sucesso_ms"] == 200
+
+    totem_cfg = config_service.obter_config_totem()
+    assert totem_cfg.get("camera_index", 0) == 0

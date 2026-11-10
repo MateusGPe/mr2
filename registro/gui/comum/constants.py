@@ -8,7 +8,10 @@ Constantes compartilhadas entre as diferentes interfaces gráficas do sistema.
 """
 
 import re
+import sys
 from typing import Dict, Set
+
+from registro.nucleo.config_service import obter_mapeamento_colunas
 
 EXCECOES_CAPITALIZACAO: Set[str] = {
     "a",
@@ -36,15 +39,9 @@ EXCECOES_CAPITALIZACAO: Set[str] = {
     "nas",
 }
 
-TRADUCAO_CHAVE_EXTERNA: Dict[str, str] = {
-    "matrícula iq": "pront",
-    "matrícula": "pront",
-    "prontuário": "pront",
-    "refeição": "dish",
-    "curso": "turma",
-    "situação": "status",
-    "nome completo": "nome",
-}
+TRADUCAO_CHAVE_EXTERNA: Dict[str, str] = obter_mapeamento_colunas()
+
+FONTE_UI_PADRAO: str = "Segoe UI" if sys.platform == "win32" else "DejaVu Sans"
 
 MAPA_OFUSCAMENTO_PRONTUARIO: Dict[int, int] = str.maketrans(
     "0123456789Xx", "abcdefghijkk"

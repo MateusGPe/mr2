@@ -58,8 +58,20 @@ def test_obter_caminho_documentos_linux_fallback(monkeypatch):
     """Testa a obtenção do caminho no Linux sem variável de ambiente XDG."""
     monkeypatch.setattr(platform, "system", lambda: "Linux")
     monkeypatch.delenv("XDG_DOCUMENTS_DIR", raising=False)
+    monkeypatch.setattr(Path, "is_dir", lambda self: False)
     caminho = obter_caminho_documentos()
     assert caminho == Path.home() / "Documents"
+
+
+def test_obter_caminho_documentos_linux_pasta_documentos(monkeypatch, tmp_path):
+    """Testa a detecção da pasta Documentos em sistemas Linux em português."""
+    pasta_docs_pt = tmp_path / "Documentos"
+    pasta_docs_pt.mkdir()
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+    monkeypatch.delenv("XDG_DOCUMENTS_DIR", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    caminho = obter_caminho_documentos()
+    assert caminho == pasta_docs_pt
 
 
 def test_salvar_csv_sucesso(tmp_path):
