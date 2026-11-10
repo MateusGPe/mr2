@@ -136,11 +136,12 @@ def _processar_consumo_pipeline(
     excecao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
+    filtro_categoria: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Pipeline unificado de autorização e registro de consumo (DRY + KISS).
-    Valida existência de estudante, duplicidade de consumo, aplica a política
-    e persiste o registro no banco em caso de sucesso.
+    Valida existência de estudante, duplicidade de consumo, restrição de categoria,
+    janela de horário, aplica a política e persiste o registro no banco em caso de sucesso.
     """
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
     estudantes = repo_estudante.ler_filtrado(prontuario=prontuario)
@@ -148,7 +149,7 @@ def _processar_consumo_pipeline(
         return {"autorizado": False, "motivo": "Estudante não encontrado."}
 
     estudante = estudantes[0]
-    categoria = getattr(estudante, "categoria", "REGULAR")
+    categoria = getattr(estudante, "categoria", "REGULAR") or "REGULAR"
     turma = (
         ", ".join(sorted(g.nome for g in estudante.grupos))
         if estudante.grupos
@@ -168,6 +169,21 @@ def _processar_consumo_pipeline(
             "turma": turma,
             "categoria": categoria,
         }
+
+    # Validação do filtro de categoria da sessão ativa (se aplicável e não forçado)
+    if filtro_categoria and not pular_grupos:
+        cat_filtro = filtro_categoria.strip().upper()
+        cat_aluno = categoria.strip().upper()
+        if cat_aluno != cat_filtro:
+            return {
+                "autorizado": False,
+                "motivo": f"Discente {cat_aluno} não permitido para sessão filtrada como {cat_filtro}.",
+                "aluno": estudante.nome,
+                "nome": estudante.nome,
+                "prontuario": estudante.prontuario,
+                "turma": turma,
+                "categoria": cat_aluno,
+            }
 
     # Validação de janela de horário
     if not permitir_fora_horario and not pular_grupos:
@@ -226,10 +242,13 @@ def registrar_consumo(
     id_sessao: int,
     prontuario: str,
     excecao_grupos: Optional[Set[str]] = None,
+    excessao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
+    filtro_categoria: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Aplica a lógica de autorização padrão e, se bem-sucedido, registra o consumo."""
+    grupos_filtro = excecao_grupos if excecao_grupos is not None else excessao_grupos
     return _processar_consumo_pipeline(
         repo_sessao=repo_sessao,
         repo_estudante=repo_estudante,
@@ -238,9 +257,10 @@ def registrar_consumo(
         id_sessao=id_sessao,
         prontuario=prontuario,
         avaliador_regra=_avaliar_regra_padrao,
-        excecao_grupos=excecao_grupos,
+        excecao_grupos=grupos_filtro,
         pular_grupos=pular_grupos,
         permitir_fora_horario=permitir_fora_horario,
+        filtro_categoria=filtro_categoria,
     )
 
 
@@ -252,12 +272,15 @@ def registrar_consumo_com_reserva(
     id_sessao: int,
     prontuario: str,
     excecao_grupos: Optional[Set[str]] = None,
+    excessao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
+    filtro_categoria: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Aplica a lógica de autorização estrita (com reserva obrigatória) e registra o consumo.
     """
+    grupos_filtro = excecao_grupos if excecao_grupos is not None else excessao_grupos
     return _processar_consumo_pipeline(
         repo_sessao=repo_sessao,
         repo_estudante=repo_estudante,
@@ -266,9 +289,10 @@ def registrar_consumo_com_reserva(
         id_sessao=id_sessao,
         prontuario=prontuario,
         avaliador_regra=_avaliar_regra_com_reserva,
-        excecao_grupos=excecao_grupos,
+        excecao_grupos=grupos_filtro,
         pular_grupos=pular_grupos,
         permitir_fora_horario=permitir_fora_horario,
+        filtro_categoria=filtro_categoria,
     )
 
 

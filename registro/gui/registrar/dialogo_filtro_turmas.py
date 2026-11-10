@@ -15,7 +15,6 @@ from ttkbootstrap import ScrolledFrame
 
 from registro.gui.registrar.constants import TURMAS_INTEGRADO
 from registro.nucleo.facade import FachadaRegistro
-from registro.nucleo.services import grade_horarios_service
 
 if TYPE_CHECKING:
     from registro.gui.registrar.app import AppRegistro
@@ -297,14 +296,14 @@ class DialogoFiltroTurmas(tk.Toplevel):
         except Exception:
             refeicao = "lanche"
 
-        dia_atual = grade_horarios_service.obter_dia_semana_atual()
+        dia_atual = self._fachada.obter_dia_semana_atual()
         turmas_grade = set(
-            grade_horarios_service.obter_turmas_previstas_para_refeicao(dia_atual, refeicao)
+            self._fachada.obter_turmas_previstas_para_refeicao(dia_semana=dia_atual, refeicao=refeicao)
         )
         if not turmas_grade:
             Messagebox.show_info(
-                "Grade de Horários",
                 f"Nenhuma turma prevista na grade para {refeicao.capitalize()} na {dia_atual.capitalize()}.",
+                "Grade de Horários",
                 parent=self,
             )
             return
@@ -368,7 +367,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
 
         selecionados = [ident for ident, var, _ in self._dados_checkbox if var.get()]
         categoria_escolhida = self._var_categoria.get().strip().upper()
-        self._fachada.filtro_categoria_sessao = (
+        self._fachada.definir_filtro_categoria_sessao(
             categoria_escolhida if categoria_escolhida in ("REGULAR", "PAP") else None
         )
 
@@ -380,7 +379,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
         except Exception as e:
             logger.exception("Erro ao aplicar filtros: %s", e)
             Messagebox.show_error(
-                "Erro", f"Falha ao aplicar filtros:\n{e}", parent=self
+                f"Falha ao aplicar filtros:\n{e}", "Erro", parent=self
             )
 
     def _centralizar_janela(self):

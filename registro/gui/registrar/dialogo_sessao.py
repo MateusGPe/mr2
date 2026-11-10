@@ -38,7 +38,6 @@ from registro.gui.registrar.constants import (
 )
 from registro.gui.comum.utils import capitalizar
 from registro.nucleo.facade import FachadaRegistro
-from registro.nucleo.services import grade_horarios_service
 from registro.nucleo.utils import carregar_json, salvar_json
 
 if TYPE_CHECKING:
@@ -504,21 +503,23 @@ class DialogoSessao(tk.Toplevel):
             )
             logger.info("Sessão ativa ID %s atualizada.", self._sessao_ativa_info.get("id"))
             Messagebox.show_info(
-                "Sessão Atualizada",
                 f"Sessão ID {self._sessao_ativa_info.get('id')} atualizada com sucesso!\n"
                 f"Turmas participantes: {len(turmas)}",
+                "Sessão Atualizada",
                 parent=self,
             )
             if hasattr(self._parente_app, "_atualizar_ui_apos_mudanca_dados"):
                 self._parente_app._atualizar_ui_apos_mudanca_dados()
             if hasattr(self._parente_app, "_configurar_ui_para_sessao_carregada"):
                 self._parente_app._configurar_ui_para_sessao_carregada()
+            if hasattr(self._parente_app, "_atualizar_apos_mudanca_sessao"):
+                self._parente_app._atualizar_apos_mudanca_sessao()
             self.grab_release()
             self.destroy()
         except Exception as e:
             logger.exception("Erro ao salvar alterações da sessão: %s", e)
             Messagebox.show_error(
-                "Erro ao Atualizar", f"Falha ao salvar alterações:\n{e}", parent=self
+                f"Falha ao salvar alterações:\n{e}", "Erro ao Atualizar", parent=self
             )
 
     def _ao_fechar(self):
@@ -547,9 +548,9 @@ class DialogoSessao(tk.Toplevel):
         elif self._combobox_refeicao:
             refeicao = self._combobox_refeicao.get().lower()
 
-        dia_atual = grade_horarios_service.obter_dia_semana_atual()
-        turmas_grade = grade_horarios_service.obter_turmas_previstas_para_refeicao(
-            dia_atual, refeicao
+        dia_atual = self._fachada.obter_dia_semana_atual()
+        turmas_grade = self._fachada.obter_turmas_previstas_para_refeicao(
+            refeicao=refeicao, dia_semana=dia_atual
         )
         if turmas_grade:
             self._definir_checkboxes_turmas(
@@ -557,8 +558,8 @@ class DialogoSessao(tk.Toplevel):
             )
         else:
             Messagebox.show_info(
-                "Grade de Horários",
                 f"Nenhuma turma prevista na grade para {refeicao.capitalize()} na {dia_atual.capitalize()}.",
+                "Grade de Horários",
                 parent=self,
             )
 
@@ -587,8 +588,8 @@ class DialogoSessao(tk.Toplevel):
         linha = self._treeview_sessoes.obter_linha_selecionada()
         if not linha:
             Messagebox.show_warning(
-                "Nenhuma Sessão Selecionada",
                 "Selecione uma sessão para carregar.",
+                "Nenhuma Sessão Selecionada",
                 parent=self,
             )
             return
@@ -621,7 +622,7 @@ class DialogoSessao(tk.Toplevel):
         except (ValueError, AttributeError) as e:
             logger.error("Erro ao converter data: %s", e)
             Messagebox.show_error(
-                "Erro Interno", "Data inválida.", parent=self)
+                "Data inválida.", "Erro Interno", parent=self)
             return
 
         dados_nova_sessao: DadosNovaSessao = {
@@ -703,8 +704,8 @@ class DialogoSessao(tk.Toplevel):
             "sex": "sexta",
         }
         dia_chave = mapa_dias.get(dia, dia)
-        turmas_grade = grade_horarios_service.obter_turmas_previstas_para_refeicao(
-            dia_chave, refeicao
+        turmas_grade = self._fachada.obter_turmas_previstas_para_refeicao(
+            refeicao=refeicao, dia_semana=dia_chave
         )
         if turmas_grade:
             self._definir_checkboxes_turmas(lambda nome, var: nome in turmas_grade)
@@ -713,9 +714,9 @@ class DialogoSessao(tk.Toplevel):
         turmas_preset = self._presets_turmas.get(periodo, {}).get(dia, [])
         if not turmas_preset:
             Messagebox.show_info(
-                "Preset Vazio",
                 f"O preset para {periodo.capitalize()} - {dia.capitalize()} está vazio.\n"
                 "Para definir, selecione as turmas e clique com o botão direito no botão do preset.",
+                "Preset Vazio",
                 parent=self
             )
             return
@@ -735,12 +736,12 @@ class DialogoSessao(tk.Toplevel):
                 f"{periodo.capitalize()} - {dia.capitalize()}?"
             )
 
-        if Messagebox.yesno("Salvar Preset", msg, parent=self) == MessageCatalog.translate("Yes"):
+        if Messagebox.yesno(msg, "Salvar Preset", parent=self) == MessageCatalog.translate("Yes"):
             self._presets_turmas[periodo][dia] = turmas_selecionadas
             if salvar_json(str(CAMINHO_JSON_PRESETS_TURMAS), self._presets_turmas):
-                Messagebox.show_info("Preset Salvo", "O preset foi salvo com sucesso.", parent=self)
+                Messagebox.show_info("O preset foi salvo com sucesso.", "Preset Salvo", parent=self)
             else:
-                Messagebox.show_error("Erro ao Salvar", "Não foi possível salvar o arquivo de presets.", parent=self)
+                Messagebox.show_error("Não foi possível salvar o arquivo de presets.", "Erro ao Salvar", parent=self)
 
     def _carregar_opcoes_lanche(self) -> Tuple[Set[str], List[str]]:
         """Carrega as opções de lanche a partir de um arquivo JSON."""

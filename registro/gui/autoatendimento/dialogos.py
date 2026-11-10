@@ -288,7 +288,7 @@ class DialogoNovoConsumo(ttk.Toplevel):
         pront = self.var_prontuario.get().strip()
         if not pront:
             Messagebox.show_warning(
-                "Atenção", "Selecione um estudante ou digite o prontuário.", parent=self
+                "Selecione um estudante ou digite o prontuário.", "Atenção", parent=self
             )
             return
 
@@ -304,7 +304,7 @@ class DialogoNovoConsumo(ttk.Toplevel):
             autorizado = resultado.get("autorizado", resultado.get("sucesso", True))
             if not autorizado:
                 msg = resultado.get("motivo") or resultado.get("mensagem") or "Não autorizado para esta sessão."
-                Messagebox.show_warning("Não Autorizado", msg, parent=self)
+                Messagebox.show_warning(msg, "Não Autorizado", parent=self)
                 return
 
             id_consumo = resultado.get("id_consumo")
@@ -334,16 +334,16 @@ class DialogoNovoConsumo(ttk.Toplevel):
                 self.on_sucesso(resultado)
 
             Messagebox.show_info(
-                "Sucesso",
                 f"Consumo registrado com sucesso para:\n{self.var_nome.get() or pront}",
+                "Sucesso",
                 parent=self,
             )
             self.destroy()
         except Exception as e:
             logger.exception("Falha ao registrar consumo manual: %s", e)
             Messagebox.show_error(
-                "Erro no Registro",
                 f"Não foi possível registrar o consumo:\n{e}",
+                "Erro no Registro",
                 parent=self,
             )
 
@@ -468,7 +468,7 @@ class DialogoEditarConsumo(ttk.Toplevel):
         novo_prato = self.var_prato.get().strip()
 
         if not nova_hora:
-            Messagebox.show_warning("Horário Inválido", "O horário não pode estar vazio.", parent=self)
+            Messagebox.show_warning("O horário não pode estar vazio.", "Horário Inválido", parent=self)
             return
 
         try:
@@ -481,13 +481,13 @@ class DialogoEditarConsumo(ttk.Toplevel):
                 self.sucesso = True
                 if self.on_sucesso:
                     self.on_sucesso({"hora_consumo": nova_hora, "prato": novo_prato})
-                Messagebox.show_info("Atualizado", "Registro atualizado com sucesso!", parent=self)
+                Messagebox.show_info("Registro atualizado com sucesso!", "Atualizado", parent=self)
                 self.destroy()
             else:
-                Messagebox.show_error("Erro", "Não foi possível encontrar o registro para atualizar.", parent=self)
+                Messagebox.show_error("Não foi possível encontrar o registro para atualizar.", "Erro", parent=self)
         except Exception as e:
             logger.exception("Erro ao salvar atualização de consumo: %s", e)
-            Messagebox.show_error("Erro", f"Falha ao salvar:\n{e}", parent=self)
+            Messagebox.show_error(f"Falha ao salvar:\n{e}", "Erro", parent=self)
 
 
 class DialogoDetalhesConsumo(ttk.Toplevel):

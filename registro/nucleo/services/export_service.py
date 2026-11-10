@@ -236,6 +236,7 @@ def exportar_estudantes_para_csv(
                 "prontuario": est.prontuario,
                 "nome": est.nome,
                 "grupos": ", ".join(g.nome for g in est.grupos) if est.grupos else "",
+                "categoria": getattr(est, "categoria", "REGULAR") or "REGULAR",
                 "ativo": "Sim" if getattr(est, "ativo", True) else "Não",
             }
             for est in estudantes
@@ -244,7 +245,7 @@ def exportar_estudantes_para_csv(
     keys = (
         list(dados[0].keys())
         if dados
-        else ["id", "prontuario", "nome", "grupos", "ativo"]
+        else ["id", "prontuario", "nome", "grupos", "categoria", "ativo"]
     )
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
@@ -272,6 +273,7 @@ def exportar_estudantes_para_xlsx(
                 "prontuario": est.prontuario,
                 "nome": est.nome,
                 "grupos": ", ".join(g.nome for g in est.grupos) if est.grupos else "",
+                "categoria": getattr(est, "categoria", "REGULAR") or "REGULAR",
                 "ativo": "Sim" if getattr(est, "ativo", True) else "Não",
             }
             for est in estudantes

@@ -34,13 +34,20 @@ def criar_estudante(
     prontuario: str,
     nome: str,
     grupos: Optional[List[str]] = None,
+    categoria: str = "REGULAR",
 ) -> Dict[str, Any]:
     """Cria um novo estudante e associa aos grupos fornecidos."""
     existente = repo_estudante.ler_filtrado(prontuario=prontuario)
     if existente:
         raise ValueError(f"Estudante com prontuário {prontuario} já existe.")
 
-    novo_estudante = repo_estudante.criar({"prontuario": prontuario, "nome": nome, "ativo": True})
+    cat = (categoria or "REGULAR").strip().upper()
+    if cat not in ("REGULAR", "PAP"):
+        cat = "REGULAR"
+
+    novo_estudante = repo_estudante.criar(
+        {"prontuario": prontuario, "nome": nome, "ativo": True, "categoria": cat}
+    )
 
     if grupos:
         for grupo_nome in grupos:
@@ -55,6 +62,7 @@ def criar_estudante(
         "id": novo_estudante.id,
         "prontuario": novo_estudante.prontuario,
         "nome": novo_estudante.nome,
+        "categoria": novo_estudante.categoria,
     }
 
 
@@ -221,6 +229,7 @@ def listar_estudantes(
             "prontuario": est.prontuario,
             "nome": est.nome,
             "ativo": bool(est.ativo) if est.ativo is not None else True,
+            "categoria": getattr(est, "categoria", "REGULAR") or "REGULAR",
             "grupos": [g.nome for g in est.grupos],
         }
         for est in estudantes
@@ -275,6 +284,7 @@ def listar_estudantes_fuzzy(
             "prontuario": est.prontuario,
             "nome": est.nome,
             "ativo": bool(est.ativo) if est.ativo is not None else True,
+            "categoria": getattr(est, "categoria", "REGULAR") or "REGULAR",
             "grupos": [g.nome for g in est.grupos],
         }
         for est in estudantes

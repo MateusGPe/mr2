@@ -49,6 +49,13 @@ def executar_setup() -> None:
     app_main()
 
 
+def executar_cards() -> None:
+    """Inicia o gerador de crachás e cartões de identificação QR."""
+    from registro.cards.app import main as app_main
+
+    app_main()
+
+
 def exibir_ajuda() -> None:
     """Exibe mensagem de ajuda no console ou caixa de diálogo gráfica."""
     msg = (
@@ -58,6 +65,7 @@ def exibir_ajuda() -> None:
         "  --reg, /reg, --registrar, /registrar       Abre o Registro de Refeições\n"
         "  --painel, /painel                          Abre o Painel Administrativo\n"
         "  --auto, /auto, --autoatendimento           Abre o Totem de Autoatendimento\n"
+        "  --cards, /cards                            Abre o Gerador de Crachás e Cartões QR\n"
         "  --setup, /setup, --config, /config         Abre as Configurações / Início Rápido\n"
         "  --help, /help, /?                          Exibe esta tela de ajuda\n\n"
         "Sem argumentos: Abre o menu gráfico inicial para seleção."
@@ -111,6 +119,8 @@ def identificar_alvo_cli(args: List[str]) -> Optional[Callable[[], None]]:
             "quickstart",
         ):
             return executar_setup
+        if arg in ("--cards", "/cards", "-cards", "cards", "--crachas", "/crachas"):
+            return executar_cards
         if arg in ("--help", "/help", "-h", "/?", "help"):
             exibir_ajuda()
             sys.exit(0)
@@ -134,7 +144,7 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
         resizable=(False, False),
     )
     largura = 520
-    altura = 530
+    altura = 600
 
     root.update_idletasks()
     x = max(0, (root.winfo_screenwidth() // 2) - (largura // 2))
@@ -163,7 +173,7 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
         bootstyle="secondary",
         anchor=CENTER,
     )
-    lbl_sub.pack(fill=X, pady=(0, 20))
+    lbl_sub.pack(fill=X, pady=(0, 16))
 
     btn_registrar = ttk.Button(
         container,
@@ -172,7 +182,7 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
         command=lambda: selecionar(executar_registrar),
         cursor="hand2",
     )
-    btn_registrar.pack(fill=X, pady=5, ipady=5)
+    btn_registrar.pack(fill=X, pady=4, ipady=4)
 
     btn_painel = ttk.Button(
         container,
@@ -181,7 +191,7 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
         command=lambda: selecionar(executar_painel),
         cursor="hand2",
     )
-    btn_painel.pack(fill=X, pady=5, ipady=5)
+    btn_painel.pack(fill=X, pady=4, ipady=4)
 
     btn_auto = ttk.Button(
         container,
@@ -190,25 +200,34 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
         command=lambda: selecionar(executar_autoatendimento),
         cursor="hand2",
     )
-    btn_auto.pack(fill=X, pady=5, ipady=5)
+    btn_auto.pack(fill=X, pady=4, ipady=4)
+
+    btn_cards = ttk.Button(
+        container,
+        text="💳  Gerador de Crachás & Cartões\nEmissão e impressão de cartões com QR Code",
+        bootstyle="warning-outline",
+        command=lambda: selecionar(executar_cards),
+        cursor="hand2",
+    )
+    btn_cards.pack(fill=X, pady=4, ipady=4)
 
     btn_setup = ttk.Button(
         container,
-        text="⚙️  Configurações & Início Rápido\nGoogle Cloud, PIN de segurança, backups e atalhos",
+        text="⚙️  Configurações & Início Rápido\nGoogle Cloud, PIN de segurança, backups e grade horária",
         bootstyle="secondary-outline",
         command=lambda: selecionar(executar_setup),
         cursor="hand2",
     )
-    btn_setup.pack(fill=X, pady=5, ipady=5)
+    btn_setup.pack(fill=X, pady=4, ipady=4)
 
     lbl_dica = ttk.Label(
         container,
-        text="Dica: Em atalhos, use as flags /painel, /auto, /reg ou /setup para abrir direto.",
+        text="Dica: Em atalhos, use as flags /painel, /auto, /reg, /cards ou /setup para abrir direto.",
         font=("Segoe UI", 8),
         bootstyle="secondary",
         anchor=CENTER,
     )
-    lbl_dica.pack(fill=X, side="bottom", pady=(15, 0))
+    lbl_dica.pack(fill=X, side="bottom", pady=(12, 0))
 
     root.mainloop()
     return escolha[0]

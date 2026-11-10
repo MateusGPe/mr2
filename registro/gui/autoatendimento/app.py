@@ -61,7 +61,7 @@ class AppSelfService(ttk.Window):
             )
         except Exception:
             Messagebox.show_error(
-                "Erro Fatal", "Não foi possível iniciar o backend. Verifique o console."
+                "Não foi possível iniciar o backend. Verifique o console.", "Erro Fatal"
             )
             traceback.print_exc()
             self.destroy()
@@ -633,8 +633,8 @@ class AppSelfService(ttk.Window):
                 id_sessao = self.fachada_nucleo.iniciar_nova_sessao(resultado)
                 if id_sessao is None:
                     Messagebox.show_warning(
-                        "Sessão Vazia",
                         "Não foi possível iniciar a sessão sem reservas ativas.",
+                        "Sessão Vazia",
                         parent=self,
                     )
                     return False
@@ -643,8 +643,8 @@ class AppSelfService(ttk.Window):
         except Exception as e:
             logger.exception("Falha ao %s: %s", desc_acao, e)
             Messagebox.show_error(
-                "Falha na Sessão",
                 f"Não foi possível {desc_acao}.\nErro: {e}",
+                "Falha na Sessão",
                 parent=self,
             )
             return False
@@ -659,8 +659,8 @@ class AppSelfService(ttk.Window):
         """Abre o diálogo de filtros de turma on-the-fly."""
         if not self.fachada_nucleo or self.fachada_nucleo.id_sessao_ativa is None:
             Messagebox.show_warning(
-                "Nenhuma Sessão Ativa",
                 "É necessário iniciar ou selecionar uma sessão antes de ajustar os filtros.",
+                "Nenhuma Sessão Ativa",
                 parent=self,
             )
             return
@@ -692,14 +692,14 @@ class AppSelfService(ttk.Window):
                 self.frames["dashboard"].atualizar_dados()
 
             Messagebox.show_info(
-                "Filtros Atualizados",
                 "Os filtros de turma e exceções foram aplicados com sucesso à sessão ativa.",
+                "Filtros Atualizados",
                 parent=self,
             )
         except Exception as e:
             logger.exception("Erro ao aplicar filtros de turma: %s", e)
             Messagebox.show_error(
-                "Erro ao Filtrar", f"Não foi possível aplicar filtros:\n{e}", parent=self
+                f"Não foi possível aplicar filtros:\n{e}", "Erro ao Filtrar", parent=self
             )
 
     def _atualizar_apos_mudanca_sessao(self):
@@ -780,8 +780,10 @@ class AppSelfService(ttk.Window):
 def main():
     """Ponto de entrada para a aplicação autônoma de autoatendimento."""
     from registro.nucleo.logging_config import configurar_logging
+    from registro.launcher import verificar_e_migrar_banco_se_necessario
 
     configurar_logging("autoatendimento")
+    verificar_e_migrar_banco_se_necessario()
 
     try:
         app = AppSelfService()
@@ -790,9 +792,9 @@ def main():
         logger.critical("Erro fatal ao iniciar a aplicação de autoatendimento.")
         logger.critical(traceback.format_exc())
         Messagebox.show_error(
-            "Erro Crítico",
             "A aplicação encontrou um erro irrecuperável e será fechada. "
             "Verifique os logs para mais detalhes.",
+            "Erro Crítico",
         )
 
 

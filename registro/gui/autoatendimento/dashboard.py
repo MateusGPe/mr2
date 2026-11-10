@@ -408,6 +408,7 @@ class AbaDashboard(ttk.Frame):
             tot_cons = stats.get("total_consumidos", 0)
             tot_rest = stats.get("total_restantes", 0)
             tot_esp = stats.get("total_esperado", 0)
+            tot_pap = stats.get("total_pap", 0)
             taxa = stats.get("taxa_adesao", 0.0)
             c_res = stats.get("total_com_reserva", 0)
             s_res = stats.get("total_sem_reserva", 0)
@@ -416,9 +417,10 @@ class AbaDashboard(ttk.Frame):
             self.lbl_restantes.config(text=str(tot_rest))
             self.lbl_adesao.config(text=f"{taxa:.1f}%")
             self.progress_adesao.config(value=taxa)
-            self.lbl_esperados.config(
-                text=f"{tot_cons} de {tot_esp} esperados"
-            )
+            info_esp = f"{tot_cons} de {tot_esp} esperados"
+            if tot_pap > 0:
+                info_esp += f" (PAP: {tot_pap})"
+            self.lbl_esperados.config(text=info_esp)
             self.lbl_reserva_info.config(text=f"{c_res} / {s_res}")
             pct_res = (
                 f"{(c_res / tot_cons * 100):.0f}% com reserva"
@@ -626,21 +628,21 @@ class AbaDashboard(ttk.Frame):
         """Exporta os dados de consumo e resumo da sessão para arquivo Excel."""
         if not self.id_sessao or not self.fachada:
             Messagebox.show_warning(
-                "Aviso", "Nenhuma sessão ativa para exportar.", parent=self
+                "Nenhuma sessão ativa para exportar.", "Aviso", parent=self
             )
             return
 
         try:
             caminho = self.fachada.exportar_sessao_para_xlsx()
             Messagebox.show_info(
-                "Exportação Concluída",
                 f"Relatório exportado com sucesso para:\n{caminho}",
+                "Exportação Concluída",
                 parent=self,
             )
         except Exception as e:
             logger.exception("Erro ao exportar planilha de sessão: %s", e)
             Messagebox.show_error(
-                "Erro na Exportação",
                 f"Não foi possível exportar:\n{e}",
+                "Erro na Exportação",
                 parent=self,
             )

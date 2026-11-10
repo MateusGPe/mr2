@@ -113,6 +113,7 @@ def obter_estudantes_para_sessao(
     repo_grupo: RepositorioGrupo,
     id_sessao: int,
     consumido: Optional[bool] = None,
+    excecao_grupos: Optional[Set[str]] = None,
     excessao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
 ) -> List[Dict[str, Any]]:
@@ -121,9 +122,10 @@ def obter_estudantes_para_sessao(
     db_session = repo_estudante.obter_sessao()
     EstudanteGrupo = models.associacao_estudante_grupo
 
+    grupos_filtro = excecao_grupos if excecao_grupos is not None else excessao_grupos
     ids_grupos_sessao = {g.id for g in sessao.grupos}
     ids_excecao_grupos = {
-        g.id for g in repo_grupo.por_nomes(excessao_grupos or set())
+        g.id for g in repo_grupo.por_nomes(grupos_filtro or set())
     }
 
     q1 = select(EstudanteGrupo.c.estudante_id).where(
@@ -299,6 +301,10 @@ def carregar_estado_sessao(fachada: Any) -> Optional[Dict[str, Any]]:
         )
         if "id_sessao" in dados:
             fachada.definir_sessao_ativa(dados["id_sessao"])
+        if "excecao_grupos" in dados and hasattr(fachada, "excecao_grupos"):
+            fachada.excecao_grupos = set(dados.get("excecao_grupos") or [])
+        if "filtro_categoria" in dados and hasattr(fachada, "filtro_categoria_sessao"):
+            fachada.filtro_categoria_sessao = dados.get("filtro_categoria")
         return dados
     except Exception as e:
         logger.error(
@@ -321,9 +327,16 @@ def salvar_estado_sessao(
     if sid is None:
         return False
     try:
+        excecao_grupos = list(getattr(fachada, "excecao_grupos", []))
+        filtro_categoria = getattr(fachada, "filtro_categoria_sessao", None)
+        payload = {
+            "id_sessao": sid,
+            "excecao_grupos": excecao_grupos,
+            "filtro_categoria": filtro_categoria,
+        }
         constants.CAMINHO_SESSAO.parent.mkdir(parents=True, exist_ok=True)
         constants.CAMINHO_SESSAO.write_text(
-            json.dumps({"id_sessao": sid}, indent=2, ensure_ascii=False),
+            json.dumps(payload, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
         logger.info(

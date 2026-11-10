@@ -352,7 +352,7 @@ class AbaConsumos(ttk.Frame):
         """[Create] Abre o diálogo para registrar um novo consumo manualmente."""
         if not self.id_sessao or not self.fachada or not self.fachada.id_sessao_ativa:
             Messagebox.show_warning(
-                "Aviso", "Inicie ou selecione uma sessão antes de registrar.", parent=self
+                "Inicie ou selecione uma sessão antes de registrar.", "Aviso", parent=self
             )
             return
 
@@ -367,7 +367,7 @@ class AbaConsumos(ttk.Frame):
         alvo_iid = iid or self.tree.obter_iid_selecionado()
         if not alvo_iid:
             Messagebox.show_warning(
-                "Atenção", "Selecione um registro na tabela para editar.", parent=self
+                "Selecione um registro na tabela para editar.", "Atenção", parent=self
             )
             return
 
@@ -388,7 +388,7 @@ class AbaConsumos(ttk.Frame):
 
         if not id_consumo:
             Messagebox.show_error(
-                "Erro", "Não foi possível localizar o ID do consumo para edição.", parent=self
+                "Não foi possível localizar o ID do consumo para edição.", "Erro", parent=self
             )
             return
 
@@ -409,7 +409,7 @@ class AbaConsumos(ttk.Frame):
         alvo_iid = iid or self.tree.obter_iid_selecionado()
         if not alvo_iid:
             Messagebox.show_warning(
-                "Atenção", "Selecione um registro na tabela para excluir.", parent=self
+                "Selecione um registro na tabela para excluir.", "Atenção", parent=self
             )
             return
 
@@ -420,28 +420,31 @@ class AbaConsumos(ttk.Frame):
         pront = dados.get("pront", "")
         nome = dados.get("nome", "")
 
-        msg = f"Deseja realmente remover o registro de consumo para:\n{pront} - {nome}?"
-        resp = Messagebox.yesno(
-            "Confirmar Remoção de Consumo", msg, parent=self
+        from registro.gui.comum.dialogo_cancelamento import solicitar_cancelamento_consumo
+
+        confirmado, op, mot = solicitar_cancelamento_consumo(
+            parent=self,
+            prontuario=pront,
+            nome=nome,
         )
-        if resp == MessageCatalog.translate("Yes"):
+        if confirmado:
             try:
                 id_consumo = dados.get("id_consumo")
                 if id_consumo:
-                    self.fachada.desfazer_consumo(id_consumo)
+                    self.fachada.desfazer_consumo(id_consumo, operador=op, motivo=mot)
                 else:
-                    self.fachada.desfazer_consumo_por_prontuario(pront)
+                    self.fachada.desfazer_consumo_por_prontuario(pront, operador=op, motivo=mot)
 
                 logger.info("Consumo de %s removido com sucesso.", pront)
                 self.carregar_consumos()
                 self._notificar_mudanca()
                 Messagebox.show_info(
-                    "Removido", f"Registro de {nome} removido com sucesso.", parent=self
+                    f"Registro de {nome} removido com sucesso.", "Removido", parent=self
                 )
             except Exception as e:
                 logger.exception("Erro ao excluir consumo: %s", e)
                 Messagebox.show_error(
-                    "Erro ao Excluir", f"Não foi possível remover:\n{e}", parent=self
+                    f"Não foi possível remover:\n{e}", "Erro ao Excluir", parent=self
                 )
 
     def exibir_detalhes(self, iid: Optional[str] = None):
@@ -449,7 +452,7 @@ class AbaConsumos(ttk.Frame):
         alvo_iid = iid or self.tree.obter_iid_selecionado()
         if not alvo_iid:
             Messagebox.show_warning(
-                "Atenção", "Selecione um registro para ver os detalhes.", parent=self
+                "Selecione um registro para ver os detalhes.", "Atenção", parent=self
             )
             return
 
@@ -467,19 +470,19 @@ class AbaConsumos(ttk.Frame):
     def exportar_xlsx(self):
         """Exporta os registros de consumo atuais para XLSX."""
         if not self.id_sessao or not self.fachada:
-            Messagebox.show_warning("Aviso", "Nenhuma sessão ativa para exportar.", parent=self)
+            Messagebox.show_warning("Nenhuma sessão ativa para exportar.", "Aviso", parent=self)
             return
 
         try:
             caminho = self.fachada.exportar_sessao_para_xlsx()
             Messagebox.show_info(
-                "Exportação Concluída",
                 f"Consumos exportados com sucesso para:\n{caminho}",
+                "Exportação Concluída",
                 parent=self,
             )
         except Exception as e:
             logger.exception("Erro ao exportar consumos: %s", e)
-            Messagebox.show_error("Erro na Exportação", f"Falha ao exportar:\n{e}", parent=self)
+            Messagebox.show_error(f"Falha ao exportar:\n{e}", "Erro na Exportação", parent=self)
 
     # --- Handlers de Eventos ---
 

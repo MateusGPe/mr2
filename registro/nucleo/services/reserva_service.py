@@ -158,11 +158,17 @@ def salvar_importacao_dados(
             continue
 
         if not id_banco and pront:
+            cat = linha.get("categoria", "REGULAR")
+            cat_norm = (cat or "REGULAR").strip().upper()
+            if cat_norm not in ("REGULAR", "PAP"):
+                cat_norm = "REGULAR"
+
             novos_estudantes.append(
                 {
                     "prontuario": pront,
                     "nome": linha.get("nome", "Desconhecido"),
                     "ativo": True,
+                    "categoria": cat_norm,
                 }
             )
 

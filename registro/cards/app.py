@@ -93,6 +93,14 @@ class CardsApp(ttk.Window):
         )
         btn_selecionar.pack(side=LEFT, padx=(0, 6))
 
+        btn_banco = ttk.Button(
+            file_frame,
+            text="📥 Carregar do Banco do Sistema",
+            bootstyle="success-outline",
+            command=self._carregar_do_banco_sistema,
+        )
+        btn_banco.pack(side=LEFT, padx=(0, 6))
+
         btn_padrao = ttk.Button(
             file_frame,
             text="Carregar Padrão",
@@ -286,12 +294,69 @@ class CardsApp(ttk.Window):
 
         if not candidato.exists():
             Messagebox.show_warning(
-                "Arquivo Não Encontrado",
                 "O arquivo padrão 'config/students.csv' não foi localizado.",
+                "Arquivo Não Encontrado",
             )
             return
 
         self._carregar_dados_de_caminho(candidato)
+
+    def _carregar_do_banco_sistema(self):
+        """Carrega todos os estudantes cadastrados no banco de dados SQLite do sistema."""
+        try:
+            from registro.nucleo.facade import FachadaRegistro
+
+            with FachadaRegistro() as fachada:
+                estudantes = fachada.obter_todos_estudantes_com_grupos()
+                if not estudantes:
+                    Messagebox.show_warning(
+                        "Nenhum estudante encontrado no banco de dados.",
+                        "Banco Vazio",
+                        parent=self,
+                    )
+                    return
+
+                lista_alunos = []
+                for e in estudantes:
+                    if getattr(e, "ativo", True) is False:
+                        continue
+                    turmas_str = ", ".join(sorted(g.nome for g in e.grupos)) if e.grupos else "(Sem Turma)"
+                    cat = getattr(e, "categoria", "REGULAR") or "REGULAR"
+                    lista_alunos.append({
+                        "name": e.nome,
+                        "register": e.prontuario,
+                        "turma": turmas_str,
+                        "categoria": cat,
+                    })
+
+                self.students_raw = lista_alunos
+                self.caminho_arquivo_var.set("📦 Banco de Dados do Sistema (registro.db)")
+
+                turmas_set = set()
+                for s in lista_alunos:
+                    t = s.get("turma", "").strip()
+                    turmas_set.add(t if t else "(Sem Turma)")
+
+                turmas_ordenadas = sorted([t for t in turmas_set if t != "(Sem Turma)"])
+                if "(Sem Turma)" in turmas_set:
+                    turmas_ordenadas.append("(Sem Turma)")
+
+                self.todas_turmas = turmas_ordenadas
+                self.turmas_vars = {t: ttk.BooleanVar(value=True) for t in self.todas_turmas}
+                self._atualizar_menu_turmas()
+                self._filtrar_estudantes()
+
+                Messagebox.show_info(
+                    f"{len(lista_alunos)} discentes carregados diretamente do banco de dados!",
+                    "Banco de Dados Conectado",
+                    parent=self,
+                )
+        except Exception as ex:
+            Messagebox.show_error(
+                f"Erro ao carregar dados do banco do sistema:\n{ex}",
+                "Erro no Banco",
+                parent=self,
+            )
 
     def _atualizar_menu_turmas(self):
         """Reconstrói as opções do menu suspenso de seleção múltipla de turmas."""
@@ -382,8 +447,8 @@ class CardsApp(ttk.Window):
             self._filtrar_estudantes()
         except Exception as e:
             Messagebox.show_error(
-                "Erro ao Carregar Arquivo",
                 f"Não foi possível processar o arquivo:\n{e}",
+                "Erro ao Carregar Arquivo",
             )
 
     def _filtrar_estudantes(self):
@@ -458,8 +523,8 @@ class CardsApp(ttk.Window):
         """Pergunta ao usuário se deseja abrir o arquivo gerado."""
         if hasattr(os, "startfile"):
             resposta = Messagebox.show_question(
-                "Exportação Concluída",
                 f"Cartões exportados com sucesso!\n\nArquivo:\n{caminho_arquivo}\n\nDeseja abrir o arquivo agora?",
+                "Exportação Concluída",
             )
             if resposta == "Yes":
                 try:
@@ -468,14 +533,14 @@ class CardsApp(ttk.Window):
                     pass
         else:
             Messagebox.show_info(
-                "Exportação Concluída",
                 f"Cartões exportados com sucesso em:\n{caminho_arquivo}",
+                "Exportação Concluída",
             )
 
     def _exportar_pdf(self):
         """Gera o arquivo PDF com os estudantes atualmente filtrados/exibidos."""
         if not self.students_filtered:
-            Messagebox.show_warning("Aviso", "Não há estudantes para exportar.")
+            Messagebox.show_warning("Não há estudantes para exportar.", "Aviso")
             return
 
         destino = filedialog.asksaveasfilename(
@@ -492,12 +557,12 @@ class CardsApp(ttk.Window):
             total = generate_cards_pdf(self.students_filtered, destino, opcoes)
             self._perguntar_abrir_arquivo(destino)
         except Exception as e:
-            Messagebox.show_error("Erro na Exportação", f"Falha ao gerar PDF:\n{e}")
+            Messagebox.show_error(f"Falha ao gerar PDF:\n{e}", "Erro na Exportação")
 
     def _exportar_html(self):
         """Gera o arquivo HTML com os estudantes atualmente filtrados/exibidos."""
         if not self.students_filtered:
-            Messagebox.show_warning("Aviso", "Não há estudantes para exportar.")
+            Messagebox.show_warning("Não há estudantes para exportar.", "Aviso")
             return
 
         destino = filedialog.asksaveasfilename(
@@ -514,7 +579,7 @@ class CardsApp(ttk.Window):
             total = generate_cards_html(self.students_filtered, destino, opcoes)
             self._perguntar_abrir_arquivo(destino)
         except Exception as e:
-            Messagebox.show_error("Erro na Exportação", f"Falha ao gerar HTML:\n{e}")
+            Messagebox.show_error(f"Falha ao gerar HTML:\n{e}", "Erro na Exportação")
 
 
 def main():

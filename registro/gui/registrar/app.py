@@ -261,7 +261,7 @@ class AppRegistro(tk.Tk):
 
         if not self._fachada:
             Messagebox.show_error(
-                "Erro Interno", "Fachada não encontrada.", parent=self
+                "Fachada não encontrada.", "Erro Interno", parent=self
             )
             return False
 
@@ -303,13 +303,13 @@ class AppRegistro(tk.Tk):
         """Exporta os dados da sessão para Excel e, se bem-sucedido, encerra a sessão."""
         if not self._fachada or self._fachada.id_sessao_ativa is None:
             Messagebox.show_warning(
-                "Nenhuma Sessão Ativa", "Não há sessão para encerrar.", parent=self
+                "Não há sessão para encerrar.", "Nenhuma Sessão Ativa", parent=self
             )
             return
 
         if Messagebox.yesno(
-            "Confirmar Encerramento",
             "Deseja exportar os dados e encerrar esta sessão?",
+            "Confirmar Encerramento",
             icon="warning",
             parent=self,
         ) == MessageCatalog.translate("No"):
@@ -318,8 +318,8 @@ class AppRegistro(tk.Tk):
         export_ok = self.exportar_sessao_para_excel()
         if not export_ok:
             if Messagebox.yesno(
-                "Falha na Exportação",
                 "A exportação falhou. Deseja encerrar mesmo assim?",
+                "Falha na Exportação",
                 icon="error",
                 parent=self,
             ) == MessageCatalog.translate("No"):
@@ -391,15 +391,28 @@ class AppRegistro(tk.Tk):
         if self._painel_status:
             self._painel_status.carregar_estudantes_registrados()
 
-    def tratar_delecao_consumo(self, dados_para_logica: Tuple, _iid_para_deletar: str):
+    def tratar_delecao_consumo(
+        self,
+        dados_para_logica: Tuple,
+        _iid_para_deletar: str,
+        operador: str = "Operador",
+        motivo: str = "Cancelado pelo operador",
+    ):
         """Callback chamado pelo PainelStatusRegistrados para desfazer um consumo."""
         pront = dados_para_logica[0] if dados_para_logica else None
         nome = dados_para_logica[1] if len(dados_para_logica) > 1 else "N/A"
-        logger.info("Solicitação para desfazer consumo: %s (%s)",
-                    pront or "?", nome)
+        logger.info(
+            "Solicitação para desfazer consumo: %s (%s) por %s - %s",
+            pront or "?",
+            nome,
+            operador,
+            motivo,
+        )
 
         if pront and self._fachada:
-            self._fachada.desfazer_consumo_por_prontuario(pront)
+            self._fachada.desfazer_consumo_por_prontuario(
+                pront, operador=operador, motivo=motivo
+            )
             if self._painel_status:
                 self._painel_status.carregar_estudantes_registrados()
             self._atualizar_ui_apos_mudanca_dados()
@@ -417,7 +430,7 @@ class AppRegistro(tk.Tk):
         """Abre o diálogo para filtrar turmas na sessão ativa."""
         if not self._fachada or self._fachada.id_sessao_ativa is None:
             Messagebox.show_warning(
-                "Nenhuma Sessão Ativa", "É necessário iniciar uma sessão.", parent=self
+                "É necessário iniciar uma sessão.", "Nenhuma Sessão Ativa", parent=self
             )
             return
 
@@ -446,20 +459,26 @@ class AppRegistro(tk.Tk):
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Falha ao aplicar filtros de turma: %s", e)
             Messagebox.show_error(
-                "Erro ao Filtrar",
                 f"Não foi possível aplicar os filtros.\nErro: {e}",
+                "Erro ao Filtrar",
                 parent=self,
             )
 
     def _abrir_janela_self_service(self):
         """Abre o totem de autoatendimento autônomo em processo independente."""
         import subprocess
+
         logger.info("Iniciando totem de autoatendimento autônomo...")
         try:
             if self._fachada and self._fachada.id_sessao_ativa:
                 self._fachada.salvar_estado_sessao(self._fachada.id_sessao_ativa)
 
-            subprocess.Popen([sys.executable, "-m", "registro.gui.autoatendimento"])
+            if getattr(sys, "frozen", False):
+                cmd = [sys.executable, "--auto"]
+            else:
+                cmd = [sys.executable, "-m", "registro.gui.autoatendimento"]
+
+            subprocess.Popen(cmd)
         except Exception as e:
             logger.warning("Falha ao abrir processo autônomo: %s. Abrindo janela interna.", e)
             JanelaSelfService(
@@ -491,8 +510,8 @@ class AppRegistro(tk.Tk):
         if not self._fachada:
             return
         if not automatico and Messagebox.yesno(
-            "Confirmar Sincronização",
             "Deseja sincronizar os dados mestre?",
+            "Confirmar Sincronização",
             parent=self,
         ) == MessageCatalog.translate("No"):
             return
@@ -580,7 +599,7 @@ class AppRegistro(tk.Tk):
             self._logar_sincronizacao(direction=direction, status='failure', message=str(erro), records_affected=0)
             if not automatico:
                 Messagebox.show_error(
-                    "Erro na Sincronização", f"{nome_tarefa} falhou:\n{erro}", parent=self
+                    f"{nome_tarefa} falhou:\n{erro}", "Erro na Sincronização", parent=self
                 )
         elif sucesso:
             logger.info("%s concluída com sucesso. Registros afetados: %d", nome_tarefa, records_affected)
@@ -592,8 +611,8 @@ class AppRegistro(tk.Tk):
             )
             if not automatico:
                 Messagebox.show_info(
-                    "Sincronização Concluída",
                     f"{nome_tarefa} concluída com sucesso.",
+                    "Sincronização Concluída",
                     parent=self,
                 )
             self._atualizar_ui_apos_mudanca_dados()
@@ -608,8 +627,8 @@ class AppRegistro(tk.Tk):
             )
             if not automatico:
                 Messagebox.show_warning(
-                    "Status Desconhecido",
                     f"{nome_tarefa} finalizada, mas o status é incerto.",
+                    "Status Desconhecido",
                     parent=self,
                 )
 
@@ -621,23 +640,23 @@ class AppRegistro(tk.Tk):
             caminho_arquivo = self._fachada.exportar_sessao_para_xlsx()
             logger.info("Dados da sessão exportados para: %s", caminho_arquivo)
             Messagebox.show_info(
-                "Exportação Concluída",
                 f"Dados exportados com sucesso para:\n{caminho_arquivo}",
+                "Exportação Concluída",
                 parent=self,
             )
             return True
         except ErroSessaoNaoAtiva:
             Messagebox.show_warning(
-                "Nenhuma Sessão Ativa",
                 "Não há sessão ativa para exportar.",
+                "Nenhuma Sessão Ativa",
                 parent=self,
             )
         except ValueError as ve:
-            Messagebox.show_warning("Nada para Exportar", str(ve), parent=self)
+            Messagebox.show_warning(str(ve), "Nada para Exportar", parent=self)
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro inesperado durante a exportação.")
             Messagebox.show_error(
-                "Erro na Exportação", f"Ocorreu um erro ao exportar:\n{e}", parent=self
+                f"Ocorreu um erro ao exportar:\n{e}", "Erro na Exportação", parent=self
             )
         return False
 
@@ -651,8 +670,8 @@ class AppRegistro(tk.Tk):
         )
         try:
             Messagebox.show_error(
-                "Erro de Inicialização",
                 f"Falha: {componente}\n{erro}\n\nAplicação será encerrada.",
+                "Erro de Inicialização",
                 parent=(self if self.winfo_exists() else None),
             )
         except Exception:  # pylint: disable=broad-exception-caught
@@ -712,8 +731,10 @@ class AppRegistro(tk.Tk):
 
 def main():
     from registro.nucleo.logging_config import configurar_logging
+    from registro.launcher import verificar_e_migrar_banco_se_necessario
 
     configurar_logging("registrar")
+    verificar_e_migrar_banco_se_necessario()
     app = AppRegistro()
     app.mainloop()
 

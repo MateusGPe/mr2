@@ -453,7 +453,7 @@ class JanelaSelfService(tk.Toplevel):
             return False, msg, {"nome": nome_busca, "turma": "Busca Ambigua"}
 
         prontuario_encontrado = melhor_match.get("pront")
-        resultado_registro = self._fachada.registrar_consumo_com_reserva(
+        resultado_registro = self._fachada.registrar_consumo(
             prontuario_encontrado, excecao_grupos=self._fachada.excecao_grupos
         )
         if resultado_registro.get("autorizado"):

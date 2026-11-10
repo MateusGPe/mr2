@@ -148,8 +148,8 @@ class PainelStatusRegistrados(ttk.Frame):
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao carregar tabela de registrados: %s", e)
             Messagebox.show_error(
-                "Erro",
                 "Não foi possível carregar a lista de registrados.",
+                "Erro",
                 parent=self._app,
             )
             self.limpar_tabela()
@@ -239,17 +239,24 @@ class PainelStatusRegistrados(ttk.Frame):
         except (IndexError, ValueError) as e:
             logger.error("Erro ao extrair dados da linha %s: %s.", iid, e)
             Messagebox.show_error(
-                "Erro de Dados", "Erro ao processar dados da linha.", parent=self._app
+                "Erro ao processar dados da linha.", "Erro de Dados", parent=self._app
             )
             return
 
-        msg = f"Remover registro para:\n{pront} - {nome}?"
-        if Messagebox.yesno(
-            "Confirmar Remoção", msg, icon=WARNING, parent=self._app
-        ) == MessageCatalog.translate("Yes"):
-            logger.info("Confirmada exclusão para %s (iid: %s).", pront, iid)
+        from registro.gui.comum.dialogo_cancelamento import solicitar_cancelamento_consumo
+
+        confirmado, op, mot = solicitar_cancelamento_consumo(
+            parent=self._app,
+            prontuario=pront,
+            nome=nome,
+        )
+        if confirmado:
+            logger.info("Confirmada exclusão para %s (operador=%s, motivo=%s).", pront, op, mot)
             dados_para_logica = tuple(dados_linha[:5])
-            self._app.tratar_delecao_consumo(dados_para_logica, iid)
+            try:
+                self._app.tratar_delecao_consumo(dados_para_logica, iid, operador=op, motivo=mot)
+            except TypeError:
+                self._app.tratar_delecao_consumo(dados_para_logica, iid)
         else:
             logger.debug("Exclusão de %s cancelada.", pront)
 

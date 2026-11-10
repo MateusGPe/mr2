@@ -66,7 +66,16 @@ class StudentDialog(ttk.Toplevel):
             row=4, column=0, sticky=EW, pady=(0, 5)
         )
         self.grupo_combobox = ttk.Combobox(form_frame, state="readonly")
-        self.grupo_combobox.grid(row=5, column=0, sticky=EW, pady=(0, 15))
+        self.grupo_combobox.grid(row=5, column=0, sticky=EW, pady=(0, 10))
+
+        ttk.Label(form_frame, text="Categoria do Discente:", anchor=W).grid(
+            row=6, column=0, sticky=EW, pady=(0, 5)
+        )
+        self.categoria_combobox = ttk.Combobox(
+            form_frame, values=["REGULAR", "PAP"], state="readonly"
+        )
+        self.categoria_combobox.set("REGULAR")
+        self.categoria_combobox.grid(row=7, column=0, sticky=EW, pady=(0, 15))
 
         self.chk_ativo = ttk.Checkbutton(
             form_frame,
@@ -74,7 +83,7 @@ class StudentDialog(ttk.Toplevel):
             variable=self.var_ativo,
             bootstyle="round-toggle",
         )
-        self.chk_ativo.grid(row=6, column=0, sticky=W, pady=(0, 10))
+        self.chk_ativo.grid(row=8, column=0, sticky=W, pady=(0, 10))
 
         ttk.Separator(main_frame, orient=tk.HORIZONTAL).grid(
             row=1, column=0, sticky=EW, pady=10
@@ -123,6 +132,8 @@ class StudentDialog(ttk.Toplevel):
             self.prontuario_entry.insert(0, student_data.prontuario)
             self.prontuario_entry.config(state="readonly")
             self.var_ativo.set(bool(student_data.ativo) if student_data.ativo is not None else True)
+            cat = getattr(student_data, "categoria", "REGULAR") or "REGULAR"
+            self.categoria_combobox.set(cat.strip().upper())
 
             if student_data.grupos:
                 self.grupo_combobox.set(student_data.grupos[0].nome)
@@ -139,6 +150,7 @@ class StudentDialog(ttk.Toplevel):
         prontuario = self.prontuario_entry.get().strip()
         grupo_selecionado = self.grupo_combobox.get()
         grupos = [grupo_selecionado] if grupo_selecionado and grupo_selecionado != "(Nenhuma)" else []
+        categoria = self.categoria_combobox.get().strip().upper() or "REGULAR"
 
         if not nome or not prontuario:
             Messagebox.show_warning("Nome e prontuário são obrigatórios.", "Validação")
@@ -148,7 +160,7 @@ class StudentDialog(ttk.Toplevel):
             if self.student_id:
                 self.fachada.atualizar_estudante(
                     self.student_id,
-                    {"nome": nome, "ativo": self.var_ativo.get()},
+                    {"nome": nome, "ativo": self.var_ativo.get(), "categoria": categoria},
                     grupos=grupos,
                 )
             else:
@@ -156,6 +168,7 @@ class StudentDialog(ttk.Toplevel):
                     prontuario,
                     nome,
                     grupos=grupos,
+                    categoria=categoria,
                 )
             self.result = True
             self.destroy()
@@ -536,6 +549,12 @@ class ReservaDialog(ttk.Toplevel):
 
 
 class SessionDialog(ttk.Toplevel):
+    """
+    .. deprecated:: 2.0
+       Diálogo legado predecessor de `DialogoSessao` (`registro.gui.registrar.dialogo_sessao.DialogoSessao`).
+       Preservado para retrocompatibilidade com imports legados.
+    """
+
     def __init__(self, parent, fachada: FachadaRegistro):
         super().__init__(parent)
         self.transient(parent)

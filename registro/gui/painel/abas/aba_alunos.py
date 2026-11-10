@@ -142,9 +142,10 @@ class AbaAlunos(ttk.Frame):
         self.alunos_coldata = [
             {"text": "ID", "stretch": False, "width": 60},
             {"text": "Nome", "stretch": True},
-            {"text": "Prontuário", "stretch": False, "width": 150},
+            {"text": "Prontuário", "stretch": False, "width": 130},
             {"text": "Grupos / Turmas", "stretch": True},
-            {"text": "Ativo", "stretch": False, "width": 80},
+            {"text": "Categoria", "stretch": False, "width": 95},
+            {"text": "Ativo", "stretch": False, "width": 75},
         ]
         self.alunos_table = TreeviewSimples(
             master=container,
@@ -204,6 +205,7 @@ class AbaAlunos(ttk.Frame):
                     aluno["nome"],
                     aluno["prontuario"],
                     ", ".join(aluno.get("grupos", [])),
+                    aluno.get("categoria", "REGULAR"),
                     "Sim" if aluno.get("ativo", False) else "Não",
                 )
                 for aluno in alunos

@@ -35,8 +35,8 @@ class App(ttk.Window):
             )
         except Exception:
             Messagebox.show_error(
-                "Erro Fatal",
                 "Não foi possível iniciar o backend. Verifique o console.",
+                "Erro Fatal",
             )
             traceback.print_exc()
             self.destroy()
@@ -126,8 +126,10 @@ class App(ttk.Window):
 
 def main():
     from registro.nucleo.logging_config import configurar_logging
+    from registro.launcher import verificar_e_migrar_banco_se_necessario
 
     configurar_logging("painel")
+    verificar_e_migrar_banco_se_necessario()
     app = App()
     app.mainloop()
 

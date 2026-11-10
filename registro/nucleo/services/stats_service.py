@@ -54,6 +54,12 @@ def obter_estatisticas_dashboard(
         or 0
     )
     alunos_ativos = alunos_total - alunos_inativos
+    alunos_pap = int(
+        sessao_db.query(func.count(Estudante.id))
+        .filter(Estudante.ativo.is_(True), func.upper(Estudante.categoria) == "PAP")
+        .scalar()
+        or 0
+    )
 
     # Grupos / Turmas
     grupos = (
@@ -142,6 +148,7 @@ def obter_estatisticas_dashboard(
         "alunos_total": alunos_total,
         "alunos_ativos": alunos_ativos,
         "alunos_inativos": alunos_inativos,
+        "alunos_pap": alunos_pap,
         "grupos_total": len(grupos),
         "grupos_ativos": grupos_ativos,
         "reservas_hoje": len(reservas_hoje),
@@ -161,9 +168,11 @@ def obter_estatisticas_sessao(
     repo_consumo: RepositorioConsumo,
     repo_grupo: RepositorioGrupo,
     id_sessao: int,
+    excecao_grupos: Optional[Set[str]] = None,
     excessao_grupos: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
     """Calcula estatísticas detalhadas e consolidadas para uma sessão de refeição."""
+    grupos_filtro = excecao_grupos if excecao_grupos is not None else excessao_grupos
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
     consumidos = obter_estudantes_para_sessao(
         repo_sessao=repo_sessao,
@@ -174,7 +183,7 @@ def obter_estatisticas_sessao(
         id_sessao=id_sessao,
         consumido=True,
         pular_grupos=True,
-        excessao_grupos=excessao_grupos,
+        excecao_grupos=grupos_filtro,
     )
     elegiveis = obter_estudantes_para_sessao(
         repo_sessao=repo_sessao,
@@ -184,7 +193,7 @@ def obter_estatisticas_sessao(
         repo_grupo=repo_grupo,
         id_sessao=id_sessao,
         consumido=False,
-        excessao_grupos=excessao_grupos,
+        excecao_grupos=grupos_filtro,
     )
 
     total_consumidos = len(consumidos)

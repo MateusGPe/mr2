@@ -208,7 +208,26 @@ class FrameSelfService(ttk.Frame):
                 item = detalhes.get("item_servido") or ""
                 texto_item = f" • {item}" if item else ""
                 grupos = list(detalhes.get("grupos", []))
-                grupos_str = f"{len(grupos)} turmas" if grupos else "Todas"
+                qtd_grupos = len(grupos)
+                qtd_exc = (
+                    len(self._fachada.excecao_grupos)
+                    if getattr(self._fachada, "excecao_grupos", None)
+                    else 0
+                )
+                if qtd_grupos and qtd_exc:
+                    grupos_str = f"{qtd_grupos} turmas (+{qtd_exc} exc.)"
+                elif qtd_grupos:
+                    grupos_str = f"{qtd_grupos} turmas"
+                elif qtd_exc:
+                    grupos_str = f"Todas (+{qtd_exc} exc.)"
+                else:
+                    grupos_str = "Todas"
+
+                cat_info = (
+                    f" | 🏷️ {self._fachada.filtro_categoria_sessao}"
+                    if getattr(self._fachada, "filtro_categoria_sessao", None)
+                    else ""
+                )
 
                 if self._lbl_refeicao_ativa:
                     self._lbl_refeicao_ativa.config(
@@ -216,7 +235,7 @@ class FrameSelfService(ttk.Frame):
                     )
                 if self._lbl_sessao_topo:
                     self._lbl_sessao_topo.config(
-                        text=f"🍲 {refeicao} ({hora}){texto_item} | 📅 {data} | 👥 {grupos_str}"
+                        text=f"🍲 {refeicao} ({hora}){texto_item} | 📅 {data} | 👥 {grupos_str}{cat_info}"
                     )
 
                 consumidos = self._fachada.obter_estudantes_para_sessao(

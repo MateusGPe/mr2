@@ -359,7 +359,7 @@ class PainelAcaoBusca(ttk.Frame):
 
         if elegiveis is None:
             Messagebox.show_error(
-                "Erro", "Falha ao carregar lista de estudantes.", parent=self._app
+                "Falha ao carregar lista de estudantes.", "Erro", parent=self._app
             )
             return
 
@@ -385,8 +385,8 @@ class PainelAcaoBusca(ttk.Frame):
         nome = self._dados_elegivel_selecionado.get("Nome", "?")
         if not pront:
             Messagebox.show_error(
-                "Erro no Registro",
                 "Prontuário do aluno selecionado está ausente ou inválido.",
+                "Erro no Registro",
                 parent=self._app,
             )
             return
@@ -416,23 +416,23 @@ class PainelAcaoBusca(ttk.Frame):
                 motivo_lower = motivo.lower()
                 if "já consumiu" in motivo_lower or "já registrado" in motivo_lower:
                     Messagebox.show_warning(
-                        "Já Registrado",
                         f"{nome} ({pront})\n{motivo}",
+                        "Já Registrado",
                         parent=self._app,
                     )
                     self.limpar_busca()
                 else:
                     Messagebox.show_error(
-                        "Erro no Registro",
                         f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nMotivo: {motivo}",
+                        "Erro no Registro",
                         parent=self._app,
                     )
 
         except Exception as e: # pylint: disable=broad-exception-caught
             logger.warning("Falha ao registrar %s: %s", pront, e)
             Messagebox.show_error(
-                "Erro no Registro",
                 f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nErro: {e}",
+                "Erro no Registro",
                 parent=self._app,
             )
         finally:
@@ -567,7 +567,7 @@ class PainelAcaoBusca(ttk.Frame):
         except Exception as e: # pylint: disable=broad-exception-caught
             logger.exception("Erro ao construir tabela de elegíveis: %s", e)
             Messagebox.show_error(
-                "Erro de UI", "Não foi possível exibir os resultados.", parent=self._app
+                "Não foi possível exibir os resultados.", "Erro de UI", parent=self._app
             )
 
     def _atualizar_label_preview(self, erro: bool = False):

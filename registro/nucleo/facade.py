@@ -202,12 +202,35 @@ class FachadaRegistro:
         excecao_grupos: Optional[Sequence[str]] = None,
         excessao_grupos: Optional[Sequence[str]] = None,
     ):
-        """Alias para atualizar_grupos_sessao (mantém compatibilidade com chamadas da GUI)."""
+        """
+        Alias para atualizar_grupos_sessao (mantém compatibilidade com chamadas legadas da GUI).
+
+        .. deprecated:: 2.0
+           Utilize `atualizar_grupos_sessao`.
+        """
         self.atualizar_grupos_sessao(
             grupos,
             excecao_grupos=excecao_grupos,
             excessao_grupos=excessao_grupos,
         )
+
+    def definir_filtro_categoria_sessao(self, categoria: Optional[str]) -> None:
+        """
+        Define o filtro de categoria de discente para a sessão ativa ('REGULAR', 'PAP' ou None)
+        e persiste a alteração no estado da sessão (session.json).
+        """
+        cat_norm = categoria.strip().upper() if categoria else ""
+        self.filtro_categoria_sessao = (
+            cat_norm if cat_norm in ("REGULAR", "PAP") else None
+        )
+        if self.id_sessao_ativa is not None:
+            self.salvar_estado_sessao()
+
+    def definir_excecao_grupos(self, grupos: Set[str]) -> None:
+        """Define o conjunto de turmas de exceção para a sessão ativa e persiste o estado."""
+        self.excecao_grupos = set(grupos)
+        if self.id_sessao_ativa is not None:
+            self.salvar_estado_sessao()
 
     def atualizar_sessao_ativa(
         self,
@@ -283,6 +306,7 @@ class FachadaRegistro:
             excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
             permitir_fora_horario=permitir_fora_horario,
+            filtro_categoria=self.filtro_categoria_sessao,
         )
 
     def registrar_consumo_com_reserva(
@@ -309,6 +333,7 @@ class FachadaRegistro:
             excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
             permitir_fora_horario=permitir_fora_horario,
+            filtro_categoria=self.filtro_categoria_sessao,
         )
 
     def desfazer_consumo_por_prontuario(
@@ -358,12 +383,73 @@ class FachadaRegistro:
     # --- Gestão de Estudantes ---
 
     def criar_estudante(
-        self, prontuario: str, nome: str, grupos: Optional[List[str]] = None
+        self,
+        prontuario: str,
+        nome: str,
+        grupos: Optional[List[str]] = None,
+        categoria: str = "REGULAR",
     ) -> Dict[str, Any]:
         """Cria um novo estudante e associa aos grupos especificados."""
         return service_logic.criar_estudante(
-            self._repo_estudante, self._repo_grupo, prontuario, nome, grupos
+            self._repo_estudante,
+            self._repo_grupo,
+            prontuario,
+            nome,
+            grupos,
+            categoria=categoria,
         )
+
+    # --- Gestão de Grade Horária e Escalonamento ---
+
+    def obter_dia_semana_atual(self) -> str:
+        """Retorna o dia da semana atual no formato da grade (ex.: 'segunda', 'terca')."""
+        from registro.nucleo.services import grade_horarios_service
+
+        return grade_horarios_service.obter_dia_semana_atual()
+
+    def obter_turmas_previstas_para_refeicao(
+        self, refeicao: str, dia_semana: Optional[str] = None
+    ) -> List[str]:
+        """Retorna as turmas previstas na grade horária para uma refeição e dia específicos."""
+        from registro.nucleo.services import grade_horarios_service
+
+        dias_validos = {
+            "segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo",
+            "seg", "ter", "qua", "qui", "sex", "sab", "dom",
+        }
+        mapa_curto = {
+            "seg": "segunda", "ter": "terca", "qua": "quarta", "qui": "quinta", "sex": "sexta"
+        }
+
+        arg1 = (refeicao or "").strip().lower()
+        arg2 = (dia_semana or "").strip().lower() if dia_semana else ""
+
+        if arg1 in dias_validos and (not arg2 or arg2 not in dias_validos):
+            dia_final = mapa_curto.get(arg1, arg1)
+            ref_final = arg2 or "lanche"
+        else:
+            dia_final = (
+                mapa_curto.get(arg2, arg2)
+                if arg2
+                else grade_horarios_service.obter_dia_semana_atual()
+            )
+            ref_final = arg1 or "lanche"
+
+        return grade_horarios_service.obter_turmas_previstas_para_refeicao(
+            dia_semana=dia_final, refeicao=ref_final
+        )
+
+    def obter_grade_horarios(self) -> Dict[str, Any]:
+        """Carrega e retorna o dicionário completo da grade horária semanal."""
+        from registro.nucleo.services import grade_horarios_service
+
+        return grade_horarios_service.carregar_grade_horarios()
+
+    def salvar_grade_horarios(self, grade: Dict[str, Any]) -> None:
+        """Persiste o dicionário atualizado da grade horária semanal."""
+        from registro.nucleo.services import grade_horarios_service
+
+        grade_horarios_service.salvar_grade_horarios(grade)
 
     def atualizar_estudante(
         self,
@@ -442,7 +528,14 @@ class FachadaRegistro:
         excessao_grupos: Optional[Set[str]] = None,
         pular_grupos: bool = False,
     ) -> List[Dict[str, str]]:
-        """Retorna estudantes elegíveis não consumidos otimizados para busca rápida."""
+        """
+        Retorna estudantes elegíveis não consumidos em formato simplificado (apenas prontuário e nome).
+
+        .. note::
+           Método preservado para compatibilidade. A interface gráfica consome
+           `obter_estudantes_para_sessao`, que fornece o conjunto completo com turmas,
+           categoria e status de atendimento.
+        """
         if self.id_sessao_ativa is None:
             return []
 
@@ -599,7 +692,14 @@ class FachadaRegistro:
         )
 
     def sincronizar_para_google_sheets(self):
-        """Envia os dados de consumo da sessão ativa para a planilha do Google Sheets."""
+        """
+        Envia os dados de consumo da sessão ativa para a planilha do Google Sheets.
+
+        .. note::
+           Método de sessão única preservado para compatibilidade. A interface gráfica utiliza
+           `sincronizar_todas_sessoes_para_google_sheets` para garantir sincronismo completo de
+           qualquer sessão que possa ter ficado pendente.
+        """
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
         import threading
