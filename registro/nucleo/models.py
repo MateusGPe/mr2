@@ -23,6 +23,7 @@ from sqlalchemy import (
     Table,
     UniqueConstraint,
     create_engine,
+    event,
 )
 from sqlalchemy.orm import (
     DeclarativeBase,
@@ -188,7 +189,7 @@ class Reserva(Base):
         secondary=associacao_reserva_grupo, back_populates="reservas", lazy="select"
     )
     consumos: Mapped[List["Consumo"]] = relationship(
-        back_populates="reserva", lazy="select"
+        back_populates="reserva", lazy="select", passive_deletes=True
     )
 
     @property
@@ -349,6 +350,16 @@ motor = create_engine(
     URL_BANCO_DE_DADOS,
     connect_args={"check_same_thread": False},
 )
+
+
+@event.listens_for(motor, "connect")
+def _habilitar_foreign_keys_sqlite(dbapi_connection, _connection_record):
+    """Ativa validação de chaves estrangeiras no SQLite em todas as conexões."""
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.close()
+
+
 SessaoLocal = sessionmaker(autocommit=False, autoflush=False, bind=motor)
 
 

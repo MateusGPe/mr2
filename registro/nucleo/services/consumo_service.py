@@ -264,6 +264,17 @@ def _processar_consumo_pipeline(
     turma = ", ".join(turmas_efetivas) if turmas_efetivas else "N/A"
     categoria = ", ".join(categorias_efetivas) if categorias_efetivas else "-"
 
+    if not getattr(estudante, "ativo", True):
+        return {
+            "autorizado": False,
+            "motivo": "Estudante inativo.",
+            "nome": estudante.nome,
+            "aluno": estudante.nome,
+            "prontuario": estudante.prontuario,
+            "turma": turma,
+            "categoria": categoria,
+        }
+
     # 1. Duplicidade na mesma sessão
     consumo_existente = repo_consumo.ler_filtrado(
         estudante_id=estudante.id, sessao_id=id_sessao, ativo=True

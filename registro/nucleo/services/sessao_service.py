@@ -169,12 +169,14 @@ def obter_estudantes_para_sessao(
     if consumido is True:
         consumos_na_sessao = (
             select(Consumo.estudante_id)
-            .where(Consumo.sessao_id == id_sessao)
+            .where(Consumo.sessao_id == id_sessao, Consumo.ativo.is_(True))
             .subquery()
         )
         stmt = select(Estudante.id).join(
             consumos_na_sessao, Estudante.id == consumos_na_sessao.c.estudante_id
         )
+    elif pular_grupos:
+        stmt = select(Estudante.id).where(Estudante.ativo.is_(True))
     else:
         stmt = (
             select(Estudante.id)
@@ -223,11 +225,7 @@ def obter_estudantes_para_sessao(
                 (sessao.refeicao == "almoço" and bool(getattr(reserva, "almoco", True)))
                 or (sessao.refeicao == "jantar" and bool(getattr(reserva, "jantar", False)))
             )
-            if reserva_ref_valida and (
-                ids_grupos_sessao.intersection(ids_grupos_estudante)
-                or ids_excecao_grupos.intersection(ids_grupos_estudante)
-                or pular_grupos
-            ):
+            if reserva_ref_valida:
                 autorizado = True
                 motivo = "Reserva"
                 prato = reserva.prato
@@ -249,12 +247,20 @@ def obter_estudantes_para_sessao(
             motivo = "Exceção (Grupo)"
             prato = sessao.item_servido or "Lanche"
 
-        if not autorizado:
+        info_consumo = mapa_consumos_por_estudante.get(est.id)
+        if consumido is True:
+            if not info_consumo:
+                continue
+            if not autorizado:
+                autorizado = True
+                motivo = "Registrado (Exceção/Bypass)"
+                if info_consumo.reserva:
+                    prato = info_consumo.reserva.prato or "Padrão"
+                elif sessao.refeicao == "lanche":
+                    prato = sessao.item_servido or "Lanche"
+        elif not autorizado:
             continue
 
-        info_consumo = mapa_consumos_por_estudante.get(est.id)
-        if consumido is True and not info_consumo:
-            continue
         if consumido is False and info_consumo:
             continue
 

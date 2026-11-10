@@ -11,7 +11,7 @@ Sistema de Registro de Refeições (mr2), com opção de envio direto ao Google 
 
 Gera dados coerentes para todas as abas:
   - Discentes: Estudantes com prontuários, nomes, turmas reais e categorias/tags (PAP, ESP1, LIB0, etc.).
-  - Configuração: Grade semanal de horários com turnos de almoço, jantar e lanche.
+  - Configuração: Grade semanal escalonada por dia, refeição, turmas e categorias (PAP, ESP1, LIB0, eventos/visitas).
   - Lanches: Cardápio com opções diversificadas de lanches.
   - DB: Reservas de refeições com pratos variados, dias da semana e categorias pontuais opcionais.
   - Almoço, Jantar, Lanche: Consumos realistas com estudantes com reserva e exceções.
@@ -47,6 +47,13 @@ from registro.nucleo.constants import (
     NOME_ABA_RESERVAS,
 )
 from registro.nucleo.google_api_service import obter_servico_planilha_padrao
+from registro.nucleo.services.grade_horarios_service import (
+    MAPA_DIAS_SEMANA,
+    _hora_para_minutos,
+    _normalizar_chave,
+    _slot_autoriza_estudante,
+    converter_linhas_configuracao_para_grade,
+)
 
 logging.basicConfig(
     level=logging.INFO,
@@ -86,6 +93,71 @@ TURMAS_PADRAO = [
     "3º A - MAC",
     "3º A - MEC",
     "3º B - MEC",
+]
+
+TURMAS_1_ANO = [t for t in TURMAS_PADRAO if t.startswith("1º")]
+TURMAS_2_ANO = [t for t in TURMAS_PADRAO if t.startswith("2º")]
+TURMAS_3_ANO = [t for t in TURMAS_PADRAO if t.startswith("3º")]
+TURMAS_MAC = [t for t in TURMAS_PADRAO if t.endswith("MAC")]
+TURMAS_MEC = [t for t in TURMAS_PADRAO if t.endswith("MEC")]
+
+# Estrutura declarativa da grade semanal complexa para a aba 'Configuração':
+# (Dia, Refeição, Início, Fim, Turmas Liberadas, Categorias Permitidas)
+MODELO_CONFIGURACAO_SEMANAL: List[Tuple[str, str, str, str, Any, Any]] = [
+    # --- Segunda-feira: Escalonamento por ano + prioridade assistencial ---
+    ("Segunda", "Lanche", "09:15", "09:35", "*", ["PAP", "ESP1"]),
+    ("Segunda", "Lanche", "09:30", "09:50", TURMAS_1_ANO, "TODAS"),
+    ("Segunda", "Lanche", "09:50", "10:15", TURMAS_2_ANO + TURMAS_3_ANO, "TODAS"),
+    ("Segunda", "Almoço", "11:15", "11:35", "*", ["PAP", "ESP1"]),
+    ("Segunda", "Almoço", "11:30", "12:10", TURMAS_1_ANO, "*"),
+    ("Segunda", "Almoço", "12:10", "12:50", TURMAS_2_ANO, ["LIB0"]),
+    ("Segunda", "Almoço", "12:50", "13:30", TURMAS_3_ANO, "*"),
+    ("Segunda", "Lanche", "15:15", "15:40", TURMAS_MAC, ["PAP"]),
+    ("Segunda", "Lanche", "15:40", "16:10", TURMAS_MEC, "TODAS"),
+    ("Segunda", "Jantar", "17:45", "18:30", TURMAS_1_ANO + ["2º A - MAC"], ["PAP", "LIB0"]),
+    ("Segunda", "Jantar", "18:30", "19:15", ["2º A - MEC", "2º B - MEC"] + TURMAS_3_ANO, ["PAP", "ESP1"]),
+    # --- Terça-feira: Escalonamento invertido + visitas técnicas e eventos ---
+    ("Terça", "Lanche", "09:20", "09:45", TURMAS_3_ANO, ["VISITA_TECNICA"]),
+    ("Terça", "Lanche", "09:45", "10:15", TURMAS_1_ANO + TURMAS_2_ANO, "TODAS"),
+    ("Terça", "Almoço", "11:20", "11:45", "*", ["VISITA_TECNICA", "EVENTO_ESPORTIVO"]),
+    ("Terça", "Almoço", "11:40", "12:20", TURMAS_3_ANO, "TODAS"),
+    ("Terça", "Almoço", "12:20", "13:00", TURMAS_2_ANO, "TODAS"),
+    ("Terça", "Almoço", "13:00", "13:40", TURMAS_1_ANO, ["PAP", "LIB0"]),
+    ("Terça", "Lanche", "15:20", "15:50", "TODAS", ["PAP", "ESP1", "LIB0"]),
+    ("Terça", "Lanche", "15:50", "16:20", TURMAS_1_ANO, "*"),
+    ("Terça", "Jantar", "17:45", "19:15", "TODAS", "TODAS"),
+    # --- Quarta-feira: Segmentação por eixo tecnológico (MAC vs MEC) e categorias ---
+    ("Quarta", "Lanche", "09:30", "10:00", "TODAS", "TODAS"),
+    ("Quarta", "Almoço", "11:25", "12:05", TURMAS_MAC, ["PAP"]),
+    ("Quarta", "Almoço", "12:05", "12:45", ["1º A - MEC", "1º B - MEC", "2º A - MEC"], ["ESP1"]),
+    ("Quarta", "Almoço", "12:45", "13:25", ["2º B - MEC", "3º A - MEC", "3º B - MEC"], ["LIB0"]),
+    ("Quarta", "Almoço", "13:25", "13:45", "*", ["EVENTO_ESPORTIVO", "PAP"]),
+    ("Quarta", "Lanche", "15:15", "15:45", "TODAS", ["EVENTO_ESPORTIVO", "ESP1"]),
+    ("Quarta", "Lanche", "15:45", "16:15", TURMAS_2_ANO + TURMAS_3_ANO, "*"),
+    ("Quarta", "Jantar", "17:50", "18:35", TURMAS_MAC, ["PAP", "ESP1"]),
+    ("Quarta", "Jantar", "18:35", "19:20", TURMAS_MEC, ["LIB0"]),
+    # --- Quinta-feira: Sobreposição parcial + janela estendida para categorias ---
+    ("Quinta", "Lanche", "09:15", "09:40", ["1º A - MAC", "1º B - MEC", "2º B - MEC"], ["PAP"]),
+    ("Quinta", "Lanche", "09:40", "10:05", ["1º A - MEC", "2º A - MAC", "2º A - MEC"] + TURMAS_3_ANO, ["ESP1", "LIB0"]),
+    ("Quinta", "Almoço", "11:30", "12:00", ["1º A - MAC", "2º A - MAC"], ["PAP", "VISITA_TECNICA"]),
+    ("Quinta", "Almoço", "12:00", "12:35", ["1º A - MEC", "1º B - MEC", "2º A - MEC", "2º B - MEC"], "TODAS"),
+    ("Quinta", "Almoço", "12:35", "13:10", TURMAS_3_ANO, "TODAS"),
+    ("Quinta", "Almoço", "13:10", "13:35", "*", ["PAP", "ESP1", "LIB0"]),
+    ("Quinta", "Lanche", "15:30", "16:00", "TODAS", "TODAS"),
+    ("Quinta", "Jantar", "17:45", "18:25", "*", ["PAP", "ESP1"]),
+    ("Quinta", "Jantar", "18:20", "19:15", "TODAS", "TODAS"),
+    # --- Sexta-feira: Grade reduzida no jantar (apenas categorias beneficiárias) ---
+    ("Sexta", "Lanche", "09:20", "09:50", TURMAS_1_ANO + ["2º A - MAC"], ["PAP"]),
+    ("Sexta", "Lanche", "09:50", "10:15", ["2º A - MEC", "2º B - MEC"] + TURMAS_3_ANO, ["LIB0"]),
+    ("Sexta", "Almoço", "11:30", "12:15", TURMAS_1_ANO, ["PAP", "ESP1"]),
+    ("Sexta", "Almoço", "12:15", "13:00", TURMAS_2_ANO + TURMAS_3_ANO, "TODAS"),
+    ("Sexta", "Lanche", "15:15", "15:50", TURMAS_MAC, ["PAP", "LIB0"]),
+    ("Sexta", "Jantar", "17:45", "18:45", "TODAS", ["PAP", "ESP1", "LIB0"]),
+    # --- Sábado: Atividades letivas, eventos esportivos e visitas ---
+    ("Sábado", "Lanche", "09:15", "09:50", ["1º A - MEC", "2º A - MEC", "3º A - MEC"], ["PAP", "EVENTO_ESPORTIVO"]),
+    ("Sábado", "Lanche", "09:50", "10:20", TURMAS_MAC, ["VISITA_TECNICA"]),
+    ("Sábado", "Almoço", "11:30", "12:15", ["1º A - MEC", "2º A - MEC", "3º A - MEC"], ["EVENTO_ESPORTIVO", "PAP"]),
+    ("Sábado", "Almoço", "12:15", "13:00", TURMAS_MAC, ["ESP1", "LIB0"]),
 ]
 
 CATEGORIAS_PERMANENTES_OPCOES = [
@@ -179,6 +251,7 @@ class GeradorDadosTeste:
         self.qtd_alunos = qtd_alunos
         self.rng = random.Random(seed)
         self.estudantes: List[Dict[str, str]] = []
+        self._grade_configuracao: Optional[Dict[str, Dict[str, List[Dict[str, Any]]]]] = None
 
     def gerar_estudantes(self) -> List[List[str]]:
         """Gera discentes com matrícula, nome, turma real e categorias/tags permanentes."""
@@ -211,25 +284,31 @@ class GeradorDadosTeste:
 
         return linhas
 
+    @staticmethod
+    def _formatar_campo_config(valor: Any) -> str:
+        """Formata lista de turmas/categorias ou coringa ('*' / 'TODAS') para célula da planilha."""
+        if isinstance(valor, (list, tuple)):
+            return ", ".join(str(item).strip() for item in valor if str(item).strip())
+        return str(valor).strip()
+
     def gerar_configuracao(self) -> List[List[str]]:
         """
-        Gera as linhas da aba 'Configuração' com a grade semanal oficial:
-        Lanche Manhã, Almoço, Lanche Tarde, Jantar.
+        Gera as linhas da aba 'Configuração' com grade semanal complexa e escalonada:
+        diferenciação por dia da semana, múltiplos turnos por refeição, segmentação por
+        turmas/eixos e combinações de categorias (PAP, ESP1, LIB0, eventos e visitas).
         """
-        linhas = []
-        for dia_nome, _ in DIAS_GRADE:
-            # Lanche Manhã
-            linhas.append([dia_nome, "Lanche", "09:30", "10:00", "TODAS", "TODAS"])
-            # Almoço
-            linhas.append([dia_nome, "Almoço", "11:30", "13:30", "TODAS", "TODAS"])
-            # Lanche Tarde
-            linhas.append([dia_nome, "Lanche", "15:30", "16:00", "TODAS", "TODAS"])
-            # Jantar
-            linhas.append([dia_nome, "Jantar", "17:45", "19:15", "TODAS", "TODAS"])
-
-        # Sábado letivo / apoio
-        linhas.append(["Sábado", "Lanche", "09:30", "10:00", "TODAS", "TODAS"])
-        linhas.append(["Sábado", "Almoço", "11:30", "13:00", "TODAS", "TODAS"])
+        linhas = [
+            [
+                dia,
+                refeicao,
+                inicio,
+                fim,
+                self._formatar_campo_config(turmas),
+                self._formatar_campo_config(categorias),
+            ]
+            for dia, refeicao, inicio, fim, turmas, categorias in MODELO_CONFIGURACAO_SEMANAL
+        ]
+        self._grade_configuracao = converter_linhas_configuracao_para_grade(linhas)
         return linhas
 
     def gerar_lanches(self) -> List[List[str]]:
@@ -307,6 +386,17 @@ class GeradorDadosTeste:
 
         return linhas
 
+    def _categorias_efetivas_set(
+        self,
+        aluno: Dict[str, Any],
+        data_str: str,
+        cats_reserva_por_data_matr: Dict[Tuple[str, str], List[str]],
+    ) -> set[str]:
+        """Retorna o conjunto de categorias efetivas do discente na data."""
+        cats = set(aluno.get("categorias_perm", []))
+        cats.update(cats_reserva_por_data_matr.get((data_str, aluno["matricula"]), []))
+        return cats
+
     def _categoria_efetiva_no_dia(
         self,
         aluno: Dict[str, Any],
@@ -314,9 +404,63 @@ class GeradorDadosTeste:
         cats_reserva_por_data_matr: Dict[Tuple[str, str], List[str]],
     ) -> str:
         """Combina categorias permanentes do aluno com categorias pontuais da reserva na data."""
-        cats = set(aluno.get("categorias_perm", []))
-        cats.update(cats_reserva_por_data_matr.get((data_str, aluno["matricula"]), []))
+        cats = self._categorias_efetivas_set(aluno, data_str, cats_reserva_por_data_matr)
         return ", ".join(sorted(cats)) if cats else "-"
+
+    def _sortear_horario_na_grade(
+        self,
+        dia: date,
+        refeicao: str,
+        aluno: Dict[str, Any],
+        cats_efetivas: set[str],
+        fallback_ini: Tuple[int, int],
+        fallback_fim: Tuple[int, int],
+        preferir_manha: Optional[bool] = None,
+    ) -> str:
+        """
+        Sorteia um horário dentro de um slot autorizado pela grade configurada para
+        (dia, refeicao, turma, categorias). Caso não haja slot específico, utiliza a
+        janela de fallback informada.
+        """
+        if self._grade_configuracao is None:
+            self.gerar_configuracao()
+
+        grade = self._grade_configuracao or {}
+        dia_norm = MAPA_DIAS_SEMANA.get(dia.weekday(), "segunda")
+        ref_norm = _normalizar_chave(refeicao)
+        slots = grade.get(dia_norm, {}).get(ref_norm, [])
+
+        turmas_set = {aluno["turma"]}
+        slots_autorizados = [
+            slot
+            for slot in slots
+            if _slot_autoriza_estudante(slot, turmas_set, cats_efetivas)[0]
+        ]
+
+        if preferir_manha is not None and slots_autorizados:
+            slots_turno = [
+                s
+                for s in slots_autorizados
+                if (_hora_para_minutos(s["inicio"]) < 12 * 60) is preferir_manha
+            ]
+            if slots_turno:
+                slots_autorizados = slots_turno
+
+        if slots_autorizados:
+            slot_escolhido = self.rng.choice(slots_autorizados)
+            ini_m = _hora_para_minutos(slot_escolhido["inicio"])
+            fim_m = _hora_para_minutos(slot_escolhido["fim"])
+            if fim_m > ini_m:
+                margem = 2 if (fim_m - ini_m) >= 10 else 0
+                m_ini = ini_m + margem
+                m_fim = fim_m - margem
+                return self._gerar_horario_aleatorio(
+                    m_ini // 60, m_ini % 60, m_fim // 60, m_fim % 60
+                )
+
+        return self._gerar_horario_aleatorio(
+            fallback_ini[0], fallback_ini[1], fallback_fim[0], fallback_fim[1]
+        )
 
     def gerar_consumos(
         self,
@@ -358,10 +502,13 @@ class GeradorDadosTeste:
             ]
             qtd_comp_alm = int(len(alunos_com_almoco) * self.rng.uniform(0.80, 0.95))
             for aluno in self.rng.sample(alunos_com_almoco, qtd_comp_alm):
-                hora = self._gerar_horario_aleatorio(11, 35, 13, 25)
+                cats_set = self._categorias_efetivas_set(aluno, data_str, cats_res_mapa)
+                hora = self._sortear_horario_na_grade(
+                    d, "Almoço", aluno, cats_set, (11, 35), (13, 25)
+                )
                 info = _info_reserva(data_str, aluno["matricula"]) or {}
                 prato = info.get("prato", "Padrão")
-                cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
+                cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
                 consumos_almoco.append([
                     aluno["matricula"],
                     data_str,
@@ -380,8 +527,11 @@ class GeradorDadosTeste:
             if alunos_sem_almoco:
                 qtd_excecao = min(len(alunos_sem_almoco), self.rng.randint(3, 6))
                 for aluno in self.rng.sample(alunos_sem_almoco, qtd_excecao):
-                    hora = self._gerar_horario_aleatorio(12, 10, 13, 15)
-                    cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
+                    cats_set = self._categorias_efetivas_set(aluno, data_str, cats_res_mapa)
+                    hora = self._sortear_horario_na_grade(
+                        d, "Almoço", aluno, cats_set, (12, 10), (13, 15)
+                    )
+                    cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
                     consumos_almoco.append([
                         aluno["matricula"],
                         data_str,
@@ -398,12 +548,20 @@ class GeradorDadosTeste:
             for aluno in self.rng.sample(self.estudantes, qtd_lanche):
                 item = self.rng.choice(ITENS_LANCHE)
                 turno_manha = self.rng.random() < 0.60
-                if turno_manha:
-                    hora = self._gerar_horario_aleatorio(9, 32, 9, 58)
-                else:
-                    hora = self._gerar_horario_aleatorio(15, 32, 15, 58)
+                fallback_ini = (9, 32) if turno_manha else (15, 32)
+                fallback_fim = (9, 58) if turno_manha else (15, 58)
+                cats_set = self._categorias_efetivas_set(aluno, data_str, cats_res_mapa)
+                hora = self._sortear_horario_na_grade(
+                    d,
+                    "Lanche",
+                    aluno,
+                    cats_set,
+                    fallback_ini,
+                    fallback_fim,
+                    preferir_manha=turno_manha,
+                )
 
-                cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
+                cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
                 consumos_lanche.append([
                     aluno["matricula"],
                     data_str,
@@ -421,10 +579,13 @@ class GeradorDadosTeste:
             ]
             qtd_comp_jan = int(len(alunos_com_jantar) * self.rng.uniform(0.80, 0.95))
             for aluno in self.rng.sample(alunos_com_jantar, qtd_comp_jan):
-                hora = self._gerar_horario_aleatorio(17, 50, 19, 10)
+                cats_set = self._categorias_efetivas_set(aluno, data_str, cats_res_mapa)
+                hora = self._sortear_horario_na_grade(
+                    d, "Jantar", aluno, cats_set, (17, 50), (19, 10)
+                )
                 info = _info_reserva(data_str, aluno["matricula"]) or {}
                 prato = info.get("prato") or self.rng.choice(PRATOS_JANTAR)
-                cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
+                cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
                 consumos_jantar.append([
                     aluno["matricula"],
                     data_str,
@@ -442,8 +603,11 @@ class GeradorDadosTeste:
             if alunos_sem_jantar:
                 qtd_excecao_jan = min(len(alunos_sem_jantar), self.rng.randint(1, 3))
                 for aluno in self.rng.sample(alunos_sem_jantar, qtd_excecao_jan):
-                    hora = self._gerar_horario_aleatorio(18, 20, 19, 5)
-                    cat_efetiva = self._categoria_efetiva_no_dia(aluno, data_str, cats_res_mapa)
+                    cats_set = self._categorias_efetivas_set(aluno, data_str, cats_res_mapa)
+                    hora = self._sortear_horario_na_grade(
+                        d, "Jantar", aluno, cats_set, (18, 20), (19, 5)
+                    )
+                    cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
                     consumos_jantar.append([
                         aluno["matricula"],
                         data_str,

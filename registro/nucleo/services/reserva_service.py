@@ -178,17 +178,17 @@ def deletar_reserva(
     id_reserva: int,
 ) -> bool:
     """Remove uma reserva do sistema."""
-    if repo_reserva.deletar(id_reserva):
-        try:
+    try:
+        if repo_reserva.deletar(id_reserva):
             repo_reserva.obter_sessao().commit()
             return True
-        except Exception as e:
-            logger.exception("Falha ao deletar reserva %s: %s", id_reserva, e)
-            try:
-                repo_reserva.obter_sessao().rollback()
-            except Exception:
-                pass
-            raise ErroNucleoRegistro(f"Falha ao excluir reserva no banco: {e}") from e
+    except Exception as e:
+        logger.exception("Falha ao deletar reserva %s: %s", id_reserva, e)
+        try:
+            repo_reserva.obter_sessao().rollback()
+        except Exception:
+            pass
+        raise ErroNucleoRegistro(f"Falha ao excluir reserva no banco: {e}") from e
     return False
 
 

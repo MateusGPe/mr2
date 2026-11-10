@@ -210,10 +210,10 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
     # -------------------------------------------------------------------------
     facade.atualizar_grupos_sessao(["1º A"])
 
-    # 5.1 Discente de 2º A agora não é mais elegível na listagem de estudantes
+    # 5.1 Discente de 2º A com reserva válida permanece elegível na listagem
     elegiveis = facade.obter_estudantes_para_sessao()
     prontuarios_elegiveis = {e["pront"] for e in elegiveis}
-    assert "IQ2001" not in prontuarios_elegiveis
+    assert "IQ2001" in prontuarios_elegiveis
 
     # 5.2 Estorno / Desfazer consumo do aluno 1º A (soft delete) e reatendimento
     desfeito = facade.desfazer_consumo_por_prontuario(e_1a_reg.prontuario)
