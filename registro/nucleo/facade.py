@@ -71,6 +71,7 @@ class FachadaRegistro:
         self.id_sessao_ativa: Optional[int] = None
         self.excecao_grupos: Set[str] = set()
         self.ignorar_horario_grade: bool = False
+        self.dia_semana_grade: Optional[str] = None
         self._servico_importacao_cache: Optional[Any] = None
 
     # --- Propriedades de compatibilidade para Repositórios ---
@@ -115,6 +116,13 @@ class FachadaRegistro:
         """Fecha a conexão com o banco de dados."""
         self._sessao_db.close()
 
+    def expirar_cache_sessao(self):
+        """Invalida o cache em memória da sessão SQLAlchemy (após gravações em worker threads)."""
+        try:
+            self._sessao_db.expire_all()
+        except Exception as e:
+            logger.warning("Falha ao expirar cache da sessão SQLAlchemy: %s", e)
+
     def __enter__(self):
         """Permite o uso da Fachada como um gerenciador de contexto."""
         return self
@@ -134,6 +142,7 @@ class FachadaRegistro:
             return None
         self.id_sessao_ativa = id_sessao
         self.ignorar_horario_grade = False
+        self.dia_semana_grade = None
         return id_sessao
 
     def listar_todas_sessoes(self) -> List[Dict[str, Any]]:
@@ -145,6 +154,7 @@ class FachadaRegistro:
         service_logic.obter_detalhes_sessao(self._repo_sessao, id_sessao)
         if self.id_sessao_ativa != id_sessao:
             self.ignorar_horario_grade = False
+            self.dia_semana_grade = None
         self.id_sessao_ativa = id_sessao
 
     def obter_detalhes_sessao_ativa(self) -> Dict[str, Any]:
@@ -171,6 +181,7 @@ class FachadaRegistro:
         service_logic.deletar_sessao(self._repo_sessao, self.id_sessao_ativa)
         self.id_sessao_ativa = None
         self.ignorar_horario_grade = False
+        self.dia_semana_grade = None
 
     def deletar_sessao(self, id_sessao: int):
         """Deleta uma sessão específica e todos os seus consumos associados."""
@@ -178,6 +189,7 @@ class FachadaRegistro:
         if self.id_sessao_ativa == id_sessao:
             self.id_sessao_ativa = None
             self.ignorar_horario_grade = False
+            self.dia_semana_grade = None
 
     def atualizar_detalhes_sessao(self, id_sessao: int, dados_sessao: Dict[str, Any]):
         """Atualiza os detalhes de uma sessão (data, hora, etc.)."""
@@ -302,6 +314,7 @@ class FachadaRegistro:
             pular_grupos=pular_grupos,
             permitir_fora_horario=permitir_fora_horario,
             ignorar_horario_grade=self.ignorar_horario_grade,
+            dia_semana_grade=self.dia_semana_grade,
         )
 
     def registrar_consumo_com_reserva(
@@ -330,6 +343,7 @@ class FachadaRegistro:
             pular_grupos=pular_grupos,
             permitir_fora_horario=permitir_fora_horario,
             ignorar_horario_grade=self.ignorar_horario_grade,
+            dia_semana_grade=self.dia_semana_grade,
         )
 
     def desfazer_consumo_por_prontuario(

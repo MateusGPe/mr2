@@ -233,49 +233,11 @@ def abrir_menu_inicial() -> Optional[Callable[[], None]]:
     return escolha[0]
 
 
-def verificar_e_migrar_banco_se_necessario() -> None:
-    """Verifica se o banco de dados necessita de migração e solicita confirmação ao operador."""
-    try:
-        from registro.nucleo import migracao_service
-
-        if migracao_service.verificar_necessidade_migracao():
-            from ttkbootstrap.dialogs import Messagebox
-            from ttkbootstrap.localization.msgcat import MessageCatalog
-
-            resposta = Messagebox.yesno(
-                title="Atualização do Banco de Dados",
-                message=(
-                    "O banco de dados precisa ser atualizado com as novas colunas e índice de auditoria.\n\n"
-                    "Deseja atualizar agora mantendo todos os dados existentes?\n"
-                    "(Um backup automático de segurança será gerado antes da operação)."
-                ),
-            )
-            if resposta == MessageCatalog.translate("Yes"):
-                sucesso = migracao_service.executar_migracao()
-                if sucesso:
-                    Messagebox.show_info(
-                        "O banco de dados foi atualizado com sucesso!",
-                        title="Atualização Concluída",
-                    )
-                else:
-                    Messagebox.show_error(
-                        "Falha ao realizar a migração do banco de dados.",
-                        title="Erro de Atualização",
-                    )
-    except Exception as e:
-        import logging
-
-        logging.getLogger(__name__).warning(
-            "Erro ao verificar migração no launcher: %s", e
-        )
-
-
 def main() -> None:
     """Ponto de entrada unificado para execução da aplicação."""
     from registro.nucleo.logging_config import configurar_logging
 
     configurar_logging("launcher")
-    verificar_e_migrar_banco_se_necessario()
 
     alvo = identificar_alvo_cli(sys.argv[1:])
     if alvo is None:

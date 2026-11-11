@@ -1488,10 +1488,8 @@ class AppSetup(ttk.Window):
 def main():
     """Ponto de entrada para a Central de Configurações & Início Rápido."""
     from registro.nucleo.logging_config import configurar_logging
-    from registro.launcher import verificar_e_migrar_banco_se_necessario
 
     configurar_logging("setup")
-    verificar_e_migrar_banco_se_necessario()
     app = AppSetup()
     app.mainloop()
 

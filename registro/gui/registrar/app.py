@@ -782,10 +782,8 @@ class AppRegistro(tk.Tk):
 
 def main():
     from registro.nucleo.logging_config import configurar_logging
-    from registro.launcher import verificar_e_migrar_banco_se_necessario
 
     configurar_logging("registrar")
-    verificar_e_migrar_banco_se_necessario()
     app = AppRegistro()
     app.mainloop()
 

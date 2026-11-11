@@ -126,10 +126,8 @@ class App(ttk.Window):
 
 def main():
     from registro.nucleo.logging_config import configurar_logging
-    from registro.launcher import verificar_e_migrar_banco_se_necessario
 
     configurar_logging("painel")
-    verificar_e_migrar_banco_se_necessario()
     app = App()
     app.mainloop()
 

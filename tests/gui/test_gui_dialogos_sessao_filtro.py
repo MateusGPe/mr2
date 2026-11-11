@@ -328,3 +328,134 @@ def test_grade_do_dia_com_coringa_seleciona_todas_turmas_e_categorias(
         }
         assert {"1º BEM", "2º BEM", "1º MEC", "PAP"}.issubset(marcados_sessao)
         dialogo_sessao.destroy()
+
+
+def test_dialogo_sessao_slots_grade_busca_e_horario_livre(
+    app_root, ambiente_gui, mock_messagebox, tmp_path, monkeypatch
+):
+    """Valida clique em slot da grade, filtro de busca, Com Reserva e Horário Livre."""
+    facade = ambiente_gui["facade"]
+    app_root.fachada_nucleo = facade
+
+    caminho_grade = tmp_path / "grade_slots_gui.json"
+    grade = {
+        "quarta": {
+            "almoco": [
+                {"inicio": "11:30", "fim": "12:00", "turmas": ["1º BEM"], "categorias": []},
+                {"inicio": "12:00", "fim": "12:30", "turmas": ["1º MEC"], "categorias": []},
+            ]
+        }
+    }
+    grade_horarios_service.salvar_grade_horarios(grade, caminho_grade)
+    monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
+    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "quarta")
+
+    with patch.object(DialogoSessao, "grab_set"), \
+         patch.object(DialogoSessao, "transient"), \
+         patch.object(DialogoSessao, "deiconify"), \
+         patch.object(DialogoSessao, "_centralizar_janela"):
+
+        dialogo = DialogoSessao(
+            title="Sessão",
+            callback=lambda res: True,
+            parente_app=app_root,
+        )
+        app_root.update()
+
+        # Muda para aba Nova Sessão e seleciona Almoço
+        dialogo._notebook.select(1)
+        dialogo._combobox_refeicao.set("Almoço")
+        dialogo._ao_alterar_data_ou_refeicao(aplicar_grade=True)
+        app_root.update()
+
+        # Deve ter marcado todas as turmas da grade do dia (1º BEM e 1º MEC)
+        marcados = {n for n, v, _ in dialogo._dados_checkbox_turmas if v.get()}
+        assert marcados == {"1º BEM", "1º MEC"}
+
+        # Clicar no 2º slot deve filtrar apenas 1º MEC
+        dialogo._ao_clicar_slot_grade(modo_edicao=False, idx=1)
+        app_root.update()
+        marcados_slot = {n for n, v, _ in dialogo._dados_checkbox_turmas if v.get()}
+        assert marcados_slot == {"1º MEC"}
+        assert dialogo._contextos["nova"]["slot_selecionado_idx"] == 1
+
+        # Voltar para todos os horários da grade
+        dialogo._ao_selecionar_grade_do_dia(modo_edicao=False)
+        app_root.update()
+        assert dialogo._contextos["nova"]["slot_selecionado_idx"] is None
+        marcados_todos = {n for n, v, _ in dialogo._dados_checkbox_turmas if v.get()}
+        assert marcados_todos == {"1º BEM", "1º MEC"}
+
+        # Busca textual filtra checkboxes visíveis mantendo estado
+        dialogo._contextos["nova"]["var_busca"].set("MEC")
+        dialogo._filtrar_checkboxes(modo_edicao=False)
+        visiveis = [
+            nome
+            for nome, cb, _sec in dialogo._contextos["nova"]["widgets_turma"]
+            if cb.winfo_manager() != ""
+        ]
+        assert visiveis == ["1º MEC"]
+
+        # Limpar busca restaura visibilidade
+        dialogo._limpar_busca_turmas(modo_edicao=False)
+        visiveis_apos = [
+            nome
+            for nome, cb, _sec in dialogo._contextos["nova"]["widgets_turma"]
+            if cb.winfo_manager() != ""
+        ]
+        assert len(visiveis_apos) == 4
+
+        # Horário Livre na aba Editar persiste na fachada ao salvar
+        dialogo._notebook.select(0)
+        dialogo._contextos["editar"]["var_horario_livre"].set(True)
+        dialogo._processar_editar_sessao()
+        app_root.update()
+        assert facade.ignorar_horario_grade is True
+
+
+def test_dialogo_sessao_com_reserva_e_busca_carregar(
+    app_root, ambiente_gui, criar_estudante, criar_reserva, mock_messagebox
+):
+    """Valida atalho 'Com Reserva' e filtro/colunas na aba Carregar Sessão Existente."""
+    facade = ambiente_gui["facade"]
+    g_ads = ambiente_gui["grupos"][3]  # ADS
+    est = criar_estudante(prontuario="IQ90001", nome="Aluno ADS", ativo=True, grupos=[g_ads])
+    criar_reserva(estudante=est, data="15/11/2026", almoco=True, jantar=False, cancelada=False)
+    app_root.fachada_nucleo = facade
+
+    with patch.object(DialogoSessao, "grab_set"), \
+         patch.object(DialogoSessao, "transient"), \
+         patch.object(DialogoSessao, "deiconify"), \
+         patch.object(DialogoSessao, "_centralizar_janela"):
+
+        dialogo = DialogoSessao(
+            title="Sessão",
+            callback=lambda res: True,
+            parente_app=app_root,
+        )
+        app_root.update()
+
+        dialogo._notebook.select(1)
+        dialogo._entrada_data.entry.delete(0, "end")
+        dialogo._entrada_data.entry.insert(0, "15/11/2026")
+        dialogo._combobox_refeicao.set("Almoço")
+        dialogo._ao_alterar_data_ou_refeicao(aplicar_grade=False)
+        dialogo._ao_selecionar_com_reserva(modo_edicao=False)
+        app_root.update()
+
+        marcados = {n for n, v, _ in dialogo._dados_checkbox_turmas if v.get()}
+        assert marcados == {"ADS"}
+
+        # Valida aba Carregar Sessão Existente (colunas + filtro)
+        dialogo._notebook.select(2)
+        assert len(dialogo._todas_sessoes_linhas) >= 1
+        dialogo._var_busca_sessoes.set("Fruta")
+        dialogo._filtrar_treeview_sessoes()
+        iids_fruta = dialogo._treeview_sessoes.obter_iids_filhos()
+        assert len(iids_fruta) == 1
+
+        dialogo._var_busca_sessoes.set("InexistenteXYZ")
+        dialogo._filtrar_treeview_sessoes()
+        assert len(dialogo._treeview_sessoes.obter_iids_filhos()) == 0
+
+        dialogo.destroy()

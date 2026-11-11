@@ -5,12 +5,11 @@
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 """
-Testes funcionais para a interface gráfica do Launcher (Janela de Menu Inicial e Migração),
-validando interação de botões, fechamento de janela e fluxo de atualização.
+Testes funcionais para a interface gráfica do Launcher (Janela de Menu Inicial),
+validando interação de botões e fechamento de janela.
 """
 
-from unittest.mock import MagicMock, patch
-import pytest
+from unittest.mock import patch
 import ttkbootstrap as ttk
 
 from registro.launcher import (
@@ -19,7 +18,6 @@ from registro.launcher import (
     executar_painel,
     executar_registrar,
     executar_setup,
-    verificar_e_migrar_banco_se_necessario,
 )
 
 
@@ -75,31 +73,3 @@ def test_launcher_menu_inicial_fechar_sem_selecao(app_root):
 
     alvo = _executar_com_janela_capturada(app_root, fechar_janela)
     assert alvo is None
-
-
-def test_launcher_migracao_confirmada(mock_messagebox):
-    """Cenário Provável: Banco precisa de migração e operador aceita atualizar."""
-    with patch("registro.nucleo.migracao_service.verificar_necessidade_migracao", return_value=True), \
-         patch("registro.nucleo.migracao_service.executar_migracao", return_value=True) as mock_migrar:
-
-        verificar_e_migrar_banco_se_necessario()
-
-        assert len(mock_messagebox.yesno_calls) == 1
-        mock_migrar.assert_called_once()
-        assert len(mock_messagebox.info_calls) == 1
-        assert "sucesso" in mock_messagebox.info_calls[0]["message"].lower()
-
-
-def test_launcher_migracao_recusada(mock_messagebox):
-    """Cenário Alternativo: Banco precisa de migração mas operador rejeita a operação."""
-    from ttkbootstrap.localization.msgcat import MessageCatalog
-    mock_messagebox.yesno_response = MessageCatalog.translate("No")
-
-    with patch("registro.nucleo.migracao_service.verificar_necessidade_migracao", return_value=True), \
-         patch("registro.nucleo.migracao_service.executar_migracao") as mock_migrar:
-
-        verificar_e_migrar_banco_se_necessario()
-
-        assert len(mock_messagebox.yesno_calls) == 1
-        mock_migrar.assert_not_called()
-        assert len(mock_messagebox.info_calls) == 0

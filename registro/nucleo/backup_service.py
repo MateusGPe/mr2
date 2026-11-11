@@ -11,6 +11,7 @@ do banco de dados SQLite e dos arquivos de configuração do sistema.
 
 import datetime as dt
 import logging
+import sqlite3
 import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -44,12 +45,20 @@ def criar_backup(
     pasta_destino.mkdir(parents=True, exist_ok=True)
     caminho_zip = pasta_destino / nome_arquivo
 
+    db_path = DIRETORIO_CONFIG / "registro.db"
+    if db_path.exists():
+        try:
+            with sqlite3.connect(db_path) as conn:
+                conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        except Exception as e:
+            logger.debug("Checkpoint WAL ignorado antes do backup: %s", e)
+
     with zipfile.ZipFile(caminho_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
         if DIRETORIO_CONFIG.exists():
             for item in DIRETORIO_CONFIG.glob("*"):
                 if item.is_file():
-                    # Não inclui arquivos temporários ou de lock
-                    if item.suffix in (".tmp", ".lock"):
+                    # Não inclui arquivos temporários, de lock ou sidecars WAL/SHM
+                    if item.suffix in (".tmp", ".lock") or item.name.endswith(("-wal", "-shm")):
                         continue
                     zipf.write(item, arcname=f"config/{item.name}")
 
@@ -119,12 +128,14 @@ def restaurar_backup(
     try:
         # Fechar pools de conexões SQLAlchemy ativas se possível
         try:
-            from sqlalchemy import create_engine
+            from registro.nucleo.models import motor
 
-            engine = create_engine(URL_BANCO_DADOS)
-            engine.dispose()
+            motor.dispose()
         except Exception:
             pass
+
+        for sufixo_wal in ("registro.db-wal", "registro.db-shm"):
+            (DIRETORIO_CONFIG / sufixo_wal).unlink(missing_ok=True)
 
         DIRETORIO_CONFIG.mkdir(parents=True, exist_ok=True)
 

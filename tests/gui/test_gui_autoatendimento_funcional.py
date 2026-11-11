@@ -321,3 +321,103 @@ def test_app_self_service_inicializacao_com_facade(app_root, facade, mock_messag
         assert "dashboard" in app.frames
         assert "consumos" in app.frames
         app.destroy()
+
+
+def test_totem_busca_por_nome_nao_bypassa_regras(
+    app_root, facade, criar_grupo, criar_estudante, criar_sessao, tmp_path, monkeypatch
+):
+    """Busca por nome no Totem deve respeitar grupos da sessão, reserva e trava de horário."""
+    from registro.nucleo import constants
+    from registro.nucleo.services import grade_horarios_service
+
+    caminho_grade = tmp_path / "grade_totem.json"
+    monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
+    monkeypatch.setattr(constants, "CAMINHO_GRADE_HORARIOS", caminho_grade)
+    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    grade_horarios_service.salvar_grade_horarios(
+        {
+            "segunda": {
+                "lanche": [
+                    {"inicio": "09:00", "fim": "09:30", "turmas": ["1º A"], "categorias": ["*"]},
+                ],
+                "almoco": [],
+                "jantar": [],
+            }
+        },
+        caminho_grade,
+    )
+
+    g_1a = criar_grupo(nome="1º A")
+    g_2b = criar_grupo(nome="2º B")
+    # Nome com 'X' não deve ser confundido com matrícula IQ300000X
+    criar_estudante(prontuario="IQ300000X", nome="Outro Estudante", grupos=[g_1a])
+    criar_estudante(prontuario="IQ3000099", nome="Alexandre Xavier", grupos=[g_2b])
+    criar_estudante(prontuario="IQ3000088", nome="Beatriz Autorizada", grupos=[g_1a])
+
+    sessao_lanche = criar_sessao(refeicao="lanche", data="21/10/2026", grupos=[g_1a])
+    facade.definir_sessao_ativa(sessao_lanche.id)
+
+    with patch.object(FrameSelfService, "_iniciar_camera"):
+        totem = FrameSelfService(
+            master=app_root, fachada=facade, notification_callback=MagicMock()
+        )
+        totem.pack()
+        app_root.update()
+
+        # 1. Estudante de turma não autorizada digitando o nome (com 'X') é bloqueado
+        with patch.object(grade_horarios_service, "datetime") as mock_dt:
+            mock_dt.now.return_value.strftime.return_value = "09:15"
+            sucesso_2b, _, _ = totem._registrar_entrada("Alexandre Xavier")
+            assert sucesso_2b is False
+
+        # 2. Estudante de turma autorizada fora do horário digitando o nome é bloqueado
+        with patch.object(grade_horarios_service, "datetime") as mock_dt:
+            mock_dt.now.return_value.strftime.return_value = "10:30"
+            sucesso_fora, motivo_fora, _ = totem._registrar_entrada("Beatriz Autorizada")
+            assert sucesso_fora is False
+            assert "09:00 às 09:30" in motivo_fora
+
+        # 3. Estudante autorizada dentro do horário digitando o nome é liberada
+        with patch.object(grade_horarios_service, "datetime") as mock_dt:
+            mock_dt.now.return_value.strftime.return_value = "09:15"
+            sucesso_ok, _, dados_ok = totem._registrar_entrada("Beatriz Autorizada")
+            assert sucesso_ok is True
+            assert dados_ok["prontuario"] == "IQ3000088"
+
+        totem.stop()
+        totem.destroy()
+
+
+def test_totem_timer_feedback_usb_cancela_anterior(totem_setup, app_root):
+    """Sem câmera, uma nova leitura USB deve cancelar o timer de reset visual anterior."""
+    totem = totem_setup["totem"]
+    totem._running = False
+
+    with patch.object(totem, "after_cancel", wraps=totem.after_cancel) as mock_cancel:
+        totem._processar_codigo("IQ3000001", manual=True)
+        primeiro_id = totem._id_after_feedback
+        assert primeiro_id is not None
+
+        totem._processar_codigo("IQ3000001", manual=True)
+        mock_cancel.assert_any_call(primeiro_id)
+        assert totem._id_after_feedback != primeiro_id
+
+
+def test_totem_borda_vermelha_em_erro_camera(totem_setup):
+    """Durante cooldown de erro com câmera ativa, a borda no vídeo deve ser vermelha (BGR)."""
+    import numpy as np
+
+    totem = totem_setup["totem"]
+    totem._running = True
+    totem._cooldown_frames = 5
+    totem._ultimo_estado_feedback = "erro"
+    frame_fake = np.zeros((40, 40, 3), dtype=np.uint8)
+    totem._cap = MagicMock()
+    totem._cap.read.return_value = (True, frame_fake)
+
+    with patch("registro.gui.autoatendimento.totem.cv2.rectangle") as mock_rect, \
+         patch.object(totem, "_exibir_frame_no_label"), \
+         patch.object(totem, "after"):
+        totem._atualizar_frame()
+        mock_rect.assert_called_once()
+        assert mock_rect.call_args[0][3] == (0, 0, 255)

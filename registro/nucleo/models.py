@@ -354,9 +354,11 @@ motor = create_engine(
 
 @event.listens_for(motor, "connect")
 def _habilitar_foreign_keys_sqlite(dbapi_connection, _connection_record):
-    """Ativa validação de chaves estrangeiras no SQLite em todas as conexões."""
+    """Ativa validação de chaves estrangeiras, modo WAL e busy_timeout no SQLite."""
     cursor = dbapi_connection.cursor()
     cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA busy_timeout=5000")
     cursor.close()
 
 

@@ -242,6 +242,7 @@ def _processar_consumo_pipeline(
     permitir_fora_horario: bool = False,
     ignorar_horario_grade: bool = False,
     filtro_categoria: Optional[str] = None,
+    dia_semana_grade: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Pipeline unificado de autorização e registro de consumo (DRY + KISS).
@@ -348,6 +349,7 @@ def _processar_consumo_pipeline(
         valido, motivo_horario = grade_horarios_service.validar_janela_horario(
             turmas_estudante=turmas_efetivas,
             refeicao=sessao.refeicao,
+            dia_semana=dia_semana_grade,
             categorias_estudante=categorias_efetivas,
             ignorar_horario=ignorar_horario_grade,
         )
@@ -423,6 +425,7 @@ def registrar_consumo(
     permitir_fora_horario: bool = False,
     ignorar_horario_grade: bool = False,
     filtro_categoria: Optional[str] = None,
+    dia_semana_grade: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Aplica a lógica de autorização padrão e, se bem-sucedido, registra o consumo."""
     grupos_filtro = excecao_grupos if excecao_grupos is not None else excessao_grupos
@@ -439,6 +442,7 @@ def registrar_consumo(
         permitir_fora_horario=permitir_fora_horario,
         ignorar_horario_grade=ignorar_horario_grade,
         filtro_categoria=filtro_categoria,
+        dia_semana_grade=dia_semana_grade,
     )
 
 
@@ -455,6 +459,7 @@ def registrar_consumo_com_reserva(
     permitir_fora_horario: bool = False,
     ignorar_horario_grade: bool = False,
     filtro_categoria: Optional[str] = None,
+    dia_semana_grade: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Aplica a lógica de autorização estrita (com reserva obrigatória) e registra o consumo.
@@ -473,6 +478,7 @@ def registrar_consumo_com_reserva(
         permitir_fora_horario=permitir_fora_horario,
         ignorar_horario_grade=ignorar_horario_grade,
         filtro_categoria=filtro_categoria,
+        dia_semana_grade=dia_semana_grade,
     )
 
 

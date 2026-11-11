@@ -275,3 +275,10 @@ def test_obter_turmas_previstas_expande_coringas_irrestritos(tmp_path: Path):
     assert lanche == ["1º A"]
 
 
+def test_obter_dia_semana_por_data():
+    assert grade_horarios_service.obter_dia_semana_por_data("09/11/2026") == "segunda"
+    assert grade_horarios_service.obter_dia_semana_por_data("2026-11-10") == "terca"
+    assert grade_horarios_service.obter_dia_semana_por_data("data-invalida") is None
+
+
+

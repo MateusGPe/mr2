@@ -91,6 +91,8 @@ class FrameSelfService(ttk.Frame):
         self._entrada_manual: Optional[ttk.Entry] = None
         self._var_entrada_manual = tk.StringVar()
         self._id_after_busca_manual: Optional[str] = None
+        self._id_after_feedback: Optional[str] = None
+        self._ultimo_estado_feedback: str = "padrao"
         self._frame_info: Optional[tk.Frame] = None
         self._frame_cabecalho: Optional[tk.Frame] = None
         self._lbl_titulo_cabecalho: Optional[tk.Label] = None
@@ -116,14 +118,30 @@ class FrameSelfService(ttk.Frame):
             self._exibir_erro_dependencia()
 
     def stop(self):
-        """Libera recursos, como a câmera."""
+        """Libera recursos, como a câmera e timers pendentes."""
         self._running = False
+        self._cancelar_timer_feedback()
+        if self._id_after_busca_manual:
+            try:
+                self.after_cancel(self._id_after_busca_manual)
+            except Exception:
+                pass
+            self._id_after_busca_manual = None
         self.fechar_dialogo_horarios()
         if self._cap:
             try:
                 self._cap.release()
             except Exception as e:
                 logger.warning("Erro ao liberar câmera: %s", e)
+
+    def _cancelar_timer_feedback(self):
+        """Cancela timer pendente de retorno ao estado visual padrão."""
+        if self._id_after_feedback:
+            try:
+                self.after_cancel(self._id_after_feedback)
+            except Exception:
+                pass
+            self._id_after_feedback = None
 
     def _pode_processar_leitura(self) -> bool:
         """Verifica se o totem está ativo na tela e sem diálogos modais bloqueando."""
@@ -593,11 +611,16 @@ class FrameSelfService(ttk.Frame):
         if ret:
             if self._cooldown_frames > 0:
                 self._cooldown_frames -= 1
+                cor_borda = (
+                    (0, 0, 255)
+                    if self._ultimo_estado_feedback == "erro"
+                    else (0, 255, 0)
+                )
                 cv2.rectangle(
                     frame,
                     (0, 0),
                     (frame.shape[1], frame.shape[0]),
-                    (0, 255, 0),
+                    cor_borda,
                     10,
                 )
                 if self._cooldown_frames == 0:
@@ -732,14 +755,22 @@ class FrameSelfService(ttk.Frame):
             self._tocar_som(sucesso=False)
             self._cooldown_frames = 45
 
+        self._cancelar_timer_feedback()
         if not self._running:
-            self.after(
+            self._id_after_feedback = self.after(
                 self._cooldown_frames * 100,
-                lambda: self._definir_feedback_visual("padrao"),
+                self._resetar_feedback_apos_timer,
             )
             self._cooldown_frames = 0
 
         self.after(50, self.focar_entrada)
+
+    def _resetar_feedback_apos_timer(self):
+        """Callback de timeout para restaurar visual padrão no modo sem câmera."""
+        self._id_after_feedback = None
+        if not self.winfo_exists():
+            return
+        self._definir_feedback_visual("padrao")
 
     @staticmethod
     def formatar_matricula(valor: Any) -> str:
@@ -762,17 +793,18 @@ class FrameSelfService(ttk.Frame):
             )
 
         try:
-            prontuario = FrameSelfService.formatar_matricula(texto_entrada)
-            resultado = self._fachada.registrar_consumo(
-                prontuario, excecao_grupos=self._fachada.excecao_grupos
-            )
+            if any(ch.isdigit() for ch in texto_entrada):
+                prontuario = FrameSelfService.formatar_matricula(texto_entrada)
+                resultado = self._fachada.registrar_consumo(
+                    prontuario, excecao_grupos=self._fachada.excecao_grupos
+                )
 
-            if resultado.get("autorizado"):
-                return True, "Sucesso", resultado
+                if resultado.get("autorizado"):
+                    return True, "Sucesso", resultado
 
-            motivo = resultado.get("motivo", "Não autorizado")
-            if "não encontrado" not in motivo.lower():
-                return False, motivo, resultado
+                motivo = resultado.get("motivo", "Não autorizado")
+                if "não encontrado" not in motivo.lower():
+                    return False, motivo, resultado
 
             return self._buscar_por_nome_e_registrar(texto_entrada)
 
@@ -784,23 +816,47 @@ class FrameSelfService(ttk.Frame):
                 {"nome": texto_entrada, "turma": "Erro de Sistema"},
             )
 
-    def _buscar_por_nome_e_registrar(
-        self, nome_busca: str
-    ) -> Tuple[bool, str, Dict[str, Any]]:
-        """Busca por nome (fuzzy) e tenta registrar se houver correspondência clara."""
-        elegiveis = self._fachada.obter_estudantes_para_sessao(
-            consumido=False, pular_grupos=True
-        )
+    @staticmethod
+    def _filtrar_correspondencias_nome(
+        candidatos: Any, nome_busca: str, score_minimo: int
+    ) -> list[Dict[str, Any]]:
+        """Ordena candidatos por similaridade parcial de nome acima do limiar."""
         correspondencias = []
         nome_lower = nome_busca.lower()
-        for estudante in elegiveis:
+        for estudante in candidatos:
             nome_estudante = estudante.get("nome", "").lower()
             if not nome_estudante:
                 continue
             score = fuzz.partial_ratio(nome_lower, nome_estudante)
-            if score >= 90:
+            if score >= score_minimo:
                 estudante["score"] = score
                 correspondencias.append(estudante)
+        correspondencias.sort(key=lambda x: -x["score"])
+        return correspondencias
+
+    def _buscar_por_nome_e_registrar(
+        self, nome_busca: str
+    ) -> Tuple[bool, str, Dict[str, Any]]:
+        """Busca por nome (fuzzy) e registra seguindo estritamente as mesmas regras do QR Code."""
+        excecoes = self._fachada.excecao_grupos
+        elegiveis = self._fachada.obter_estudantes_para_sessao(
+            consumido=False,
+            pular_grupos=False,
+            excecao_grupos=excecoes,
+        )
+        correspondencias = self._filtrar_correspondencias_nome(
+            elegiveis, nome_busca, score_minimo=90
+        )
+
+        # Fallback apenas para identificar prontuário de aluno já atendido/inelegível
+        # e retornar o motivo real da negação via registrar_consumo(pular_grupos=False).
+        if not correspondencias:
+            todos_ativos = self._fachada.obter_estudantes_para_sessao(
+                consumido=None, pular_grupos=True
+            )
+            correspondencias = self._filtrar_correspondencias_nome(
+                todos_ativos, nome_busca, score_minimo=90
+            )
 
         if not correspondencias:
             return (
@@ -809,7 +865,6 @@ class FrameSelfService(ttk.Frame):
                 {"nome": nome_busca, "turma": "Não Encontrado"},
             )
 
-        correspondencias.sort(key=lambda x: -x["score"])
         melhor_match = correspondencias[0]
 
         if len(correspondencias) > 1 and (
@@ -831,7 +886,9 @@ class FrameSelfService(ttk.Frame):
             )
 
         resultado_registro = self._fachada.registrar_consumo(
-            prontuario_encontrado, pular_grupos=True
+            prontuario_encontrado,
+            excecao_grupos=excecoes,
+            pular_grupos=False,
         )
         if resultado_registro.get("autorizado"):
             return True, "Sucesso", resultado_registro
@@ -845,7 +902,7 @@ class FrameSelfService(ttk.Frame):
     def _buscar_melhor_match_por_nome(
         self, nome_busca: str
     ) -> Optional[Dict[str, Any]]:
-        """Busca por nome e retorna o melhor match como sugestão sem registrar."""
+        """Busca por nome e retorna o melhor match elegível como sugestão sem registrar."""
         if (
             len(nome_busca) < 3
             or not self._fachada
@@ -855,33 +912,21 @@ class FrameSelfService(ttk.Frame):
 
         try:
             elegiveis = self._fachada.obter_estudantes_para_sessao(
-                consumido=False, pular_grupos=True
+                consumido=False,
+                pular_grupos=False,
+                excecao_grupos=self._fachada.excecao_grupos,
             )
-
-            correspondencias = []
-            nome_lower = nome_busca.lower()
-
-            for estudante in elegiveis:
-                nome_estudante = estudante.get("nome", "").lower()
-                if not nome_estudante:
-                    continue
-
-                score = fuzz.partial_ratio(nome_lower, nome_estudante)
-                if score >= 75:
-                    estudante["score"] = score
-                    correspondencias.append(estudante)
-
-            if not correspondencias:
-                return None
-
-            correspondencias.sort(key=lambda x: -x["score"])
-            return correspondencias[0]
+            correspondencias = self._filtrar_correspondencias_nome(
+                elegiveis, nome_busca, score_minimo=75
+            )
+            return correspondencias[0] if correspondencias else None
         except Exception as e:
             logger.error("Erro ao buscar sugestão por nome: %s", e)
             return None
 
     def _definir_feedback_visual(self, estado: str):
         """Altera as cores do painel de informações para feedback visual."""
+        self._ultimo_estado_feedback = estado
         if estado == "sucesso":
             cor_bg = self.COR_FUNDO_SUCESSO
             texto_status = "REGISTRADO COM SUCESSO!"

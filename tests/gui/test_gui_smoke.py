@@ -68,7 +68,7 @@ def mock_fachada():
 
 
 def test_dialogo_sessao_inicializacao(app_root, mock_fachada):
-    """Testa a instanciação do DialogoSessao e seus métodos de carregamento de presets e opções."""
+    """Testa a instanciação do DialogoSessao e sua integração básica de opções e grade."""
     app_root.get_fachada = MagicMock(return_value=mock_fachada)
 
     with patch.object(DialogoSessao, "grab_set"), \
@@ -87,8 +87,8 @@ def test_dialogo_sessao_inicializacao(app_root, mock_fachada):
         assert isinstance(opcoes, set)
         assert isinstance(lista, list)
 
-        dialogo._carregar_presets_turmas()
-        assert hasattr(dialogo, "_presets_turmas")
+        assert "nova" in dialogo._contextos
+        assert dialogo._treeview_sessoes is not None
 
         dialogo.destroy()
 

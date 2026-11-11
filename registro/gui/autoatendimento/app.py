@@ -75,6 +75,11 @@ class AppSelfService(ttk.Window):
         # Identificação e Inicialização de Sessão
         self._detectar_e_carregar_sessao_inicial()
 
+        if not tem_pin_configurado():
+            logger.warning(
+                "Totem iniciado sem PIN de operador configurado! Controles administrativos desprotegidos."
+            )
+
         self._criar_widgets()
         self._configurar_atalhos_teclado()
         self.totem_cfg = obter_config_totem()
@@ -202,7 +207,7 @@ class AppSelfService(ttk.Window):
         logger.info("Executando sincronização de fechamento: %s", nome_tarefa)
         self.mostrar_barra_progresso(True, f"Enviando dados: {nome_tarefa}...")
         thread = Thread(
-            target=self._acao_sinc_wrapper, args=(funcao_sinc,), daemon=False
+            target=self._acao_sinc_wrapper, args=(funcao_sinc,), daemon=True
         )
         thread.start()
 
@@ -283,6 +288,8 @@ class AppSelfService(ttk.Window):
                 message=f"{nome_tarefa} concluída com sucesso.",
                 records_affected=records_affected,
             )
+            if direction == "download" and hasattr(self.fachada_nucleo, "expirar_cache_sessao"):
+                self.fachada_nucleo.expirar_cache_sessao()
             if not automatico:
                 Messagebox.show_info(
                     f"{nome_tarefa} concluída com sucesso.",
@@ -409,6 +416,7 @@ class AppSelfService(ttk.Window):
             self.fachada_nucleo.carregar_estado_sessao()
             if self.fachada_nucleo.id_sessao_ativa:
                 self.id_sessao_ativa = self.fachada_nucleo.id_sessao_ativa
+                self._configurar_grade_sessao_ativa()
                 logger.info("Sessão persistida carregada: ID %s", self.id_sessao_ativa)
                 return
 
@@ -422,11 +430,32 @@ class AppSelfService(ttk.Window):
                 self.fachada_nucleo.definir_sessao_ativa(sessao_recente["id"])
                 self.fachada_nucleo.salvar_estado_sessao(sessao_recente["id"])
                 self.id_sessao_ativa = sessao_recente["id"]
+                self._configurar_grade_sessao_ativa()
                 logger.info(
                     "Sessão de hoje detectada automaticamente: ID %s", self.id_sessao_ativa
                 )
         except Exception as e:
             logger.error("Erro na detecção inicial de sessão: %s", e)
+
+    def _configurar_grade_sessao_ativa(self):
+        """Ajusta grade/horário automaticamente caso a sessão ativa seja de data retroativa."""
+        if not self.fachada_nucleo or self.fachada_nucleo.id_sessao_ativa is None:
+            return
+        try:
+            from registro.nucleo.services import grade_horarios_service
+
+            detalhes = self.fachada_nucleo.obter_detalhes_sessao_ativa()
+            data_sessao = (detalhes.get("data") or "").strip()
+            hoje_str = dt.date.today().strftime("%d/%m/%Y")
+            if data_sessao and data_sessao != hoje_str:
+                self.fachada_nucleo.ignorar_horario_grade = True
+                self.fachada_nucleo.dia_semana_grade = (
+                    grade_horarios_service.obter_dia_semana_por_data(data_sessao)
+                )
+            else:
+                self.fachada_nucleo.dia_semana_grade = None
+        except Exception as e:
+            logger.warning("Falha ao ajustar grade para sessão ativa: %s", e)
 
     def exibir_menu_contexto(
         self,
@@ -451,6 +480,13 @@ class AppSelfService(ttk.Window):
                 widget = args[0]
 
         menu = tk.Menu(self, tearoff=False, font=("Segoe UI", 10))
+
+        if not tem_pin_configurado():
+            menu.add_command(
+                label="⚠️  Sem PIN configurado (Configure no Setup)",
+                state="disabled",
+            )
+            menu.add_separator()
 
         # Modos de Visualização
         menu.add_command(
@@ -667,6 +703,7 @@ class AppSelfService(ttk.Window):
 
         if sucesso:
             self.id_sessao_ativa = self.fachada_nucleo.id_sessao_ativa
+            self._configurar_grade_sessao_ativa()
             logger.info("Sessão ativada com sucesso: ID %s", self.id_sessao_ativa)
             self._atualizar_apos_mudanca_sessao()
         return sucesso
@@ -822,10 +859,8 @@ class AppSelfService(ttk.Window):
 def main():
     """Ponto de entrada para a aplicação autônoma de autoatendimento."""
     from registro.nucleo.logging_config import configurar_logging
-    from registro.launcher import verificar_e_migrar_banco_se_necessario
 
     configurar_logging("autoatendimento")
-    verificar_e_migrar_banco_se_necessario()
 
     try:
         app = AppSelfService()

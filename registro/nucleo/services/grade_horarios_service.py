@@ -53,6 +53,18 @@ def obter_dia_semana_atual() -> str:
     return MAPA_DIAS_SEMANA.get(datetime.now().weekday(), "segunda")
 
 
+def obter_dia_semana_por_data(data_str: str) -> Optional[str]:
+    """Converte uma data ('DD/MM/YYYY' ou 'YYYY-MM-DD') para o dia da semana da grade."""
+    texto = (data_str or "").strip()
+    for fmt in ("%d/%m/%Y", "%Y-%m-%d"):
+        try:
+            data_dt = datetime.strptime(texto, fmt)
+            return MAPA_DIAS_SEMANA.get(data_dt.weekday())
+        except ValueError:
+            continue
+    return None
+
+
 def carregar_grade_horarios(
     caminho: Optional[Path] = None,
 ) -> Dict[str, Dict[str, List[Dict[str, Any]]]]:

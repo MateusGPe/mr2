@@ -97,6 +97,7 @@ def test_sincronizacao_mestre_sucesso(dummy_app, mock_fachada):
             message="Sincronização de Cadastros concluída com sucesso.",
             records_affected=15,
         )
+        mock_fachada.expirar_cache_sessao.assert_called_once()
         mock_update.assert_called_once()
 
 
@@ -138,3 +139,44 @@ def test_on_closing_executa_sincronizacao_upload(dummy_app, mock_fachada):
         mock_fachada.salvar_estado_sessao.assert_called_once_with(1)
         mock_fachada.fechar_conexao.assert_called_once()
         mock_destroy.assert_called_once()
+
+
+def test_configurar_grade_sessao_retroativa_no_totem(dummy_app, mock_fachada):
+    """Sessão de data anterior ativa automaticamente Horário Livre e dia da semana da sessão."""
+    mock_fachada.ignorar_horario_grade = False
+    mock_fachada.dia_semana_grade = None
+    mock_fachada.obter_detalhes_sessao_ativa.return_value = {"data": "09/11/2026"}  # segunda
+
+    dummy_app._configurar_grade_sessao_ativa()
+
+    assert mock_fachada.ignorar_horario_grade is True
+    assert mock_fachada.dia_semana_grade == "segunda"
+
+
+def test_executar_sinc_bloqueante_usa_thread_daemon(dummy_app):
+    """Thread de sincronização no fechamento deve ser daemon para não travar saída offline."""
+    criadas = []
+
+    class FakeThread:
+        def __init__(self, target=None, args=(), daemon=None):
+            self.daemon = daemon
+            self.error = None
+            self.success = True
+            self.records_affected = 0
+            criadas.append(self)
+
+        def start(self):
+            pass
+
+        def is_alive(self):
+            return False
+
+        def join(self, _timeout=None):
+            pass
+
+    with patch("registro.gui.autoatendimento.app.Thread", FakeThread), \
+         patch.object(dummy_app, "_monitorar_thread_sinc"):
+        dummy_app._executar_sinc_bloqueante(lambda: 0, "Sincronização de Servidos", timeout=0.1)
+
+    assert len(criadas) == 1
+    assert criadas[0].daemon is True
