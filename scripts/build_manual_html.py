@@ -201,6 +201,9 @@ class ManualConverter:
                     code_lines.append(lines[i])
                     i += 1
                 i += 1
+                if lang.lower() == "sheets":
+                    out.append(self._render_sheets_mockup(code_lines))
+                    continue
                 lang_cls = f' class="language-{escape(lang)}"' if lang else ""
                 out.append(f"<pre><code{lang_cls}>{escape(chr(10).join(code_lines))}</code></pre>")
                 continue
@@ -424,6 +427,135 @@ class ManualConverter:
 
         return "".join(html)
 
+    @staticmethod
+    def _col_letter(idx: int) -> str:
+        """Converte índice 0-based em letra de coluna estilo planilha (A, B, ..., Z, AA)."""
+        res = ""
+        n = idx + 1
+        while n > 0:
+            n, rem = divmod(n - 1, 26)
+            res = chr(65 + rem) + res
+        return res
+
+    def _render_sheets_mockup(self, code_lines: List[str]) -> str:
+        """Renderiza um bloco ```sheets em um mockup visual estilo Google Sheets."""
+        default_tabs = [
+            "Discentes",
+            "DB",
+            "Almoço",
+            "Jantar",
+            "Lanche",
+            "Consumo_Cancelados",
+            "Configuração",
+            "Lanches",
+        ]
+        meta: Dict[str, str] = {}
+        rows: List[List[str]] = []
+
+        for raw_line in code_lines:
+            s = raw_line.strip()
+            if not s:
+                continue
+            if s.startswith("|"):
+                rows.append(_split_table_row(s))
+            elif ":" in s and not rows:
+                k, _, v = s.partition(":")
+                meta[k.strip().lower()] = v.strip()
+
+        title = meta.get("title", "Planilha Refeitório")
+        badge = meta.get("badge", "Google Sheets")
+        active_tab = meta.get("active_tab", "Discentes")
+        active_cell = meta.get("active_cell", "A1").upper()
+        fx_val = meta.get("fx", "")
+        caption = meta.get("caption", "")
+        tabs_raw = meta.get("tabs", "")
+        tabs = [t.strip() for t in tabs_raw.split(",") if t.strip()] if tabs_raw else default_tabs
+
+        num_cols = max((len(r) for r in rows), default=1)
+        col_headers = "".join(
+            f'<th class="col-letter">{self._col_letter(c)}</th>'
+            for c in range(num_cols)
+        )
+
+        body_rows_html: List[str] = []
+        for r_idx, row in enumerate(rows):
+            row_num = r_idx + 1
+            tr_cls = ' class="header-row"' if r_idx == 0 else ""
+            cells_html = [f'<td class="row-num">{row_num}</td>']
+            for c_idx in range(num_cols):
+                raw_cell = row[c_idx] if c_idx < len(row) else ""
+                coord = f"{self._col_letter(c_idx)}{row_num}"
+                classes: List[str] = []
+                cell_text = raw_cell
+
+                for tag, cls in (
+                    ("[green]", "cell-highlight-green"),
+                    ("[yellow]", "cell-highlight-yellow"),
+                    ("[red]", "cell-highlight-red"),
+                    ("[blue]", "cell-highlight-blue"),
+                    ("[active]", "cell-active"),
+                ):
+                    if tag in cell_text:
+                        classes.append(cls)
+                        cell_text = cell_text.replace(tag, "")
+
+                if coord == active_cell and "cell-active" not in classes:
+                    classes.append("cell-active")
+
+                cell_text = cell_text.strip()
+                if "[check]" in cell_text:
+                    cell_text = cell_text.replace("[check]", "☑")
+                    classes.append("cell-center")
+                elif "[uncheck]" in cell_text:
+                    cell_text = cell_text.replace("[uncheck]", "☐")
+                    classes.append("cell-center")
+
+                cls_attr = f' class="{" ".join(classes)}"' if classes else ""
+                cells_html.append(f"<td{cls_attr}>{escape(cell_text)}</td>")
+
+            body_rows_html.append(f"<tr{tr_cls}>{''.join(cells_html)}</tr>")
+
+        tabs_html = "".join(
+            f'<div class="sheets-tab{" active" if t == active_tab else ""}">{escape(t)}</div>'
+            for t in tabs
+        )
+        caption_html = f'<div class="caption-note">{escape(caption)}</div>' if caption else ""
+        fx_display = escape(fx_val) if fx_val else (escape(rows[0][0]) if rows and rows[0] else "")
+
+        sheets_svg = (
+            '<svg class="sheets-svg-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">'
+            '<path fill="#0F9D58" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>'
+            '<path fill="#87CEAC" d="M14 2v6h6l-6-6z"/>'
+            '<path fill="#FFFFFF" d="M7 11h10v1.5H7zm0 3h10v1.5H7zm0 3h10v1.5H7zM11 11h1.5v7.5H11z"/>'
+            '</svg>'
+        )
+
+        return (
+            '<div class="sheets-screenshot-container">'
+            '<div class="sheets-top-chrome">'
+            '<div class="sheets-title-group">'
+            f'{sheets_svg}'
+            f'<span class="sheets-doc-name">{escape(title)}</span>'
+            f'<span class="sheets-badge-ro">{escape(badge)}</span>'
+            '</div>'
+            f'<span class="sheets-tab-indicator">Aba: <strong>{escape(active_tab)}</strong></span>'
+            '</div>'
+            '<div class="sheets-formula-bar">'
+            f'<span class="sheets-name-box">{escape(active_cell)}</span>'
+            '<span class="sheets-fx">fx</span>'
+            f'<span class="sheets-fx-val">{fx_display}</span>'
+            '</div>'
+            '<div class="sheets-grid-wrap">'
+            '<table class="sheets-grid">'
+            f'<thead><tr><th class="col-corner"></th>{col_headers}</tr></thead>'
+            f'<tbody>{"".join(body_rows_html)}</tbody>'
+            '</table>'
+            '</div>'
+            f'<div class="sheets-tabs-bar">{tabs_html}</div>'
+            f'{caption_html}'
+            '</div>'
+        )
+
 
 CSS_STYLES = """
 :root {
@@ -577,6 +709,196 @@ blockquote {
 ul, ol { margin: 8px 0 12px 22px; padding: 0; }
 li { margin-bottom: 4px; }
 hr { border: 0; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* MOCKUPS ESTILO GOOGLE SHEETS EMBEDDED */
+.sheets-screenshot-container {
+  margin: 18px 0;
+  background: #ffffff;
+  border: 1px solid #c4c7c5;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  font-family: "Roboto", "Segoe UI", Arial, sans-serif;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.sheets-top-chrome {
+  background: #f8f9fa;
+  border-bottom: 1px solid #dadce0;
+  padding: 7px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sheets-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sheets-svg-icon { flex-shrink: 0; }
+.sheets-doc-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #202124;
+}
+.sheets-badge-ro {
+  background: #e6f4ea;
+  color: #137333;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.sheets-tab-indicator {
+  font-size: 11.5px;
+  color: #5f6368;
+}
+.sheets-formula-bar {
+  background: #ffffff;
+  border-bottom: 1px solid #dadce0;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #3c4043;
+}
+.sheets-name-box {
+  background: #f1f3f4;
+  border: 1px solid #dadce0;
+  border-radius: 3px;
+  padding: 1px 7px;
+  font-weight: 600;
+  color: #202124;
+  min-width: 38px;
+  text-align: center;
+  font-size: 11.5px;
+}
+.sheets-fx {
+  font-weight: 700;
+  font-style: italic;
+  color: #188038;
+  padding-right: 4px;
+  border-right: 1px solid #e0e0e0;
+}
+.sheets-fx-val {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 11.5px;
+  color: #202124;
+}
+.sheets-grid-wrap {
+  overflow-x: auto;
+  background: #ffffff;
+}
+table.sheets-grid {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 11.8px;
+  background: #ffffff;
+  margin: 0;
+}
+table.sheets-grid th,
+table.sheets-grid td {
+  border: 1px solid #e0e0e0;
+  padding: 3px 8px;
+  height: 23px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+table.sheets-grid th.col-corner {
+  background: #f8f9fa;
+  width: 34px;
+  min-width: 34px;
+  border-right: 2px solid #dadce0;
+  border-bottom: 2px solid #dadce0;
+}
+table.sheets-grid th.col-letter {
+  background: #f8f9fa;
+  color: #5f6368;
+  text-align: center;
+  font-weight: 600;
+  font-size: 11px;
+  border-bottom: 2px solid #dadce0;
+}
+table.sheets-grid td.row-num {
+  background: #f8f9fa;
+  color: #5f6368;
+  text-align: center;
+  font-weight: 500;
+  width: 34px;
+  min-width: 34px;
+  font-size: 11px;
+  border-right: 2px solid #dadce0;
+}
+table.sheets-grid tr.header-row td:not(.row-num) {
+  background: #f1f3f4;
+  font-weight: 700;
+  color: #202124;
+  border-bottom: 2px solid #bdc1c6;
+}
+table.sheets-grid td.cell-highlight-green {
+  background: #e6f4ea !important;
+  color: #137333 !important;
+  font-weight: 600;
+}
+table.sheets-grid td.cell-highlight-yellow {
+  background: #fef7e0 !important;
+  color: #b06000 !important;
+}
+table.sheets-grid td.cell-highlight-red {
+  background: #fce8e6 !important;
+  color: #c5221f !important;
+  font-weight: 600;
+}
+table.sheets-grid td.cell-highlight-blue {
+  background: #e8f0fe !important;
+  color: #1967d2 !important;
+  font-weight: 600;
+}
+table.sheets-grid td.cell-active {
+  outline: 2px solid #1a73e8;
+  outline-offset: -2px;
+}
+table.sheets-grid td.cell-center {
+  text-align: center;
+  font-size: 13px;
+}
+.sheets-tabs-bar {
+  background: #f1f3f4;
+  border-top: 1px solid #dadce0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 4px 10px 0;
+  gap: 3px;
+}
+.sheets-tab {
+  padding: 4px 10px;
+  font-size: 11.2px;
+  font-weight: 500;
+  color: #5f6368;
+  background: #e8eaed;
+  border: 1px solid #dadce0;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+.sheets-tab.active {
+  background: #ffffff;
+  color: #188038;
+  font-weight: 700;
+  border-top: 2px solid #0f9d58;
+  margin-bottom: -1px;
+  padding-bottom: 5px;
+}
+.caption-note {
+  padding: 7px 12px;
+  background: #fafbfc;
+  border-top: 1px solid #eaeef2;
+  font-size: 11.8px;
+  color: #59636e;
+  font-style: italic;
+}
 
 @page {
   size: A4;
