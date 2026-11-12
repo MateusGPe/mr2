@@ -44,7 +44,7 @@ Se esta é a primeira vez que o sistema está sendo implantado no campus:
 ## 📚 Glossário Rápido do Sistema
 
 * **Prontuário / Matrícula**: Código identificador único do estudante (ex.: `SP301001`, `IQ301234`). O sistema ignora prefixos padrão na busca numérica e normaliza códigos legados como `IQXX...` para `IQ30...`.
-* **Grupo (`turma` vs `categoria`)**: Além das turmas acadêmicas (ex.: `1º Ano A - Informática`), estudantes podem possuir categorias especiais (ex.: `PAP`, `ESP1`, `LIB0`) usadas para liberação prioritária na Grade Horária e nos filtros de sessão.
+* **Grupo (`turma` vs `categoria`)**: Além das turmas acadêmicas (ex.: `1º Ano A - Informática`), estudantes podem possuir categorias (ex.: `Evento Robótica`, `Optativa Artes`, `PAP`, `ESP1`) que funcionam como **grupos equivalentes às turmas** na Grade Horária e nos filtros de sessão — separadas apenas para não misturar turmas regulares com eventos, optativas ou agrupamentos arbitrários.
 * **Sessão de Refeição**: Representa um turno específico de atendimento (`almoço`, `jantar` ou `lanche`) em uma data e período, vinculando grupos participantes e contabilizando os consumos realizados.
 * **Reserva (`Almoço` / `Jantar`)**: Direito prévio agendado para o estudante em determinada data, com preferência de prato (`Tradicional`, `Vegetariano`, `Vegano`, etc.). Necessária para abrir sessões de Almoço e Jantar.
 * **Lanche (Item Servido)**: Modalidade simplificada de sessão voltada ao intervalo/lanche; lista todos os alunos elegíveis dos grupos da sessão sem exigir reserva prévia individual.

@@ -154,27 +154,34 @@ def _avaliar_regra_padrao(
             motivo = "Reserva já utilizada nesta data."
             prato = "Reserva Utilizada"
         else:
-            ids_excecao_grupos = {
-                g.id for g in sessao.grupos if g.nome in (excecao_grupos or set())
+            excecao_norm = {
+                g.strip().lower() for g in (excecao_grupos or set()) if g and str(g).strip()
             }
+            ids_excecao_grupos = {
+                g.id for g in sessao.grupos if g.nome.strip().lower() in excecao_norm
+            }
+            nomes_estudante_norm = {n.strip().lower() for n in nomes_estudante if n}
             if ids_excecao_grupos.intersection(ids_grupos_estudante):
                 autorizado = True
                 motivo = "Autorizado por exceção (grupo)."
                 prato = "Sem Reserva (Grupo)"
-            elif excecao_grupos and nomes_estudante.intersection(excecao_grupos):
+            elif excecao_norm and nomes_estudante_norm.intersection(excecao_norm):
                 autorizado = True
                 motivo = "Autorizado por exceção (grupo)."
                 prato = "Sem Reserva (Grupo)"
     else:
         prato = sessao.item_servido or "Lanche"
         ids_grupos_sessao = {g.id for g in sessao.grupos}
+        excecao_norm = {
+            g.strip().lower() for g in (excecao_grupos or set()) if g and str(g).strip()
+        }
+        nomes_estudante_norm = {n.strip().lower() for n in nomes_estudante if n}
         if pular_grupos or ids_grupos_sessao.intersection(ids_grupos_estudante):
             autorizado = True
             motivo = "Autorizado para lanche (grupo)."
-        elif excecao_grupos:
-            if nomes_estudante.intersection(excecao_grupos):
-                autorizado = True
-                motivo = "Autorizado por exceção (grupo)."
+        elif excecao_norm and nomes_estudante_norm.intersection(excecao_norm):
+            autorizado = True
+            motivo = "Autorizado por exceção (grupo)."
 
     return autorizado, motivo, prato, id_reserva
 
@@ -210,17 +217,19 @@ def _avaliar_regra_com_reserva(
     _, nomes_grupos_estudante = _grupos_efetivos_ids_e_nomes(
         estudante, reserva_dia or reserva_ativa
     )
-    nomes_grupos_sessao = {g.nome for g in sessao.grupos}
+    nomes_grupos_estudante_norm = {n.strip().lower() for n in nomes_grupos_estudante if n}
+    nomes_grupos_sessao_norm = {g.nome.strip().lower() for g in sessao.grupos}
+    excecao_norm = {g.strip().lower() for g in (excecao_grupos or set()) if g and str(g).strip()}
 
     grupo_autorizado = False
     motivo = "Acesso Negado"
     if pular_grupos:
         grupo_autorizado = True
         motivo = "Autorizado com reserva (grupos ignorados)."
-    elif nomes_grupos_estudante.intersection(nomes_grupos_sessao):
+    elif nomes_grupos_estudante_norm.intersection(nomes_grupos_sessao_norm):
         grupo_autorizado = True
         motivo = "Autorizado com reserva (grupo da sessão)."
-    elif nomes_grupos_estudante.intersection(excecao_grupos or set()):
+    elif nomes_grupos_estudante_norm.intersection(excecao_norm):
         grupo_autorizado = True
         motivo = "Autorizado com reserva (grupo de exceção)."
 
@@ -241,13 +250,12 @@ def _processar_consumo_pipeline(
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
     ignorar_horario_grade: bool = False,
-    filtro_categoria: Optional[str] = None,
     dia_semana_grade: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Pipeline unificado de autorização e registro de consumo (DRY + KISS).
-    Valida existência de estudante, duplicidade de consumo, restrição de categoria,
-    janela de horário, aplica a política e persiste o registro no banco em caso de sucesso.
+    Valida existência de estudante, duplicidade de consumo, janela de horário,
+    aplica a política e persiste o registro no banco em caso de sucesso.
     """
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
     prontuario_limpo = (prontuario or "").strip().upper()
@@ -424,7 +432,6 @@ def registrar_consumo(
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
     ignorar_horario_grade: bool = False,
-    filtro_categoria: Optional[str] = None,
     dia_semana_grade: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Aplica a lógica de autorização padrão e, se bem-sucedido, registra o consumo."""
@@ -441,7 +448,6 @@ def registrar_consumo(
         pular_grupos=pular_grupos,
         permitir_fora_horario=permitir_fora_horario,
         ignorar_horario_grade=ignorar_horario_grade,
-        filtro_categoria=filtro_categoria,
         dia_semana_grade=dia_semana_grade,
     )
 
@@ -458,7 +464,6 @@ def registrar_consumo_com_reserva(
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
     ignorar_horario_grade: bool = False,
-    filtro_categoria: Optional[str] = None,
     dia_semana_grade: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
@@ -477,7 +482,6 @@ def registrar_consumo_com_reserva(
         pular_grupos=pular_grupos,
         permitir_fora_horario=permitir_fora_horario,
         ignorar_horario_grade=ignorar_horario_grade,
-        filtro_categoria=filtro_categoria,
         dia_semana_grade=dia_semana_grade,
     )
 

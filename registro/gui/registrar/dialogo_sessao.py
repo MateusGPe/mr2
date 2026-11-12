@@ -585,7 +585,7 @@ class DialogoSessao(tk.Toplevel):
             "🏫 Turmas", turmas, 0, "primary-round-toggle", "turma"
         )
         _, lbl_c = _render_bloco(
-            "🏷️ Categorias (PAP, ESP1, LIB0...)",
+            "🏷️ Categorias (Eventos, Optativas, PAP...)",
             categorias,
             prox,
             "info-round-toggle",
@@ -827,9 +827,10 @@ class DialogoSessao(tk.Toplevel):
         if aplicar_selecao:
             turmas_grade = self._obter_turmas_grade(dia_semana, refeicao)
             if turmas_grade:
+                turmas_grade_norm = {t.strip().lower() for t in turmas_grade if t and str(t).strip()}
                 ctx["slot_selecionado_idx"] = None
                 self._definir_checkboxes_turmas(
-                    lambda n, _v: n in turmas_grade, modo_edicao=modo_edicao
+                    lambda n, _v: n.strip().lower() in turmas_grade_norm, modo_edicao=modo_edicao
                 )
                 self._renderizar_slots_grade(modo_edicao, slots)
 
@@ -908,8 +909,9 @@ class DialogoSessao(tk.Toplevel):
 
         ctx["slot_selecionado_idx"] = idx
         grupos_slot = self._expandir_grupos_slot(slots[idx])
+        grupos_slot_norm = {g.strip().lower() for g in grupos_slot if g and str(g).strip()}
         self._definir_checkboxes_turmas(
-            lambda n, _v: n in grupos_slot, modo_edicao=modo_edicao
+            lambda n, _v: n.strip().lower() in grupos_slot_norm, modo_edicao=modo_edicao
         )
         self._renderizar_slots_grade(modo_edicao, slots)
 
@@ -1067,8 +1069,9 @@ class DialogoSessao(tk.Toplevel):
             self._renderizar_slots_grade(modo_edicao, slots)
 
         if turmas_grade:
+            turmas_grade_norm = {t.strip().lower() for t in turmas_grade if t and str(t).strip()}
             self._definir_checkboxes_turmas(
-                lambda n, _v: n in turmas_grade, modo_edicao=modo_edicao
+                lambda n, _v: n.strip().lower() in turmas_grade_norm, modo_edicao=modo_edicao
             )
         else:
             Messagebox.show_info(
@@ -1114,8 +1117,9 @@ class DialogoSessao(tk.Toplevel):
             return
 
         self._limpar_slot_selecionado(modo_edicao)
+        grupos_norm = {g.strip().lower() for g in grupos_com_reserva if g and str(g).strip()}
         self._definir_checkboxes_turmas(
-            lambda n, _v: n in grupos_com_reserva, modo_edicao=modo_edicao
+            lambda n, _v: n.strip().lower() in grupos_norm, modo_edicao=modo_edicao
         )
 
     def _limpar_slot_selecionado(self, modo_edicao: bool):

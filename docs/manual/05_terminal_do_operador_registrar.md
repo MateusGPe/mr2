@@ -77,7 +77,7 @@ Concentra a busca rápida na fila e os botões de confirmação.
 * **Correspondência híbrida:** Detecta automaticamente se o termo parece matrícula/prontuário (score ≥ 85) ou nome completo/parcial (score ≥ 70) e exibe o resultado na tabela de elegíveis ordenável.
 * **Termos Curinga (listar toda a base disponível):** Digite **`todos`**, **`---`**, **`***`** ou **`..`** para exibir todos os alunos pendentes sem precisar digitar parte do nome.
 * **Sufixo ponto final `.` (`pular_grupos`):** Adicionar um `.` ao final de qualquer busca (ex.: `ana.` ou `todos.`) **ativa temporariamente a busca global**, ignorando os filtros de turma da sessão para localizar qualquer aluno ativo do banco na hora.
-* **Cartão de Pré-visualização:** Mostra Prontuário (exibindo tag **`[PAP]`** em destaque quando o aluno possui categoria PAP permanente ou pontual), Nome, Turma e Prato previsto.
+* **Cartão de Pré-visualização:** Mostra Prontuário, Nome (exibindo as categorias vinculadas entre colchetes, como **`[Evento]`** ou **`[PAP]`**, quando o aluno possui categoria permanente ou pontual), Turma e Prato previsto.
 
 ### Atalhos de Teclado e Controles de Registro
 | Ação / Tecla | Comportamento |

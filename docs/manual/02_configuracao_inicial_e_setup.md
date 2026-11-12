@@ -102,13 +102,15 @@ Define as faixas oficiais de atendimento por **dia da semana** e **refeição**.
 2. Na grade listada, cada faixa (*slot*) contém 4 campos:
    * **Início (`HH:MM`)** e **Fim (`HH:MM`)**: janela principal da faixa (ex.: `11:30` até `12:10`). Na validação real, o sistema aplica automaticamente **±5 minutos de tolerância**.
    * **Turmas autorizadas**: nomes exatos de turmas separados por vírgula (ex.: `1º A - MAC, 1º A - MEC`) ou coringa **`*`** (ou `Todas`) para não restringir por turma.
-   * **Categorias autorizadas**: nomes de categorias separados por vírgula (ex.: `PAP, ESP1`) ou coringa **`*`** (ou `Todas`).
+   * **Categorias autorizadas**: nomes de categorias separados por vírgula (ex.: `Evento Feira, Optativa, PAP`) ou coringa **`*`** (ou `Todas`) para não restringir por categoria.
 3. Use os botões da aba para **Adicionar Faixa**, **Editar/Atualizar**, **Remover Faixa**, **Copiar Dia** (quando disponível) e **Salvar Grade**.
 
 > ⚠️ **Regra de avaliação de Turmas × Categorias e Fallback:**  
+> * Turmas e categorias são avaliadas de forma **equivalente** como grupos autorizados no horário — separadas apenas para distinguir turmas regulares de eventos, optativas e agrupamentos arbitrários.  
 > * Se um horário restringe **apenas Turmas** (e Categorias = `*`), só alunos daquelas turmas entram na faixa.  
-> * Se restringe **apenas Categorias** (e Turmas = `*`), só alunos com aquelas categorias entram na faixa (ideal para atendimento prioritário de `PAP` às 11:15, por exemplo).  
+> * Se restringe **apenas Categorias** (e Turmas = `*`), só alunos com aquelas categorias entram na faixa (ideal para janelas exclusivas de eventos, optativas ou grupos específicos, por exemplo).  
 > * Se **ambos** tiverem restrições específicas, aplica-se a regra **OU**: entra quem pertencer à turma listada **OU** possuir a categoria listada.  
+> * Se o estudante não puder entrar no horário atual, mas possuir outro horário previsto na grade (por turma ou categoria), o sistema informa a faixa prevista dele; caso contrário, informa falta de autorização para a turma/categoria na refeição.  
 > * Se **não existir nenhum slot** para um determinado `dia + refeição`, a trava horária fica liberada (fallback para grupos da sessão).  
 > * Atenção ao sincronizar com a nuvem: se a aba **`Configuração`** do Google Sheets tiver faixas válidas, o download de dados sobrescreverá `grade_horarios.json`.
 

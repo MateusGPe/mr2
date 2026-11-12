@@ -34,7 +34,7 @@ def _obter_categorias_selecionadas_painel(
 
 
 class _SeletorCategoriasFrame(ttk.Labelframe):
-    """Componente reutilizável de seleção múltipla de categorias (ex.: PAP, ESP1, LIB0)."""
+    """Componente reutilizável de seleção múltipla de categorias (ex.: Eventos, Optativas, PAP)."""
 
     def __init__(self, parent, titulo: str, nomes_categorias: list[str]):
         super().__init__(parent, text=titulo, padding=8)
@@ -185,7 +185,7 @@ class StudentDialog(ttk.Toplevel):
 
             self.seletor_categorias = _SeletorCategoriasFrame(
                 self.seletor_categorias_container,
-                "🏷️ Categorias Permanentes (PAP, ESP1, LIB0...)",
+                "🏷️ Categorias Permanentes (Eventos, Optativas, PAP...)",
                 categorias,
             )
             self.seletor_categorias.grid(row=0, column=0, sticky=EW)

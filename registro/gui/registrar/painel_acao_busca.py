@@ -581,11 +581,16 @@ class PainelAcaoBusca(ttk.Frame):
         elif self._dados_elegivel_selecionado:
             pront = self._dados_elegivel_selecionado.get("Pront", "?")
             nome = self._dados_elegivel_selecionado.get("Nome", "?")
-            categoria = self._dados_elegivel_selecionado.get("Categoria", "REGULAR")
-            tag_pap = " [PAP]" if "PAP" in str(categoria).upper() else ""
+            categoria = self._dados_elegivel_selecionado.get("Categoria", "-")
+            cat_limpa = str(categoria or "").strip()
+            tag_cat = (
+                f" [{cat_limpa}]"
+                if cat_limpa and cat_limpa.upper() not in ("-", "REGULAR", "N/A")
+                else ""
+            )
             turma = self._dados_elegivel_selecionado.get("Turma", "S/ Turma")
             prato = self._dados_elegivel_selecionado.get("Prato") or "Sem Reserva"
-            texto = f"Pront: {pront}\nNome: {nome}{tag_pap}\nTurma: {turma}\nPrato: {prato}"
+            texto = f"Pront: {pront}\nNome: {nome}{tag_cat}\nTurma: {turma}\nPrato: {prato}"
             estilo = "@primary"
         else:
             texto = "Pesquise um aluno."

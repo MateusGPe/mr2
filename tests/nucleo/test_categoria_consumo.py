@@ -81,3 +81,78 @@ def test_consumo_sem_filtro_categoria_permite_ambos(
     assert res2["autorizado"] is True
     assert res2["categoria"] == "PAP"
 
+
+def test_categoria_arbitraria_almoco_com_excecao_respeita_grade_e_separa_jantar(
+    facade: FachadaRegistro, criar_grupo, criar_estudante, criar_reserva, tmp_path, monkeypatch
+):
+    """
+    Categoria arbitrária (ex.: Evento Feira) com Exceção (#) no almoço libera sem reserva
+    no horário da grade, respeita o horário e não confunde reserva de jantar com almoço.
+    """
+    from unittest.mock import patch
+    from registro.nucleo import constants
+    from registro.nucleo.services import grade_horarios_service
+
+    caminho_grade = tmp_path / "grade_evento.json"
+    monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
+    monkeypatch.setattr(constants, "CAMINHO_GRADE_HORARIOS", caminho_grade)
+    grade_horarios_service.salvar_grade_horarios(
+        {
+            "segunda": {
+                "almoco": [
+                    {"inicio": "11:30", "fim": "12:00", "turmas": ["*"], "categorias": ["Evento Feira"]},
+                ]
+            }
+        },
+        caminho_grade,
+    )
+
+    turma = criar_grupo(nome="1INFO", tipo="turma")
+    cat_evento = criar_grupo(nome="Evento Feira", tipo="categoria")
+    est_evento = criar_estudante(prontuario="IQ3004001", nome="Aluno Evento", grupos=[turma, cat_evento])
+    est_so_jantar = criar_estudante(prontuario="IQ3004002", nome="Aluno Só Jantar", grupos=[turma])
+    est_com_almoco = criar_estudante(prontuario="IQ3004003", nome="Aluno Com Almoço", grupos=[turma])
+    # Reserva apenas de jantar não libera almoço (e não abre sessão de almoço)
+    criar_reserva(estudante=est_so_jantar, data="10/11/2026", almoco=False, jantar=True)
+    assert (
+        facade.iniciar_nova_sessao({
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": "2026-11-10",
+            "hora": "11:30",
+            "grupos": ["1INFO"],
+        })
+        is None
+    )
+
+    criar_reserva(estudante=est_com_almoco, data="10/11/2026", almoco=True, jantar=False)
+    id_sessao = facade.iniciar_nova_sessao({
+        "refeicao": "almoço",
+        "periodo": "Tarde",
+        "data": "2026-11-10",
+        "hora": "11:30",
+        "grupos": ["1INFO"],
+    })
+    assert id_sessao is not None
+    facade.definir_excecao_grupos({"evento feira"})  # também valida case-insensitive
+
+    with patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_g:
+        mock_dt_g.now.return_value.weekday.return_value = 0
+
+        # Fora do horário da categoria -> bloqueado mesmo com Exceção (#)
+        mock_dt_g.now.return_value.strftime.return_value = "12:15"
+        r_fora = facade.registrar_consumo(est_evento.prontuario)
+        assert r_fora["autorizado"] is False
+        assert "11:30 às 12:00" in r_fora["motivo"]
+
+        # Dentro do horário da categoria -> autorizado por exceção (grupo)
+        mock_dt_g.now.return_value.strftime.return_value = "11:40"
+        r_ok = facade.registrar_consumo(est_evento.prontuario)
+        assert r_ok["autorizado"] is True
+        assert r_ok["prato"] == "Sem Reserva (Grupo)"
+
+        # Aluno sem categoria e com reserva apenas de jantar -> bloqueado no almoço
+        r_jantar = facade.registrar_consumo(est_so_jantar.prontuario)
+        assert r_jantar["autorizado"] is False
+
+

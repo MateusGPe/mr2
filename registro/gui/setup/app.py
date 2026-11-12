@@ -811,7 +811,7 @@ class AppSetup(ttk.Window):
         self.entry_grade_turmas.insert(0, "*")
         self.entry_grade_turmas.grid(row=1, column=2, sticky="ew", padx=5)
 
-        ttk.Label(f_inputs, text="Categorias (*, PAP, ESP1, LIB0...):").grid(row=0, column=3, sticky="w", padx=5)
+        ttk.Label(f_inputs, text="Categorias (*, Eventos, Optativas, PAP...):").grid(row=0, column=3, sticky="w", padx=5)
         self.entry_grade_cats = ttk.Entry(f_inputs, width=22)
         self.entry_grade_cats.insert(0, "*")
         self.entry_grade_cats.grid(row=1, column=3, sticky="ew", padx=5)
@@ -908,14 +908,15 @@ class AppSetup(ttk.Window):
             Messagebox.show_error(f"Formato de horário inválido: {e}", "Erro de Formatação", parent=self)
             return
 
+        coringas = {"*", "TODAS"}
         turmas = (
             [t.strip() for t in turmas_str.split(",") if t.strip()]
-            if turmas_str and turmas_str != "*"
+            if turmas_str and turmas_str.upper() not in coringas
             else ["*"]
         )
         cats = (
-            [c.strip().upper() for c in cats_str.split(",") if c.strip()]
-            if cats_str and cats_str != "*"
+            [c.strip() for c in cats_str.split(",") if c.strip()]
+            if cats_str and cats_str.upper() not in coringas
             else ["*"]
         )
 

@@ -249,7 +249,7 @@ def test_validar_janela_horario_restricao_categoria(tmp_path: Path):
     }
     grade_horarios_service.salvar_grade_horarios(grade, caminho)
 
-    # Aluno sem categoria -> Bloqueado por categoria
+    # Aluno sem categoria -> Bloqueado por falta de autorização neste horário
     ok, motivo = grade_horarios_service.validar_janela_horario(
         turmas_estudante=["1º A"],
         refeicao="almoço",
@@ -259,7 +259,7 @@ def test_validar_janela_horario_restricao_categoria(tmp_path: Path):
         caminho_grade=caminho,
     )
     assert ok is False
-    assert "Categoria (Nenhuma) não permitida neste horário. Permitidas: PAP." in motivo
+    assert "não possui autorização para este horário" in motivo
 
     # Aluno com categoria PAP -> Autorizado
     ok, motivo = grade_horarios_service.validar_janela_horario(
@@ -385,7 +385,7 @@ def test_validar_janela_horario_turma_nao_prevista_em_nenhum_slot(tmp_path: Path
         caminho_grade=caminho,
     )
     assert ok is False
-    assert "Horário de refeição encerrado ou não iniciado para sua turma." in motivo
+    assert "Horário de refeição encerrado ou não iniciado para sua turma ou categoria." in motivo
 
 
 def test_obter_turmas_previstas_deduplicacao_e_curingas(tmp_path: Path):

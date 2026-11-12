@@ -11,7 +11,7 @@ O **Painel Administrativo** (`painel` / `--painel`) é a retaguarda de gestão d
 Em todo o Painel Administrativo e na lógica de acesso do refeitório, os grupos são divididos em dois tipos distintos:
 
 1. **Turma (Real):** A classe/curso oficial do aluno (ex.: `1º Ano A - Informática`, `Engenharia de Controle`).
-2. **Categoria (Optativa / Programa / Evento):** Marcadores ou programas vinculados ao estudante de forma **permanente** (no cadastro do aluno) ou **pontual** (apenas em uma reserva de data específica), como `PAP` (Programa de Assistência Estudantil), `ESP1` ou `LIB0`.
+2. **Categoria (Optativa / Evento / Agrupamento):** Grupos equivalentes às turmas, mantidos em lista separada para não confundir turmas regulares com eventos, optativas, atividades extras ou agrupamentos arbitrários de alunos aptos a almoçar. Podem ser vinculados de forma **permanente** (no cadastro do aluno) ou **pontual** (apenas em uma reserva de data específica), como `Evento Feira`, `Optativa`, `PAP` ou `ESP1`.
 
 > 💡 Marcadores vazios ou legados como `-`, `N/A`, `REGULAR`, `none`, `null` ou `nenhuma` são descartados automaticamente na importação e normalização — um aluno sem tags especiais simplesmente não possui categorias listadas.
 

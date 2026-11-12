@@ -279,3 +279,58 @@ def test_dialogo_e_totem_horario_livre(app_root, fachada_mock_com_grade, monkeyp
         totem.destroy()
         app_root.update()
 
+
+def test_dialogo_slot_apenas_categoria_nao_exibe_todas_turmas(app_root, monkeypatch):
+    """Slot com turmas='*' e categorias específicas não deve exibir 'Todas as turmas'."""
+    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+
+    fachada = MagicMock()
+    fachada.id_sessao_ativa = 20
+    fachada.ignorar_horario_grade = False
+    fachada.obter_detalhes_sessao_ativa.return_value = {
+        "id": 20,
+        "refeicao": "almoco",
+        "hora": "11:20",
+        "data": "2026-11-09",
+        "item_servido": "Almoço",
+        "grupos": ["Evento Robótica"],
+    }
+    fachada.obter_grade_horarios.return_value = {
+        "segunda": {
+            "almoco": [
+                {
+                    "inicio": "11:15",
+                    "fim": "11:35",
+                    "turmas": ["*"],
+                    "categorias": ["Evento Robótica"],
+                }
+            ]
+        }
+    }
+
+    dialogo = DialogoGradeHorariosTotem(
+        parent=app_root,
+        fachada=fachada,
+        timeout_segundos=10,
+        hora_simulada="11:20",
+    )
+    app_root.update()
+
+    assert len(dialogo._cards_widgets) == 1
+    card_frame = dialogo._cards_widgets[0]["frame_card"]
+    textos = []
+    for child in card_frame.winfo_children():
+        for sub in child.winfo_children():
+            try:
+                textos.append(sub.cget("text"))
+            except Exception:
+                pass
+
+    texto_completo = " ".join(textos)
+    assert "Todas as turmas" not in texto_completo
+    assert "Evento Robótica" in texto_completo
+
+    dialogo.fechar()
+    app_root.update()
+
+

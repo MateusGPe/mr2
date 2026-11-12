@@ -181,7 +181,7 @@ def test_validar_janela_horario_ignorar_horario_atraso_refeicao(tmp_path: Path):
         ignorar_horario=True,
     )
     assert aut_2a_sem_pap is False
-    assert "Categoria (Nenhuma) não permitida" in motivo_2a
+    assert "não possui autorização" in motivo_2a
 
     # 3) 2º A com PAP é autorizado via categoria!
     aut_2a_pap, _ = grade_horarios_service.validar_janela_horario(
@@ -279,6 +279,60 @@ def test_obter_dia_semana_por_data():
     assert grade_horarios_service.obter_dia_semana_por_data("09/11/2026") == "segunda"
     assert grade_horarios_service.obter_dia_semana_por_data("2026-11-10") == "terca"
     assert grade_horarios_service.obter_dia_semana_por_data("data-invalida") is None
+
+
+def test_categoria_como_grupo_equivalente_informa_horario_previsto(tmp_path: Path):
+    """
+    Slot só de categoria (ex.: evento/optativa) não bloqueia com erro especial de prioridade
+    quando a turma do aluno tem outro horário previsto, e categoria também informa seu horário previsto.
+    """
+    caminho_grade = tmp_path / "grade_equivalente.json"
+    grade = {
+        "segunda": {
+            "almoco": [
+                {"inicio": "11:15", "fim": "11:35", "turmas": ["*"], "categorias": ["Evento Robótica"]},
+                {"inicio": "12:15", "fim": "13:00", "turmas": ["2º A"], "categorias": ["*"]},
+            ]
+        }
+    }
+    grade_horarios_service.salvar_grade_horarios(grade, caminho_grade)
+
+    # Às 11:20 (durante slot do evento), aluno de 2º A sem o evento recebe o horário da sua turma (12:15 às 13:00)
+    ok_2a, motivo_2a = grade_horarios_service.validar_janela_horario(
+        turmas_estudante=["2º A"],
+        refeicao="almoço",
+        hora_atual="11:20",
+        dia_semana="segunda",
+        categorias_estudante=[],
+        caminho_grade=caminho_grade,
+    )
+    assert ok_2a is False
+    assert "Fora do horário da sua turma. Seu horário: 12:15 às 13:00." == motivo_2a
+
+    # Às 12:25 (durante slot da 2º A), aluno de 3º C participante do evento recebe o horário da sua categoria (11:15 às 11:35)
+    ok_ev, motivo_ev = grade_horarios_service.validar_janela_horario(
+        turmas_estudante=["3º C"],
+        refeicao="almoço",
+        hora_atual="12:25",
+        dia_semana="segunda",
+        categorias_estudante=["evento robótica"],
+        caminho_grade=caminho_grade,
+    )
+    assert ok_ev is False
+    assert "Fora do horário da sua categoria. Seu horário: 11:15 às 11:35." == motivo_ev
+
+    # Às 11:20, aluno participante do evento (case-insensitive) entra normalmente
+    ok_ev_hora, motivo_ev_hora = grade_horarios_service.validar_janela_horario(
+        turmas_estudante=["3º C"],
+        refeicao="almoço",
+        hora_atual="11:20",
+        dia_semana="segunda",
+        categorias_estudante=["evento robótica"],
+        caminho_grade=caminho_grade,
+    )
+    assert ok_ev_hora is True
+    assert motivo_ev_hora == ""
+
 
 
 

@@ -63,7 +63,7 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
     ):
         super().__init__(parent)
         self.transient(parent)
-        self.title("🕒 Horários das Turmas - Refeição Ativa")
+        self.title("🕒 Horários de Acesso - Refeição Ativa")
         self.geometry("720x620")
         self.minsize(560, 480)
 
@@ -134,7 +134,7 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
 
         lbl_titulo = ttk.Label(
             frame_titulos,
-            text="🕒 Horários de Acesso por Turma",
+            text="🕒 Horários de Acesso por Turma e Categoria",
             font=("Segoe UI", 18, "bold"),
             bootstyle="primary",
         )
@@ -268,7 +268,7 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
             self._exibir_aviso_informativo(
                 icone="ℹ️",
                 titulo="Sem restrição de horários para esta refeição",
-                mensagem=f"O acesso está livre para todas as turmas durante o período de {nome_ref}.\nNão há escalonamento programado na grade para hoje.",
+                mensagem=f"O acesso está livre para todas as turmas e categorias durante o período de {nome_ref}.\nNão há escalonamento programado na grade para hoje.",
                 bootstyle="info",
             )
             return
@@ -390,56 +390,76 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
             row=2, column=0, columnspan=2, sticky=EW, pady=(0, 8)
         )
 
-        # Turmas autorizadas
+        # Turmas e categorias autorizadas
         turmas_raw = slot.get("turmas", [])
-        if not turmas_raw or "*" in turmas_raw or "TODAS" in [str(t).upper() for t in turmas_raw]:
-            texto_turmas = "Todas as turmas estão autorizadas neste horário."
-            estilo_turmas = "success"
-        else:
-            texto_turmas = ", ".join(turmas_raw)
-            estilo_turmas = "default"
-
-        frame_turmas = ttk.Frame(frame_card)
-        frame_turmas.grid(row=3, column=0, columnspan=2, sticky=EW)
-
-        lbl_rotulo_turmas = ttk.Label(
-            frame_turmas,
-            text="👥 Turmas:",
-            font=("Segoe UI", 10, "bold"),
-            bootstyle="secondary",
-        )
-        lbl_rotulo_turmas.pack(side=LEFT, anchor="w", padx=(0, 6))
-
-        lbl_conteudo_turmas = ttk.Label(
-            frame_turmas,
-            text=texto_turmas,
-            font=("Segoe UI", 11),
-            bootstyle=estilo_turmas,
-            wraplength=600,
-        )
-        lbl_conteudo_turmas.pack(side=LEFT, fill=X, expand=YES, anchor="w")
-
-        # Categorias autorizadas (se restrito)
         cats_raw = slot.get("categorias", [])
-        if cats_raw and "*" not in cats_raw and "TODAS" not in [str(c).upper() for c in cats_raw]:
-            frame_cats = ttk.Frame(frame_card)
-            frame_cats.grid(row=4, column=0, columnspan=2, sticky=EW, pady=(4, 0))
+        rest_turma = grade_horarios_service._tem_restricao_especifica(turmas_raw)
+        rest_cat = grade_horarios_service._tem_restricao_especifica(cats_raw)
 
-            lbl_rotulo_cats = ttk.Label(
-                frame_cats,
-                text="🏷️ Categorias:",
-                font=("Segoe UI", 9, "bold"),
-                bootstyle="warning",
-            )
-            lbl_rotulo_cats.pack(side=LEFT, anchor="w", padx=(0, 6))
+        if not rest_turma and not rest_cat:
+            frame_turmas = ttk.Frame(frame_card)
+            frame_turmas.grid(row=3, column=0, columnspan=2, sticky=EW)
 
-            lbl_conteudo_cats = ttk.Label(
-                frame_cats,
-                text=", ".join(cats_raw),
-                font=("Segoe UI", 9),
-                bootstyle="warning",
-            )
-            lbl_conteudo_cats.pack(side=LEFT, fill=X, expand=YES, anchor="w")
+            ttk.Label(
+                frame_turmas,
+                text="👥 Grupos:",
+                font=("Segoe UI", 10, "bold"),
+                bootstyle="secondary",
+            ).pack(side=LEFT, anchor="w", padx=(0, 6))
+
+            ttk.Label(
+                frame_turmas,
+                text="Todas as turmas e categorias estão autorizadas neste horário.",
+                font=("Segoe UI", 11),
+                bootstyle="success",
+                wraplength=600,
+            ).pack(side=LEFT, fill=X, expand=YES, anchor="w")
+        else:
+            proxima_linha = 3
+            if rest_turma:
+                frame_turmas = ttk.Frame(frame_card)
+                frame_turmas.grid(row=proxima_linha, column=0, columnspan=2, sticky=EW)
+
+                ttk.Label(
+                    frame_turmas,
+                    text="👥 Turmas:",
+                    font=("Segoe UI", 10, "bold"),
+                    bootstyle="secondary",
+                ).pack(side=LEFT, anchor="w", padx=(0, 6))
+
+                ttk.Label(
+                    frame_turmas,
+                    text=", ".join(str(t).strip() for t in turmas_raw if str(t).strip()),
+                    font=("Segoe UI", 11),
+                    bootstyle="default",
+                    wraplength=600,
+                ).pack(side=LEFT, fill=X, expand=YES, anchor="w")
+                proxima_linha += 1
+
+            if rest_cat:
+                frame_cats = ttk.Frame(frame_card)
+                frame_cats.grid(
+                    row=proxima_linha,
+                    column=0,
+                    columnspan=2,
+                    sticky=EW,
+                    pady=(4, 0) if rest_turma else (0, 0),
+                )
+
+                ttk.Label(
+                    frame_cats,
+                    text="🏷️ Categorias:",
+                    font=("Segoe UI", 10 if not rest_turma else 9, "bold"),
+                    bootstyle="info" if not rest_turma else "warning",
+                ).pack(side=LEFT, anchor="w", padx=(0, 6))
+
+                ttk.Label(
+                    frame_cats,
+                    text=", ".join(str(c).strip() for c in cats_raw if str(c).strip()),
+                    font=("Segoe UI", 11 if not rest_turma else 9),
+                    bootstyle="default" if not rest_turma else "warning",
+                    wraplength=600,
+                ).pack(side=LEFT, fill=X, expand=YES, anchor="w")
 
         self._cards_widgets.append(
             {

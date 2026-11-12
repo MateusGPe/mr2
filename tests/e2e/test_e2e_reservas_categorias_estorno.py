@@ -144,7 +144,7 @@ def test_categoria_pontual_na_reserva_vale_apenas_na_data_e_nao_contamina_estuda
     with _fixar_relogio("12:10", "terca"):
         reg_d2 = facade.registrar_consumo(aluno.prontuario)
         assert reg_d2["autorizado"] is False
-        assert "PAP" in reg_d2["motivo"]
+        assert "não possui autorização" in reg_d2["motivo"]
 
 
 def test_ciclo_estorno_reuso_reserva_cancelamento_reativacao_e_edicao(

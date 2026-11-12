@@ -9,7 +9,7 @@ Testes E2E rigorosos para:
 1. Matriz de decisão de autorização (`registrar_consumo`, `registrar_consumo_com_reserva`
    e coerência estrita com `obter_estudantes_para_sessao`).
 2. Cotas diárias independentes (Almoço, Jantar, Lanche por período) entre múltiplas sessões.
-3. Grade horária em fronteiras exatas de minuto, tolerância, precedência de categorias,
+3. Grade horária em fronteiras exatas de minuto, tolerância, equivalência de categorias,
    `ignorar_horario_grade`, `permitir_fora_horario` e tolerância a slots inválidos.
 4. Bloqueio de estudante inativo e sanitização de prontuários.
 """
@@ -305,7 +305,7 @@ def test_cotas_cross_sessao_blindadas_contra_bypass_e_turnos_independentes(
 
 
 # ============================================================================
-# 3. Grade Horária: Fronteiras Exatas de Minuto, Precedência e Bypasses
+# 3. Grade Horária: Fronteiras Exatas de Minuto, Categorias e Bypasses
 # ============================================================================
 
 
@@ -319,7 +319,7 @@ def test_grade_horaria_fronteiras_tolerancia_slots_invalidos_e_bypasses(
 ):
     """
     Valida fronteiras exatas de tolerância (5 minutos padrão), resiliência a slots inválidos,
-    precedência de categoria PAP e comportamento de `ignorar_horario_grade` vs `permitir_fora_horario`.
+    slots por categoria (PAP) e comportamento de `ignorar_horario_grade` vs `permitir_fora_horario`.
     """
     caminho_grade = tmp_path / "grade_horarios.json"
     monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
@@ -372,11 +372,11 @@ def test_grade_horaria_fronteiras_tolerancia_slots_invalidos_e_bypasses(
     # Estorno para testar fronteira superior
     facade.desfazer_consumo_por_prontuario(e_1a.prontuario)
 
-    # 12:06 -> 1 minuto após tolerância do Slot 1 (12:05), dentro do Slot 2 (PAP) -> bloqueado para 1º A regular
+    # 12:06 -> 1 minuto após tolerância do Slot 1 (12:05), dentro do Slot 2 (PAP) -> bloqueado para 1º A regular informando seu horário
     with _fixar_relogio("12:06", "segunda"):
         r_apos = facade.registrar_consumo(e_1a.prontuario)
         assert r_apos["autorizado"] is False
-        assert "PAP" in r_apos["motivo"]
+        assert "Fora do horário da sua turma. Seu horário: 11:30 às 12:00." in r_apos["motivo"]
 
         # Mas e_2a_pap (2º A + PAP) é AUTORIZADO no Slot 2
         r_pap = facade.registrar_consumo(e_2a_pap.prontuario)
@@ -391,7 +391,7 @@ def test_grade_horaria_fronteiras_tolerancia_slots_invalidos_e_bypasses(
 
         r_ignora_nao_previsto = facade.registrar_consumo(e_2a_reg.prontuario)
         assert r_ignora_nao_previsto["autorizado"] is False
-        assert "PAP" in r_ignora_nao_previsto["motivo"]
+        assert "não possui autorização" in r_ignora_nao_previsto["motivo"]
 
         # Com permitir_fora_horario=True (bypass do operador), ignora a grade totalmente
         r_bypass_horario = facade.registrar_consumo(e_2a_reg.prontuario, permitir_fora_horario=True)

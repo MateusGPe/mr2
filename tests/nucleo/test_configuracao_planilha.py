@@ -18,7 +18,7 @@ def test_converter_linhas_configuracao_para_grade():
         ["Dia", "Refeição", "Horário Início", "Horário Fim", "Turmas Liberadas", "Categorias Permitidas"],
         ["Segunda-feira", "Almoço", "11:30", "12:15", "1º BEM, 2º BEM", "REGULAR, PAP"],
         ["segunda", "almoço", "12:15", "13:00", "3º BEM", "REGULAR"],
-        ["terça", "Lanche", "15:30", "16:00", "*", "PAP"],
+        ["terça", "Lanche", "15:30", "16:00", "*", "Optativa Artes"],
         ["quarta", "jantar", "18:00", "19:00", "Turma ADS", "*"],
         ["", "", "", "", "", ""],  # linha vazia
     ]
@@ -39,11 +39,11 @@ def test_converter_linhas_configuracao_para_grade():
     assert slot2["turmas"] == ["3º BEM"]
     assert slot2["categorias"] == ["REGULAR"]
 
-    # Verifica terça lanche
+    # Verifica terça lanche (preserva grafia da categoria)
     assert len(grade["terca"]["lanche"]) == 1
     slot_terca = grade["terca"]["lanche"][0]
     assert slot_terca["turmas"] == ["*"]
-    assert slot_terca["categorias"] == ["PAP"]
+    assert slot_terca["categorias"] == ["Optativa Artes"]
 
     # Verifica quarta jantar
     assert len(grade["quarta"]["jantar"]) == 1
@@ -88,7 +88,7 @@ def test_validar_janela_horario_com_categoria(tmp_path):
     assert aut is True
     assert motivo == ""
 
-    # Às 11:45, aluno 1º BEM sem categoria -> DEVE BLOQUEAR por categoria
+    # Às 11:45, aluno 1º BEM sem categoria -> DEVE BLOQUEAR informando o horário da sua turma (12:15 às 13:00)
     aut, motivo = grade_horarios_service.validar_janela_horario(
         turmas_estudante=["1º BEM"],
         refeicao="almoco",
@@ -98,7 +98,7 @@ def test_validar_janela_horario_com_categoria(tmp_path):
         caminho_grade=caminho_grade,
     )
     assert aut is False
-    assert "Categoria (Nenhuma) não permitida" in motivo
+    assert "Fora do horário da sua turma. Seu horário: 12:15 às 13:00." in motivo
 
     # Às 12:30, aluno 1º BEM sem categoria -> DEVE autorizar (slot de 1º BEM)
     aut, motivo = grade_horarios_service.validar_janela_horario(

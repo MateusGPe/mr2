@@ -161,10 +161,10 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
         assert res_duplicado["autorizado"] is False
         assert "já registrado" in res_duplicado["motivo"]
 
-        # 2.3 Aluno 2º A PAP tenta passar às 11:45 (slot dele é 12:15 às 13:00) -> Bloqueado por horário!
+        # 2.3 Aluno 2º A PAP tenta passar às 11:45 (slot dele é 12:15 às 13:00 por categoria) -> Bloqueado por horário!
         res_2a_cedo = facade.registrar_consumo_com_reserva(e_2a_pap.prontuario)
         assert res_2a_cedo["autorizado"] is False
-        assert "Fora do horário da sua turma. Seu horário: 12:15 às 13:00." in res_2a_cedo["motivo"]
+        assert "Fora do horário da sua categoria. Seu horário: 12:15 às 13:00." in res_2a_cedo["motivo"]
 
         # 2.4 Operador concede exceção (override) para o aluno 2º A PAP comer mais cedo -> Autorizado!
         res_override = facade.registrar_consumo_com_reserva(
@@ -181,10 +181,10 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
         mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: "12:30" if "%H:%M" in fmt else "12:30:00"
         mock_dt_grade.now.return_value.weekday.return_value = 0
 
-        # 3.1 Aluno 2º A sem PAP tenta comer no slot exclusivo para PAP -> Bloqueado por categoria!
+        # 3.1 Aluno 2º A sem PAP tenta comer no slot exclusivo para PAP -> Bloqueado por falta de autorização!
         res_reg_bloqueado = facade.registrar_consumo_com_reserva(e_2a_reg.prontuario)
         assert res_reg_bloqueado["autorizado"] is False
-        assert "Categoria (Nenhuma) não permitida neste horário. Permitidas: PAP." in res_reg_bloqueado["motivo"]
+        assert "não possui autorização para este horário" in res_reg_bloqueado["motivo"]
 
     # -------------------------------------------------------------------------
     # Passo 4: Atualização Dinâmica da Grade Horária em Runtime
@@ -314,10 +314,10 @@ def test_horario_livre_atraso_refeicao(cenario_integrado, criar_grupo, criar_est
         res_2a_pap_ok = facade.registrar_consumo(e_2a_pap.prontuario)
         assert res_2a_pap_ok["autorizado"] is True
 
-        # 2º A sem PAP (slot 2 exige PAP) -> Bloqueado por categoria!
+        # 2º A sem PAP (não consta em nenhum slot do dia) -> Bloqueado!
         res_2a_reg_bloq = facade.registrar_consumo(e_2a_reg.prontuario)
         assert res_2a_reg_bloq["autorizado"] is False
-        assert "Categoria (Nenhuma) não permitida" in res_2a_reg_bloq["motivo"]
+        assert "não possui autorização" in res_2a_reg_bloq["motivo"]
 
         # 3º C (não prevista na grade de segunda) -> Bloqueado mesmo com reserva!
         res_3c_bloq = facade.registrar_consumo(e_3c.prontuario)

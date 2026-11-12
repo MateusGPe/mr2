@@ -273,7 +273,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
                 row=prox_row, column=0, columnspan=3, sticky=EW, pady=6
             )
             prox_row += 1
-        _adicionar_secao("🏷️ Categorias (PAP, ESP1, LIB0...)", categorias, prox_row)
+        _adicionar_secao("🏷️ Categorias (Eventos, Optativas, PAP...)", categorias, prox_row)
 
         return frame
 
@@ -338,9 +338,10 @@ class DialogoFiltroTurmas(tk.Toplevel):
             )
             return
 
+        turmas_grade_norm = {t.strip().lower() for t in turmas_grade if t and str(t).strip()}
         for ident, var, _ in self._dados_checkbox:
             if not ident.startswith("#"):
-                var.set(ident in turmas_grade)
+                var.set(ident.strip().lower() in turmas_grade_norm)
         self._atualizar_contador()
 
     def _ao_selecionar_integrado(self):
@@ -377,9 +378,10 @@ class DialogoFiltroTurmas(tk.Toplevel):
             grupos_ativos = detalhes_sessao.get("grupos", set())
             grupos_excluidos = {f"#{eg}" for eg in self._fachada.excecao_grupos}
             selecionados = set(grupos_ativos) | set(grupos_excluidos)
+            selecionados_norm = {s.strip().lower() for s in selecionados if s and str(s).strip()}
 
             for identificador, var, _ in self._dados_checkbox:
-                var.set(identificador in selecionados)
+                var.set(identificador.strip().lower() in selecionados_norm)
         except Exception as e:
             logger.error("Erro ao inicializar estados do filtro: %s", e)
 
