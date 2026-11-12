@@ -1,6 +1,6 @@
 # Registro de Refeições
 
-[![Versão](https://img.shields.io/badge/versão-1.2.2-blue.svg)](pyproject.toml)
+[![Versão](https://img.shields.io/badge/versão-1.3.0-blue.svg)](pyproject.toml)
 [![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12%20%7C%203.13-blue)](pyproject.toml)
 [![Licença](https://img.shields.io/badge/licença-MIT-green.svg)](LICENSE)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -186,9 +186,19 @@ uv run pyinstaller registro_onedir.spec
 
 ## 📚 Documentação e Manual do Usuário
 
-O sistema conta com um **Manual do Usuário Completo**, com passo a passo ilustrado de todas as janelas, diálogos, tabelas de atalhos e rotinas diárias:
+O sistema conta com um **Manual do Usuário Completo (v1.3.0)** modularizado, com capturas de tela atualizadas de todas as janelas, diálogos, regras de negócio, tabelas de atalhos e rotinas operacionais:
 
-* 📖 **[Manual Completo do Usuário (com Capturas de Tela)](docs/MANUAL_DO_USUARIO.md)**
+* 📖 **[Manual Completo do Usuário — Índice Geral](docs/MANUAL_DO_USUARIO.md)**
+  * [1. Visão Geral e Arquitetura](docs/manual/01_visao_geral_e_arquitetura.md)
+  * [2. Configuração Inicial e Setup (`--setup`)](docs/manual/02_configuracao_inicial_e_setup.md)
+  * [3. Painel Administrativo (`--painel`)](docs/manual/03_painel_administrativo.md)
+  * [4. Regras de Negócio e Integração](docs/manual/04_regras_de_negocio_e_integracao.md)
+  * [5. Terminal do Operador (`--reg`)](docs/manual/05_terminal_do_operador_registrar.md)
+  * [6. Totem de Autoatendimento (`--auto`)](docs/manual/06_totem_de_autoatendimento.md)
+  * [7. Gerador de Crachás (`--cards`)](docs/manual/07_gerador_de_crachas.md)
+  * [8. Rotinas do Dia a Dia](docs/manual/08_rotinas_do_dia_a_dia.md)
+  * [9. Atalhos de Teclado e Referência Rápida](docs/manual/09_atalhos_de_teclado_e_referencia_rapida.md)
+  * [10. Solução de Problemas e FAQ](docs/manual/10_solucao_de_problemas_e_faq.md)
 
 ---
 
