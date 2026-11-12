@@ -9,6 +9,7 @@ Módulo para criação, listagem, restauração e exclusão de backups compactad
 do banco de dados SQLite e dos arquivos de configuração do sistema.
 """
 
+import contextlib
 import datetime as dt
 import logging
 import sqlite3
@@ -48,7 +49,7 @@ def criar_backup(
     db_path = DIRETORIO_CONFIG / "registro.db"
     if db_path.exists():
         try:
-            with sqlite3.connect(db_path) as conn:
+            with contextlib.closing(sqlite3.connect(db_path)) as conn:
                 conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         except Exception as e:
             logger.debug("Checkpoint WAL ignorado antes do backup: %s", e)

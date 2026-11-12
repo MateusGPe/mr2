@@ -13,8 +13,54 @@ binaries = []
 binaries += collect_dynamic_libs('pyzbar')
 
 hidden_imports = ['pyzbar', 'cv2', 'PIL', 'ttkbootstrap']
+hidden_imports_launcher = hidden_imports + [
+    'reportlab',
+    'qrcode',
+    'registro.launcher',
+    'registro.gui.registrar.app',
+    'registro.gui.painel.app',
+    'registro.gui.autoatendimento.app',
+    'registro.gui.setup.app',
+    'registro.cards',
+    'registro.cards.generator',
+    'registro.cards.app',
+]
 
-# 2. Análise do app 'registrar'
+# 2. Análise do app principal 'registro' (launcher)
+a_registro = Analysis(
+    ['registro/launcher.py'],
+    pathex=[],
+    binaries=binaries,
+    datas=datas,
+    hiddenimports=hidden_imports_launcher,
+    hookspath=[],
+    hooksconfig={},
+    runtime_hooks=[],
+    excludes=[],
+    noarchive=False,
+    optimize=2,
+)
+pyz_registro = PYZ(a_registro.pure)
+exe_registro = EXE(
+    pyz_registro,
+    a_registro.scripts,
+    [],
+    exclude_binaries=True,
+    name='registro',
+    debug=False,
+    bootloader_ignore_signals=False,
+    strip=False,
+    upx=False,
+    console=False,
+    disable_windowed_traceback=False,
+    argv_emulation=False,
+    target_arch=None,
+    codesign_identity=None,
+    entitlements_file=None,
+    version='version_info.txt',
+)
+
+# 3. Análise do app 'registrar'
 a_registrar = Analysis(
     ['registro/gui/registrar/app.py'],
     pathex=[],
@@ -118,6 +164,10 @@ exe_autoatendimento = EXE(
 
 # 5. Agrupamento em um único diretório compartilhado ('dist/registro')
 coll = COLLECT(
+    exe_registro,
+    a_registro.binaries,
+    a_registro.zipfiles,
+    a_registro.datas,
     exe_registrar,
     a_registrar.binaries,
     a_registrar.zipfiles,

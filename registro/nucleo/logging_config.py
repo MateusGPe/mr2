@@ -80,11 +80,12 @@ def configurar_logging(
         except Exception:
             pass
 
-    # 1. Handler de Console (Terminal / Stdout)
-    console_handler = logging.StreamHandler(sys.stdout)
-    console_handler.setLevel(nivel)
-    console_handler.setFormatter(formatter)
-    root_logger.addHandler(console_handler)
+    # 1. Handler de Console (Terminal / Stdout) - omitido em executáveis sem console
+    if sys.stdout is not None:
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(nivel)
+        console_handler.setFormatter(formatter)
+        root_logger.addHandler(console_handler)
 
     # 2. Handler de Arquivo Rotacionado em Disco
     file_handler = logging.handlers.RotatingFileHandler(

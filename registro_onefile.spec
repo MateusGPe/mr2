@@ -17,10 +17,16 @@ hidden_imports = [
     'cv2',
     'PIL',
     'ttkbootstrap',
+    'reportlab',
+    'qrcode',
     'registro.launcher',
     'registro.gui.registrar.app',
     'registro.gui.painel.app',
     'registro.gui.autoatendimento.app',
+    'registro.gui.setup.app',
+    'registro.cards',
+    'registro.cards.generator',
+    'registro.cards.app',
 ]
 
 # 2. Análise da aplicação completa a partir do despachante unificado

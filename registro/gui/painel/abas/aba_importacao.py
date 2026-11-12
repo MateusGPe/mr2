@@ -35,7 +35,9 @@ class RowItemRevisao(ttk.Frame):
     Permite ao usuário escolher a ação e o candidato (se houver).
     """
 
-    def __init__(self, parent, item: ItemRevisao, cores={}, *args, **kwargs):
+    def __init__(self, parent, item: ItemRevisao, cores=None, *args, **kwargs):
+        if cores is None:
+            cores = {}
         super().__init__(parent, padding=5, bootstyle="light", *args, **kwargs)
         self.item = item
         self.pack(fill=X, pady=2, padx=5)
