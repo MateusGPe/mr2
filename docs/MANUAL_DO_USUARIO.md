@@ -2,6 +2,9 @@
 
 Bem-vindo ao manual oficial do **Sistema de Refeitório (`registro`)**. Esta documentação cobre integralmente cada módulo, janela, botão, caixa de diálogo, regra de negócio, formato de arquivo e rotina operacional para uso diário em refeitórios escolares e instituições de ensino.
 
+> [!TIP]
+> Para consulta ágil no balcão ou no Totem durante o atendimento, acesse o [**Guia Rápido de Operação Diária**](./GUIA_RAPIDO.md).
+
 ![Menu Inicial do Sistema de Refeitório](./imagens/01_launcher_principal.png)
 
 ---

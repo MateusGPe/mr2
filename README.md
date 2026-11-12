@@ -188,6 +188,7 @@ uv run pyinstaller registro_onedir.spec
 
 O sistema conta com um **Manual do Usuário Completo (v1.3.0)** modularizado, com capturas de tela atualizadas de todas as janelas, diálogos, regras de negócio, tabelas de atalhos e rotinas operacionais:
 
+* ⚡ **[Guia Rápido de Operação Diária (Operador & Totem)](docs/GUIA_RAPIDO.md)** ([versão HTML para impressão](docs/GUIA_RAPIDO.html))
 * 📖 **[Manual Completo do Usuário — Índice Geral](docs/MANUAL_DO_USUARIO.md)**
   * [1. Visão Geral e Arquitetura](docs/manual/01_visao_geral_e_arquitetura.md)
   * [2. Configuração Inicial e Setup (`--setup`)](docs/manual/02_configuracao_inicial_e_setup.md)

@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Guia Rápido de Operação Diária — Sistema de Refeitório (v1.3.0)</title>
+  <style>
+:root {
+  --bg: #f6f8fa;
+  --surface: #ffffff;
+  --ink: #1f2328;
+  --muted: #59636e;
+  --border: #d0d7de;
+  --accent: #0969da;
+  --accent-soft: #ddf4ff;
+  --code-bg: #f3f4f6;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  padding: 24px 16px 64px;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif;
+  color: var(--ink);
+  background: var(--bg);
+  line-height: 1.62;
+  font-size: 14.5px;
+}
+.page-shell {
+  max-width: 980px;
+  margin: 0 auto;
+  background: var(--surface);
+  padding: 40px 48px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: 0 2px 12px rgba(0,0,0,.05);
+}
+.print-toolbar {
+  position: sticky;
+  top: 12px;
+  z-index: 50;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  max-width: 980px;
+  margin: 0 auto 14px;
+  padding: 10px 16px;
+  background: #0b2e59;
+  color: #ffffff;
+  border-radius: 8px;
+  box-shadow: 0 4px 14px rgba(11,46,89,.22);
+}
+.print-toolbar span { font-size: 13px; }
+.print-btn {
+  background: #ffffff;
+  color: #0b2e59;
+  border: 0;
+  border-radius: 6px;
+  padding: 7px 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.print-btn:hover { background: #e8f1fb; }
+.chapter-block {
+  margin-top: 40px;
+  padding-top: 24px;
+  border-top: 2px solid var(--border);
+}
+h1, h2, h3, h4 {
+  color: #0b2e59;
+  line-height: 1.28;
+  break-after: avoid;
+  page-break-after: avoid;
+}
+h1 { font-size: 1.85rem; margin-top: 0; border-bottom: 2px solid #dbe6f2; padding-bottom: 8px; }
+h2 { font-size: 1.35rem; margin-top: 26px; border-bottom: 1px solid #eaeef2; padding-bottom: 5px; }
+h3 { font-size: 1.12rem; margin-top: 18px; }
+h4 { font-size: 1rem; margin-top: 14px; }
+p { margin: 0 0 11px; }
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  background: var(--code-bg);
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.9em;
+}
+pre {
+  background: #161b22;
+  color: #e6edf3;
+  padding: 12px 15px;
+  border-radius: 6px;
+  overflow-x: auto;
+  break-inside: avoid;
+}
+pre code { background: transparent; color: inherit; padding: 0; font-size: 0.88em; }
+.table-wrap { overflow-x: auto; margin: 14px 0; }
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.92rem;
+  margin: 4px 0 10px;
+}
+th, td {
+  border: 1px solid var(--border);
+  padding: 7px 10px;
+  vertical-align: top;
+}
+th { background: #eef4fb; color: #0b2e59; font-weight: 600; }
+tbody tr:nth-child(even) { background: #fafbfd; }
+tr, blockquote, .callout, figure.screenshot {
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+figure.screenshot {
+  margin: 16px auto;
+  text-align: center;
+  background: #fafbfd;
+  border: 1px solid #e1e6eb;
+  border-radius: 8px;
+  padding: 10px;
+}
+figure.screenshot img {
+  max-width: 100%;
+  max-height: 540px;
+  height: auto;
+  border-radius: 4px;
+}
+figure.screenshot figcaption {
+  margin-top: 6px;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+blockquote {
+  margin: 14px 0;
+  padding: 8px 14px;
+  border-left: 4px solid var(--border);
+  background: #f9fafb;
+  color: #3b434b;
+}
+.callout {
+  margin: 14px 0;
+  padding: 10px 14px;
+  border-left: 4px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: 0 6px 6px 0;
+}
+.callout-tip { border-left-color: #1a7f37; background: #dafbe1; }
+.callout-important { border-left-color: #8250df; background: #fbefff; }
+.callout-warning { border-left-color: #9a6700; background: #fff8c5; }
+.callout-caution { border-left-color: #cf222e; background: #ffebe9; }
+.callout-title { font-weight: 700; margin-bottom: 4px; }
+.callout-body p:last-child { margin-bottom: 0; }
+ul, ol { margin: 8px 0 12px 22px; padding: 0; }
+li { margin-bottom: 4px; }
+hr { border: 0; border-top: 1px solid var(--border); margin: 20px 0; }
+
+/* MOCKUPS ESTILO GOOGLE SHEETS EMBEDDED */
+.sheets-screenshot-container {
+  margin: 18px 0;
+  background: #ffffff;
+  border: 1px solid #c4c7c5;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.06);
+  overflow: hidden;
+  font-family: "Roboto", "Segoe UI", Arial, sans-serif;
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+.sheets-top-chrome {
+  background: #f8f9fa;
+  border-bottom: 1px solid #dadce0;
+  padding: 7px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.sheets-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.sheets-svg-icon { flex-shrink: 0; }
+.sheets-doc-name {
+  font-size: 13.5px;
+  font-weight: 600;
+  color: #202124;
+}
+.sheets-badge-ro {
+  background: #e6f4ea;
+  color: #137333;
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 4px;
+  font-weight: 600;
+}
+.sheets-tab-indicator {
+  font-size: 11.5px;
+  color: #5f6368;
+}
+.sheets-formula-bar {
+  background: #ffffff;
+  border-bottom: 1px solid #dadce0;
+  padding: 4px 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #3c4043;
+}
+.sheets-name-box {
+  background: #f1f3f4;
+  border: 1px solid #dadce0;
+  border-radius: 3px;
+  padding: 1px 7px;
+  font-weight: 600;
+  color: #202124;
+  min-width: 38px;
+  text-align: center;
+  font-size: 11.5px;
+}
+.sheets-fx {
+  font-weight: 700;
+  font-style: italic;
+  color: #188038;
+  padding-right: 4px;
+  border-right: 1px solid #e0e0e0;
+}
+.sheets-fx-val {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 11.5px;
+  color: #202124;
+}
+.sheets-grid-wrap {
+  overflow-x: auto;
+  background: #ffffff;
+}
+table.sheets-grid {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 11.8px;
+  background: #ffffff;
+  margin: 0;
+}
+table.sheets-grid th,
+table.sheets-grid td {
+  border: 1px solid #e0e0e0;
+  padding: 3px 8px;
+  height: 23px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+table.sheets-grid th.col-corner {
+  background: #f8f9fa;
+  width: 34px;
+  min-width: 34px;
+  border-right: 2px solid #dadce0;
+  border-bottom: 2px solid #dadce0;
+}
+table.sheets-grid th.col-letter {
+  background: #f8f9fa;
+  color: #5f6368;
+  text-align: center;
+  font-weight: 600;
+  font-size: 11px;
+  border-bottom: 2px solid #dadce0;
+}
+table.sheets-grid td.row-num {
+  background: #f8f9fa;
+  color: #5f6368;
+  text-align: center;
+  font-weight: 500;
+  width: 34px;
+  min-width: 34px;
+  font-size: 11px;
+  border-right: 2px solid #dadce0;
+}
+table.sheets-grid tr.header-row td:not(.row-num) {
+  background: #f1f3f4;
+  font-weight: 700;
+  color: #202124;
+  border-bottom: 2px solid #bdc1c6;
+}
+table.sheets-grid td.cell-highlight-green {
+  background: #e6f4ea !important;
+  color: #137333 !important;
+  font-weight: 600;
+}
+table.sheets-grid td.cell-highlight-yellow {
+  background: #fef7e0 !important;
+  color: #b06000 !important;
+}
+table.sheets-grid td.cell-highlight-red {
+  background: #fce8e6 !important;
+  color: #c5221f !important;
+  font-weight: 600;
+}
+table.sheets-grid td.cell-highlight-blue {
+  background: #e8f0fe !important;
+  color: #1967d2 !important;
+  font-weight: 600;
+}
+table.sheets-grid td.cell-active {
+  outline: 2px solid #1a73e8;
+  outline-offset: -2px;
+}
+table.sheets-grid td.cell-center {
+  text-align: center;
+  font-size: 13px;
+}
+.sheets-tabs-bar {
+  background: #f1f3f4;
+  border-top: 1px solid #dadce0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding: 4px 10px 0;
+  gap: 3px;
+}
+.sheets-tab {
+  padding: 4px 10px;
+  font-size: 11.2px;
+  font-weight: 500;
+  color: #5f6368;
+  background: #e8eaed;
+  border: 1px solid #dadce0;
+  border-bottom: 0;
+  border-radius: 4px 4px 0 0;
+}
+.sheets-tab.active {
+  background: #ffffff;
+  color: #188038;
+  font-weight: 700;
+  border-top: 2px solid #0f9d58;
+  margin-bottom: -1px;
+  padding-bottom: 5px;
+}
+.caption-note {
+  padding: 7px 12px;
+  background: #fafbfc;
+  border-top: 1px solid #eaeef2;
+  font-size: 11.8px;
+  color: #59636e;
+  font-style: italic;
+}
+
+@page {
+  size: A4;
+  margin: 15mm 14mm;
+}
+@media print {
+  body { background: #ffffff; padding: 0; font-size: 11pt; }
+  .print-toolbar { display: none !important; }
+  .page-shell { max-width: none; border: 0; box-shadow: none; padding: 0; }
+  .chapter-block {
+    break-before: page;
+    page-break-before: always;
+    margin-top: 0;
+    padding-top: 0;
+    border-top: 0;
+  }
+  a { color: #0b2e59; text-decoration: none; }
+  figure.screenshot img { max-height: 155mm; }
+}
+</style>
+</head>
+<body>
+  <div class="print-toolbar">
+    <span><strong>Guia Rápido (v1.3.0)</strong> — Para salvar em PDF, clique no botão ao lado ou use <code>Ctrl+P</code> (marque <em>Gráficos de segundo plano</em>).</span>
+    <button class="print-btn" onclick="window.print()">🖨️ Salvar em PDF / Imprimir</button>
+  </div>
+  <main class="page-shell">
+    <section id="guia-rapido" class="intro-block">
+<h1 id="guia-rapido">⚡ Guia Rápido de Operação Diária — Sistema de Refeitório (v1.3.0)</h1>
+<p>Guia prático de consulta rápida para o atendimento diário no <strong>Terminal do Operador (<code>--reg</code>)</strong> e no <strong>Totem de Autoatendimento (<code>--auto</code>)</strong>. Para detalhes avançados de configuração e arquitetura, consulte o <a href="MANUAL_DO_USUARIO.md">Manual Completo do Usuário</a>.</p>
+<hr>
+<h2 id="guia-rapido-1-início-do-turno-e-abertura-de-sessão">1. Início do Turno e Abertura de Sessão</h2>
+<ol><li>Abra o <strong>Menu Inicial</strong> (<code>uv run python -m registro</code> ou atalho na Área de Trabalho) e escolha <strong>Terminal do Operador</strong> (<code>--reg</code>) ou <strong>Totem de Autoatendimento</strong> (<code>--auto</code>).</li><li>Antes de iniciar a fila, confira a sessão ativa na barra superior:<ul><li><strong>No Terminal:</strong> clique em <strong>Sessão</strong>.</li><li><strong>No Totem:</strong> pressione <strong><code>F2</code></strong> (ou <strong><code>Ctrl+M</code></strong> / <strong>botão direito</strong>) ➔ <strong>📆 Trocar / Abrir Sessão...</strong>.</li></ul></li></ol>
+<figure class="screenshot"><img src="imagens/12_operador_abrir_sessao.png" alt="Diálogo de Gerenciamento de Sessão"><figcaption>Diálogo de Gerenciamento de Sessão</figcaption></figure>
+<ul><li><strong>➕ Criar Nova Sessão:</strong> escolha <strong>Refeição</strong> (<code>Almoço</code>, <code>Jantar</code> ou <code>Lanche</code>), <strong>Data</strong>, <strong>Período</strong> e marque as <strong>Turmas/Categorias</strong> autorizadas (use os atalhos <strong>🕒 Grade do Dia</strong> ou <strong>📋 Com Reserva</strong>).<ul><li>Se acabou de atualizar reservas na planilha, clique em <strong>📥 Sincronizar Nuvem</strong> no rodapé antes de criar.</li></ul></li><li><strong>📂 Carregar Sessão Existente:</strong> dê <strong>duplo clique</strong> na sessão desejada para retomá-la.</li></ul>
+<div class="callout callout-important"><div class="callout-title">❗ Importante</div><div class="callout-body"><p>Sessões de <strong>Almoço</strong> e <strong>Jantar</strong> só podem ser criadas se existir pelo menos <strong>uma reserva ativa</strong> no banco para a data e turno selecionados. Sessões de <strong>Lanche</strong> não exigem reservas prévias.</p></div></div>
+<hr>
+<h2 id="guia-rapido-2-terminal-do-operador-reg">2. Terminal do Operador (<code>--reg</code>)</h2>
+<p>Interface de balcão para busca rápida, liberações especiais e estornos com auditoria.</p>
+<figure class="screenshot"><img src="imagens/13_operador_terminal_ativo.png" alt="Terminal do Operador com Sessão Ativa"><figcaption>Terminal do Operador com Sessão Ativa</figcaption></figure>
+<h3 id="guia-rapido-como-buscar-e-registrar">Como Buscar e Registrar</h3>
+<ul><li><strong>Busca inteligente:</strong> digite <strong>nome</strong>, <strong>parte do nome</strong> ou apenas os <strong>números da matrícula</strong> (não precisa digitar <code>IQ</code> ou <code>SP</code>).</li><li><strong>Curingas úteis:</strong><ul><li><code>todos</code>, <code>---</code>, <code>***</code> ou <code>..</code> ➔ lista todos os alunos pendentes na sessão.</li><li><code>ana, 1º ano</code> ➔ filtra por nome e turma ao mesmo tempo.</li><li><code>ana.</code> (ponto final no termo) ➔ ativa busca global ignorando os filtros de turma da sessão.</li></ul></li><li><strong>Confirmar presença:</strong> pressione <strong><code>Enter</code></strong> (ou dê <strong>duplo clique</strong> na linha).</li><li><strong>Bypass pontual (<code>Shift + Enter</code>):</strong> força o registro ignorando trava de grupo e grade horária apenas para aquele aluno (ou ative o toggle <strong><code>⚡ Bypass</code></strong> para múltiplos casos seguidos).</li></ul>
+<h3 id="guia-rapido-filtros-de-turmas-e-liberação-sem-reserva">Filtros de Turmas e Liberação Sem Reserva (<code>#</code>)</h3>
+<p>Clique em <strong>Filtrar</strong> na barra superior para ajustar quem pode passar na sessão:</p>
+<figure class="screenshot"><img src="imagens/27_operador_filtro_turmas.png" alt="Diálogo de Filtro de Turmas e Exceções"><figcaption>Diálogo de Filtro de Turmas e Exceções</figcaption></figure>
+<ul><li><strong><code>COM Reserva</code>:</strong> autoriza alunos do grupo que possuem reserva válida.</li><li><strong><code>SEM Reserva (#)</code>:</strong> libera o grupo como <strong>Exceção</strong> — alunos dessa turma/categoria passam mesmo sem reserva prévia (registrado como <code>Sem Reserva (Grupo)</code> / <code>#</code>).</li><li><strong><code>🕒 Horário Livre</code>:</strong> desativa temporariamente a trava de horário da grade para a sessão atual.</li></ul>
+<h3 id="guia-rapido-cancelar-estornar-um-registro">Cancelar / Estornar um Registro</h3>
+<ol><li>Na tabela da direita (<strong>Registrados</strong>), clique no ícone <strong><code>❌</code></strong> da linha (ou selecione e pressione <strong><code>Delete</code></strong> / <strong><code>BackSpace</code></strong>).</li><li>Informe o <strong>Operador responsável</strong> e o <strong>Motivo / Justificativa</strong> e clique em <strong>Confirmar Anulação</strong>.</li></ol>
+<figure class="screenshot"><img src="imagens/28_operador_cancelar_consumo.png" alt="Diálogo de Cancelamento Auditado"><figcaption>Diálogo de Cancelamento Auditado</figcaption></figure>
+<div class="callout callout-note"><div class="callout-title">ℹ️ Nota</div><div class="callout-body"><p>O estorno devolve o aluno para a lista de elegíveis, libera sua cota diária e registra a auditoria na aba <code>Consumo_Cancelados</code>.</p></div></div>
+<hr>
+<h2 id="guia-rapido-3-totem-de-autoatendimento-auto">3. Totem de Autoatendimento (<code>--auto</code>)</h2>
+<p>Interface autônoma para leitura de crachás (QR Code pela câmera, leitor USB ou digitação manual de matrícula).</p>
+<figure class="screenshot"><img src="imagens/15_totem_tela_inicio.png" alt="Tela Inicial do Totem de Autoatendimento"><figcaption>Tela Inicial do Totem de Autoatendimento</figcaption></figure>
+<h3 id="guia-rapido-operação-na-fila">Operação na Fila</h3>
+<ul><li><strong>Leitura automática:</strong> o estudante aproxima o QR Code da câmera ou passa no leitor USB (ou digita a matrícula). Qualquer tecla digitada na tela vai automaticamente para o campo de entrada, mesmo fora de foco.</li><li><strong>Feedback imediato:</strong><ul><li><strong>Tela Verde + Bipe agudo:</strong> passagem liberada (<code>LIBERADO!</code>).</li><li><strong>Tela Vermelha/Laranja + Bipe grave:</strong> bloqueio (sem reserva, fora do horário da turma ou consumo duplicado).</li></ul></li><li><strong>Consulta pública de horários:</strong> clicando em <strong><code>🕒 Horários por Turma</code></strong> (ou no subtítulo da refeição), os alunos veem os turnos (<code>LIBERADO AGORA</code>, <code>EM BREVE</code>, <code>ENCERRADO</code>). A janela fecha sozinha em <strong>15 segundos</strong> — e, se alguém passar o crachá no leitor USB enquanto ela estiver aberta, a leitura é capturada normalmente.</li></ul>
+<h3 id="guia-rapido-menu-administrativo-do-totem-f2-ctrlm-botão-direito">Menu Administrativo do Totem (<code>F2</code> / <code>Ctrl+M</code> / Botão Direito)</h3>
+<p>Para acessar os controles sem sair do Totem, use <strong><code>F2</code></strong>, <strong><code>Ctrl+M</code></strong>, clique em <strong><code>⚙️ Controles</code></strong> ou clique com o <strong>botão direito</strong> em qualquer ponto da tela (inclusive sobre o vídeo). Se houver PIN configurado, digite-o na tela ou no teclado numérico.</p>
+<figure class="screenshot"><img src="imagens/30_totem_menu_controles.png" alt="Menu de Controles do Operador no Totem"><figcaption>Menu de Controles do Operador no Totem</figcaption></figure>
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">Ação no Menu</th><th style="text-align:left">Quando usar</th></tr></thead><tbody><tr><td style="text-align:left"><strong>📋 Consumos Registrados</strong></td><td style="text-align:left">Conferir a lista, ver detalhes (<code>duplo clique</code>), editar horário/prato, lançar <strong>➕ Novo Registro</strong> manual ou estornar (<code>❌</code> / <code>Delete</code>).</td></tr><tr><td style="text-align:left"><strong>📊 Dashboard &amp; Estatísticas</strong></td><td style="text-align:left">Acompanhar total servido, alunos restantes, taxa de adesão e ritmo da fila em tempo real.</td></tr><tr><td style="text-align:left"><strong>☑️ Filtrar Turmas da Sessão...</strong></td><td style="text-align:left">Liberar uma turma antecipada (<code>COM Reserva</code> / <code>SEM Reserva #</code>) sem encerrar o Totem.</td></tr><tr><td style="text-align:left"><strong>Modo Horário Livre</strong></td><td style="text-align:left">Ativar/desativar rapidamente a tolerância de horário para toda a sessão.</td></tr><tr><td style="text-align:left"><strong>🖥️ Alternar Tela Cheia (<code>F11</code>)</strong></td><td style="text-align:left">Entrar ou sair do modo quiosque (ou pressione <code>Esc</code> para sair).</td></tr></tbody></table></div>
+<figure class="screenshot"><img src="imagens/18_totem_painel_consumos.png" alt="Aba Consumos do Totem"><figcaption>Aba Consumos do Totem</figcaption></figure>
+<hr>
+<h2 id="guia-rapido-4-fechamento-do-turno-google-sheets-e-excel">4. Fechamento do Turno (Google Sheets e Excel)</h2>
+<p>Ao encerrar o atendimento da refeição:</p>
+<ol><li><strong>Enviar dados para a nuvem:</strong><ul><li><strong>No Terminal:</strong> clique em <strong>Upload</strong> (ou <strong>Salvar e Sair</strong> / fechar no <strong><code>X</code></strong>, que já executa o envio automático).</li><li><strong>No Totem:</strong> abra o menu (<code>F2</code>) ➔ <strong>📤 Enviar Consumos (Google Sheets)</strong> — ou use <strong>❌ Sair do Totem</strong>, que salva a sessão e sincroniza pendências (timeout de até 8s caso esteja sem internet).</li></ul></li><li><strong>Exportar planilha Excel (<code>.xlsx</code>) da sessão:</strong><ul><li>No Totem, acesse <strong>📋 Consumos Registrados</strong> ➔ <strong>📥 Exportar XLSX</strong> (ou <strong>📊 Dashboard &amp; Estatísticas</strong> ➔ <strong>📥 Exportar Relatório de Sessão (XLSX)</strong>).</li><li>O arquivo é salvo automaticamente na pasta <strong>Documentos</strong> do usuário, incluindo a aba <code>Cancelados</code> quando houver estornos.</li></ul></li></ol>
+<div class="callout callout-tip"><div class="callout-title">💡 Dica</div><div class="callout-body"><p>Se a sessão for <strong>Lanche</strong>, aguarde a barra de progresso inferior concluir o envio antes de fechar a janela.</p></div></div>
+<hr>
+<h2 id="guia-rapido-5-imprevistos-comuns-reservas-e-crachá-rápido">5. Imprevistos Comuns, Reservas e Crachá Rápido</h2>
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">Situação na Fila</th><th style="text-align:left">Como resolver na hora</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Aluno esqueceu o crachá</strong></td><td style="text-align:left">No Terminal (<code>--reg</code>), busque pelo <strong>Nome</strong> ou últimos dígitos da matrícula e tecle <code>Enter</code>. No Totem, use <strong>📋 Consumos Registrados</strong> ➔ <strong>➕ Novo Registro</strong>.</td></tr><tr><td style="text-align:left"><strong>Leitura dupla ou erro de lançamento</strong></td><td style="text-align:left">Estorne pelo <strong><code>❌</code></strong> (ou <code>Delete</code>) no Terminal ou na aba <strong>Consumos</strong> do Totem, preenchendo Operador e Motivo.</td></tr><tr><td style="text-align:left"><strong>Turma liberada antes do horário</strong></td><td style="text-align:left">Abra <strong>Filtrar Turmas da Sessão...</strong> e marque a turma (ou ative <strong>Horário Livre</strong> no menu).</td></tr><tr><td style="text-align:left"><strong>Aluno sem reserva ou prato trocado</strong></td><td style="text-align:left">Para ajuste definitivo, abra o <strong>Painel Administrativo (<code>--painel</code>)</strong> ➔ aba <strong>Reservas</strong> (<strong>Nova Reserva</strong> ou duplo clique para editar). Para ajuste pós-registro, dê duplo clique no item em <strong>Consumos</strong> do Totem.</td></tr><tr><td style="text-align:left"><strong>Aluno novo sem crachá QR</strong></td><td style="text-align:left">Cadastre no <strong>Painel (<code>--painel</code>)</strong> ➔ aba <strong>Alunos</strong> e gere o cartão unitário pelo <strong>Gerador de Crachás (<code>--cards</code>)</strong> em PDF/HTML.</td></tr></tbody></table></div>
+<hr>
+<h2 id="guia-rapido-6-cola-de-atalhos-de-teclado">6. Cola de Atalhos de Teclado</h2>
+<div class="table-wrap"><table><thead><tr><th style="text-align:left">Onde</th><th style="text-align:left">Atalho</th><th style="text-align:left">Função</th></tr></thead><tbody><tr><td style="text-align:left"><strong>Terminal (<code>--reg</code>)</strong></td><td style="text-align:left"><code>Enter</code> / <code>Duplo clique</code></td><td style="text-align:left">Registra o aluno selecionado</td></tr><tr><td style="text-align:left"><strong>Terminal (<code>--reg</code>)</strong></td><td style="text-align:left"><code>Shift + Enter</code></td><td style="text-align:left">Registra com <strong>Bypass</strong> (ignora trava de grupo/horário)</td></tr><tr><td style="text-align:left"><strong>Terminal (<code>--reg</code>)</strong></td><td style="text-align:left"><code>↑</code> / <code>↓</code></td><td style="text-align:left">Navega na lista sem sair da caixa de busca</td></tr><tr><td style="text-align:left"><strong>Terminal (<code>--reg</code>)</strong></td><td style="text-align:left"><code>Esc</code></td><td style="text-align:left">Limpa o campo de busca</td></tr><tr><td style="text-align:left"><strong>Terminal / Totem</strong></td><td style="text-align:left"><code>Delete</code> / <code>BackSpace</code></td><td style="text-align:left">Abre cancelamento/estorno do item selecionado</td></tr><tr><td style="text-align:left"><strong>Totem (<code>--auto</code>)</strong></td><td style="text-align:left"><code>F2</code> / <code>Ctrl+M</code> / <code>Botão direito</code></td><td style="text-align:left">Abre o <strong>Menu de Controles do Operador</strong> (pede PIN se ativo)</td></tr><tr><td style="text-align:left"><strong>Totem (<code>--auto</code>)</strong></td><td style="text-align:left"><code>F11</code> / <code>Esc</code></td><td style="text-align:left">Alterna ou sai do modo <strong>Tela Cheia</strong></td></tr></tbody></table></div>
+</section>
+  </main>
+</body>
+</html>

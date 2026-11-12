@@ -23,6 +23,8 @@ DOCS_DIR = BASE_DIR / "docs"
 MANUAL_INDEX = DOCS_DIR / "MANUAL_DO_USUARIO.md"
 MANUAL_CHAPTERS_DIR = DOCS_DIR / "manual"
 DEFAULT_OUTPUT = DOCS_DIR / "MANUAL_DO_USUARIO.html"
+QUICK_GUIDE_MD = DOCS_DIR / "GUIA_RAPIDO.md"
+QUICK_GUIDE_OUTPUT = DOCS_DIR / "GUIA_RAPIDO.html"
 
 ALERT_META: Dict[str, Tuple[str, str]] = {
     "NOTE": ("Nota", "ℹ️"),
@@ -945,6 +947,28 @@ def collect_sections() -> List[DocSection]:
     return sections
 
 
+def _render_html_document(title: str, toolbar_label: str, body_html: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{escape(title)}</title>
+  <style>{CSS_STYLES}</style>
+</head>
+<body>
+  <div class="print-toolbar">
+    <span><strong>{escape(toolbar_label)}</strong> — Para salvar em PDF, clique no botão ao lado ou use <code>Ctrl+P</code> (marque <em>Gráficos de segundo plano</em>).</span>
+    <button class="print-btn" onclick="window.print()">🖨️ Salvar em PDF / Imprimir</button>
+  </div>
+  <main class="page-shell">
+    {body_html}
+  </main>
+</body>
+</html>
+"""
+
+
 def build_manual_html(output_path: Path, embed_images: bool = False) -> Path:
     sections = collect_sections()
     chapter_map = {sec.source_path: sec.anchor_id for sec in sections}
@@ -959,25 +983,31 @@ def build_manual_html(output_path: Path, embed_images: bool = False) -> Path:
         else:
             body_blocks.append(f'<section id="{sec.anchor_id}" class="chapter-block">\n{rendered}\n</section>')
 
-    full_html = f"""<!DOCTYPE html>
-<html lang="pt-BR">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Manual Completo do Usuário — Sistema de Refeitório (v1.3.0)</title>
-  <style>{CSS_STYLES}</style>
-</head>
-<body>
-  <div class="print-toolbar">
-    <span><strong>Manual Completo (v1.3.0)</strong> — Para salvar em PDF, clique no botão ao lado ou use <code>Ctrl+P</code> (marque <em>Gráficos de segundo plano</em>).</span>
-    <button class="print-btn" onclick="window.print()">🖨️ Salvar em PDF / Imprimir</button>
-  </div>
-  <main class="page-shell">
-    {"".join(body_blocks)}
-  </main>
-</body>
-</html>
-"""
+    full_html = _render_html_document(
+        title="Manual Completo do Usuário — Sistema de Refeitório (v1.3.0)",
+        toolbar_label="Manual Completo (v1.3.0)",
+        body_html="".join(body_blocks),
+    )
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(full_html, encoding="utf-8")
+    return output_path
+
+
+def build_quick_guide_html(output_path: Path, embed_images: bool = False) -> Path:
+    sec = DocSection(
+        anchor_id="guia-rapido",
+        title="Guia Rápido de Operação Diária",
+        source_path=QUICK_GUIDE_MD.resolve(),
+        chapter_num=None,
+    )
+    converter = ManualConverter(chapter_map={sec.source_path: sec.anchor_id}, embed_images=embed_images)
+    md_text = sec.source_path.read_text(encoding="utf-8")
+    rendered = converter.convert_markdown(md_text, sec)
+    full_html = _render_html_document(
+        title="Guia Rápido de Operação Diária — Sistema de Refeitório (v1.3.0)",
+        toolbar_label="Guia Rápido (v1.3.0)",
+        body_html=f'<section id="{sec.anchor_id}" class="intro-block">\n{rendered}\n</section>',
+    )
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(full_html, encoding="utf-8")
     return output_path
@@ -985,14 +1015,19 @@ def build_manual_html(output_path: Path, embed_images: bool = False) -> Path:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Exporta o Manual do Usuário completo (Markdown) para um único HTML pronto para salvar em PDF."
+        description="Exporta o Manual do Usuário completo ou o Guia Rápido (Markdown) para HTML pronto para salvar em PDF."
     )
     parser.add_argument(
         "-o",
         "--output",
         type=Path,
-        default=DEFAULT_OUTPUT,
-        help=f"Caminho do HTML de saída (padrão: {DEFAULT_OUTPUT})",
+        default=None,
+        help=f"Caminho do HTML de saída (padrão: {DEFAULT_OUTPUT} ou {QUICK_GUIDE_OUTPUT} com --quick-guide)",
+    )
+    parser.add_argument(
+        "--quick-guide",
+        action="store_true",
+        help="Gera o HTML do Guia Rápido (docs/GUIA_RAPIDO.md) em vez do Manual completo.",
     )
     parser.add_argument(
         "--embed-images",
@@ -1000,9 +1035,16 @@ def main() -> None:
         help="Embute as imagens PNG em Base64 dentro do próprio HTML (arquivo único portátil).",
     )
     args = parser.parse_args()
-    out = build_manual_html(args.output, embed_images=args.embed_images)
+    if args.quick_guide:
+        target = args.output or QUICK_GUIDE_OUTPUT
+        out = build_quick_guide_html(target, embed_images=args.embed_images)
+        label = "Guia Rápido HTML"
+    else:
+        target = args.output or DEFAULT_OUTPUT
+        out = build_manual_html(target, embed_images=args.embed_images)
+        label = "Manual HTML"
     size_kb = out.stat().st_size / 1024
-    print(f"Manual HTML gerado com sucesso: {out} ({size_kb:.1f} KB)")
+    print(f"{label} gerado com sucesso: {out} ({size_kb:.1f} KB)")
 
 
 if __name__ == "__main__":
