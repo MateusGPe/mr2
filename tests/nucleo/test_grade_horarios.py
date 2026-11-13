@@ -138,8 +138,18 @@ def test_validar_janela_horario_ignorar_horario_atraso_refeicao(tmp_path: Path):
     grade = {
         "segunda": {
             "almoco": [
-                {"inicio": "11:30", "fim": "12:15", "turmas": ["1º A"], "categorias": ["*"]},
-                {"inicio": "12:15", "fim": "13:00", "turmas": ["*"], "categorias": ["PAP"]},
+                {
+                    "inicio": "11:30",
+                    "fim": "12:15",
+                    "turmas": ["1º A"],
+                    "categorias": ["*"],
+                },
+                {
+                    "inicio": "12:15",
+                    "fim": "13:00",
+                    "turmas": ["*"],
+                    "categorias": ["PAP"],
+                },
             ]
         }
     }
@@ -216,13 +226,28 @@ def test_obter_turmas_previstas_expande_coringas_irrestritos(tmp_path: Path):
     grade = {
         "terca": {
             "almoco": [
-                {"inicio": "11:30", "fim": "13:30", "turmas": ["*"], "categorias": ["*"]},
+                {
+                    "inicio": "11:30",
+                    "fim": "13:30",
+                    "turmas": ["*"],
+                    "categorias": ["*"],
+                },
             ],
             "jantar": [
-                {"inicio": "17:45", "fim": "19:15", "turmas": ["*"], "categorias": ["PAP"]},
+                {
+                    "inicio": "17:45",
+                    "fim": "19:15",
+                    "turmas": ["*"],
+                    "categorias": ["PAP"],
+                },
             ],
             "lanche": [
-                {"inicio": "09:30", "fim": "10:00", "turmas": ["1º A"], "categorias": ["*"]},
+                {
+                    "inicio": "09:30",
+                    "fim": "10:00",
+                    "turmas": ["1º A"],
+                    "categorias": ["*"],
+                },
             ],
         }
     }
@@ -291,8 +316,18 @@ def test_categoria_como_grupo_equivalente_informa_horario_previsto(tmp_path: Pat
     grade = {
         "segunda": {
             "almoco": [
-                {"inicio": "11:15", "fim": "11:35", "turmas": ["*"], "categorias": ["Evento Robótica"]},
-                {"inicio": "12:15", "fim": "13:00", "turmas": ["2º A"], "categorias": ["*"]},
+                {
+                    "inicio": "11:15",
+                    "fim": "11:35",
+                    "turmas": ["*"],
+                    "categorias": ["Evento Robótica"],
+                },
+                {
+                    "inicio": "12:15",
+                    "fim": "13:00",
+                    "turmas": ["2º A"],
+                    "categorias": ["*"],
+                },
             ]
         }
     }
@@ -333,7 +368,3 @@ def test_categoria_como_grupo_equivalente_informa_horario_previsto(tmp_path: Pat
     )
     assert ok_ev_hora is True
     assert motivo_ev_hora == ""
-
-
-
-

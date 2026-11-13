@@ -137,7 +137,7 @@ def obter_caminho_documentos() -> str:
                 None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf
             )
             caminho = Path(buf.value)
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.warning(
                 "Falha ao obter caminho de Documentos via API Windows: %s. Usando padrão.",
                 e,
@@ -210,9 +210,6 @@ def emitir_feedback_sonoro(sucesso: bool = True, widget: Optional[Any] = None) -
             logger.debug("Falha ao emitir feedback sonoro no Linux: %s", e)
 
 
-
-
-
 def _tratar_erro_arquivo(e: Exception, caminho: Union[str, Path], operacao: str):
     """Função auxiliar para registrar erros de I/O de forma padronizada."""
     if isinstance(e, FileNotFoundError):
@@ -224,4 +221,6 @@ def _tratar_erro_arquivo(e: Exception, caminho: Union[str, Path], operacao: str)
     elif isinstance(e, (IOError, OSError)):
         logger.error("Erro de I/O em '%s' em %s: %s", operacao, caminho, e)
     else:
-        logger.error("Erro inesperado em '%s' de %s: %s", operacao, caminho, e, exc_info=e)
+        logger.error(
+            "Erro inesperado em '%s' de %s: %s", operacao, caminho, e, exc_info=e
+        )

@@ -27,7 +27,9 @@ def test_cota_diaria_bloqueia_segundo_almoco_em_sessoes_distintas(
 ):
     """Garante que um aluno não possa almoçar duas vezes na mesma data, mesmo em sessões diferentes."""
     grupo = criar_grupo(nome="Informática 1A")
-    aluno = criar_estudante(prontuario="IQ3099001", nome="Discente Almoço", grupos=[grupo])
+    aluno = criar_estudante(
+        prontuario="IQ3099001", nome="Discente Almoço", grupos=[grupo]
+    )
     data_hoje = "10/11/2026"
 
     # Duas reservas ou duas sessões na mesma data
@@ -57,7 +59,9 @@ def test_cotas_independentes_almoco_e_jantar(
 ):
     """Garante que consumir almoço NÃO impede o discente de consumir jantar no mesmo dia."""
     grupo = criar_grupo(nome="Mecânica Noturno")
-    aluno = criar_estudante(prontuario="IQ3099002", nome="Discente Integral", grupos=[grupo])
+    aluno = criar_estudante(
+        prontuario="IQ3099002", nome="Discente Integral", grupos=[grupo]
+    )
     data_hoje = "10/11/2026"
 
     criar_reserva(estudante=aluno, data=data_hoje, prato="Almoço Vegano")
@@ -90,17 +94,31 @@ def test_cota_lanche_por_periodo(
 ):
     """Garante que discente pode lanchar em períodos diferentes do dia, mas não no mesmo período."""
     grupo = criar_grupo(nome="Eletrônica 2A")
-    aluno = criar_estudante(prontuario="IQ3099003", nome="Discente Lanche", grupos=[grupo])
+    aluno = criar_estudante(
+        prontuario="IQ3099003", nome="Discente Lanche", grupos=[grupo]
+    )
     data_hoje = "10/11/2026"
 
     sessao_manha = criar_sessao(
-        refeicao="lanche", periodo="Matutino", data=data_hoje, hora="09:30", grupos=[grupo]
+        refeicao="lanche",
+        periodo="Matutino",
+        data=data_hoje,
+        hora="09:30",
+        grupos=[grupo],
     )
     sessao_manha_2 = criar_sessao(
-        refeicao="lanche", periodo="Matutino", data=data_hoje, hora="10:00", grupos=[grupo]
+        refeicao="lanche",
+        periodo="Matutino",
+        data=data_hoje,
+        hora="10:00",
+        grupos=[grupo],
     )
     sessao_tarde = criar_sessao(
-        refeicao="lanche", periodo="Vespertino", data=data_hoje, hora="15:30", grupos=[grupo]
+        refeicao="lanche",
+        periodo="Vespertino",
+        data=data_hoje,
+        hora="15:30",
+        grupos=[grupo],
     )
 
     # 1. Lanche da manhã -> Autorizado
@@ -125,13 +143,19 @@ def test_pular_grupos_nao_burla_cota_diaria(
 ):
     """Garante que pular_grupos ignora regras de turma, mas NUNCA autoriza duplo consumo diário."""
     grupo = criar_grupo(nome="Edificações 1A")
-    aluno = criar_estudante(prontuario="IQ3099004", nome="Discente Cota", grupos=[grupo])
+    aluno = criar_estudante(
+        prontuario="IQ3099004", nome="Discente Cota", grupos=[grupo]
+    )
     data_hoje = "10/11/2026"
 
     criar_reserva(estudante=aluno, data=data_hoje, prato="Carne")
 
-    sessao1 = criar_sessao(refeicao="almoço", data=data_hoje, hora="11:45", grupos=[grupo])
-    sessao2 = criar_sessao(refeicao="almoço", data=data_hoje, hora="12:45", grupos=[grupo])
+    sessao1 = criar_sessao(
+        refeicao="almoço", data=data_hoje, hora="11:45", grupos=[grupo]
+    )
+    sessao2 = criar_sessao(
+        refeicao="almoço", data=data_hoje, hora="12:45", grupos=[grupo]
+    )
 
     facade.id_sessao_ativa = sessao1.id
     assert facade.registrar_consumo(aluno.prontuario)["autorizado"] is True
@@ -148,11 +172,15 @@ def test_bloqueio_reuso_de_reserva_apos_consumo(
 ):
     """Garante que uma reserva já consumida não pode ser reutilizada em outra sessão."""
     grupo = criar_grupo(nome="Biologia 1A")
-    aluno = criar_estudante(prontuario="IQ3099005", nome="Discente Reserva", grupos=[grupo])
+    aluno = criar_estudante(
+        prontuario="IQ3099005", nome="Discente Reserva", grupos=[grupo]
+    )
     data_hoje = "10/11/2026"
 
     reserva = criar_reserva(estudante=aluno, data=data_hoje, prato="Peixe")
-    sessao1 = criar_sessao(refeicao="almoço", data=data_hoje, hora="11:30", grupos=[grupo])
+    sessao1 = criar_sessao(
+        refeicao="almoço", data=data_hoje, hora="11:30", grupos=[grupo]
+    )
 
     # 1. Primeiro consumo utiliza a reserva
     res1 = consumo_service.registrar_consumo(
@@ -183,11 +211,15 @@ def test_soft_delete_restaura_direito_de_consumo(
 ):
     """Garante que ao cancelar (estornar) o consumo, o aluno pode consumir novamente."""
     grupo = criar_grupo(nome="Redes 1A")
-    aluno = criar_estudante(prontuario="IQ3099006", nome="Discente Estorno", grupos=[grupo])
+    aluno = criar_estudante(
+        prontuario="IQ3099006", nome="Discente Estorno", grupos=[grupo]
+    )
     data_hoje = "10/11/2026"
 
     criar_reserva(estudante=aluno, data=data_hoje, prato="Padrão")
-    sessao = criar_sessao(refeicao="almoço", data=data_hoje, hora="12:00", grupos=[grupo])
+    sessao = criar_sessao(
+        refeicao="almoço", data=data_hoje, hora="12:00", grupos=[grupo]
+    )
     facade.id_sessao_ativa = sessao.id
 
     # 1. Consome
@@ -210,10 +242,14 @@ def test_soft_delete_purifica_metricas_dashboard_e_exportacao(
     """Garante que registros com ativo=False não contaminem estatísticas e exportações."""
     grupo = criar_grupo(nome="Química 1A")
     aluno1 = criar_estudante(prontuario="IQ3099007", nome="Aluno Ativo", grupos=[grupo])
-    aluno2 = criar_estudante(prontuario="IQ3099008", nome="Aluno Cancelado", grupos=[grupo])
+    aluno2 = criar_estudante(
+        prontuario="IQ3099008", nome="Aluno Cancelado", grupos=[grupo]
+    )
     data_hoje = "10/11/2026"
 
-    sessao = criar_sessao(refeicao="lanche", data=data_hoje, hora="10:00", grupos=[grupo])
+    sessao = criar_sessao(
+        refeicao="lanche", data=data_hoje, hora="10:00", grupos=[grupo]
+    )
     facade.id_sessao_ativa = sessao.id
 
     # Consumos
@@ -226,6 +262,7 @@ def test_soft_delete_purifica_metricas_dashboard_e_exportacao(
     # 1. Estatísticas do Dashboard devem contar apenas 1 consumo
     with patch("registro.nucleo.services.stats_service.dt") as mock_dt:
         import datetime as dt_real
+
         mock_dt.date.today.return_value = dt_real.date(2026, 11, 10)
         mock_dt.timedelta = dt_real.timedelta
         stats = stats_service.obter_estatisticas_dashboard(
@@ -251,7 +288,9 @@ def test_sanitizacao_prontuario_com_espacos_e_minusculas(
 ):
     """Garante que leituras de código de barras ou digitação com espaços/minúsculas funcionem."""
     grupo = criar_grupo(nome="Letras 1A")
-    aluno = criar_estudante(prontuario="IQ3099009", nome="Discente Sanitizacao", grupos=[grupo])
+    aluno = criar_estudante(
+        prontuario="IQ3099009", nome="Discente Sanitizacao", grupos=[grupo]
+    )
     sessao = criar_sessao(refeicao="lanche", grupos=[grupo])
     facade.id_sessao_ativa = sessao.id
 
@@ -286,7 +325,9 @@ def test_tolerancia_a_erros_na_grade_de_horarios(tmp_path):
     assert valido is True
 
 
-def test_rollback_em_falha_de_gravacao_de_consumo(repos, criar_grupo, criar_estudante, criar_sessao):
+def test_rollback_em_falha_de_gravacao_de_consumo(
+    repos, criar_grupo, criar_estudante, criar_sessao
+):
     """Garante que exceções no commit de consumo disparem rollback e retornem motivo amigável."""
     grupo = criar_grupo(nome="Turma Teste")
     aluno = criar_estudante("IQ3099010", "Aluno Rollback", grupos=[grupo])
@@ -295,7 +336,9 @@ def test_rollback_em_falha_de_gravacao_de_consumo(repos, criar_grupo, criar_estu
     db_sessao = repos["consumo"].obter_sessao()
 
     # Simula falha ao dar commit
-    with patch.object(db_sessao, "commit", side_effect=SQLAlchemyError("Simulação de Disco Cheio")):
+    with patch.object(
+        db_sessao, "commit", side_effect=SQLAlchemyError("Simulação de Disco Cheio")
+    ):
         res = consumo_service.registrar_consumo(
             repo_sessao=repos["sessao"],
             repo_estudante=repos["estudante"],
@@ -309,4 +352,3 @@ def test_rollback_em_falha_de_gravacao_de_consumo(repos, criar_grupo, criar_estu
 
     # A sessão continua limpa para operações seguintes
     assert db_sessao.is_active
-

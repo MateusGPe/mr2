@@ -198,7 +198,9 @@ def test_obter_estudantes_excecao_grupos_e_pular_grupos(
 # ============================================================================
 
 
-def test_ciclo_vida_sessao_json(facade: FachadaRegistro, criar_sessao, tmp_path, monkeypatch):
+def test_ciclo_vida_sessao_json(
+    facade: FachadaRegistro, criar_sessao, tmp_path, monkeypatch
+):
     """Testa salvar, recarregar, corromper e limpar session.json."""
     arquivo_sessao = tmp_path / "session.json"
     monkeypatch.setattr(constants, "CAMINHO_SESSAO", arquivo_sessao)
@@ -305,4 +307,3 @@ def test_obter_estudantes_inativos_e_filtro_consumido(
     assert len(atendidos) == 1
     assert atendidos[0]["pront"] == "IQ_ATIVO"
     assert atendidos[0]["consumido"] is True
-

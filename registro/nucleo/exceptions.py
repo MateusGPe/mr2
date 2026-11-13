@@ -6,6 +6,7 @@
 
 """Exceções customizadas para a camada de serviço."""
 
+
 class ErroNucleoRegistro(Exception):
     """Classe base para exceções neste módulo."""
 

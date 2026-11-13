@@ -43,7 +43,12 @@ def test_crud_reserva_turnos_e_validacao(
     with pytest.raises(ValueError, match="Almoço ou Jantar"):
         facade.criar_reserva(
             est.prontuario,
-            {"data": "13/11/2026", "prato": "Tradicional", "almoco": False, "jantar": False},
+            {
+                "data": "13/11/2026",
+                "prato": "Tradicional",
+                "almoco": False,
+                "jantar": False,
+            },
         )
 
 
@@ -51,23 +56,41 @@ def test_consumo_almoco_e_jantar_independentes_mesma_reserva(
     facade: FachadaRegistro, criar_grupo, criar_estudante, criar_sessao, criar_reserva
 ):
     grupo = criar_grupo(nome="2º A - MAC")
-    est_ambos = criar_estudante(prontuario="IQ3088010", nome="Aluno Ambos", grupos=[grupo])
-    est_so_almoco = criar_estudante(prontuario="IQ3088011", nome="Aluno Só Almoço", grupos=[grupo])
-    est_so_jantar = criar_estudante(prontuario="IQ3088012", nome="Aluno Só Jantar", grupos=[grupo])
+    est_ambos = criar_estudante(
+        prontuario="IQ3088010", nome="Aluno Ambos", grupos=[grupo]
+    )
+    est_so_almoco = criar_estudante(
+        prontuario="IQ3088011", nome="Aluno Só Almoço", grupos=[grupo]
+    )
+    est_so_jantar = criar_estudante(
+        prontuario="IQ3088012", nome="Aluno Só Jantar", grupos=[grupo]
+    )
 
     data_br = "12/11/2026"
     res_ambos = criar_reserva(
         estudante=est_ambos, data=data_br, prato="Vegetariano", almoco=True, jantar=True
     )
     criar_reserva(
-        estudante=est_so_almoco, data=data_br, prato="Tradicional", almoco=True, jantar=False
+        estudante=est_so_almoco,
+        data=data_br,
+        prato="Tradicional",
+        almoco=True,
+        jantar=False,
     )
     criar_reserva(
-        estudante=est_so_jantar, data=data_br, prato="Tradicional", almoco=False, jantar=True
+        estudante=est_so_jantar,
+        data=data_br,
+        prato="Tradicional",
+        almoco=False,
+        jantar=True,
     )
 
     sessao_almoco = criar_sessao(
-        refeicao="almoço", data=data_br, hora="12:00", periodo="Integral", grupos=[grupo]
+        refeicao="almoço",
+        data=data_br,
+        hora="12:00",
+        periodo="Integral",
+        grupos=[grupo],
     )
     sessao_jantar = criar_sessao(
         refeicao="jantar", data=data_br, hora="19:00", periodo="Noturno", grupos=[grupo]
@@ -75,7 +98,9 @@ def test_consumo_almoco_e_jantar_independentes_mesma_reserva(
 
     # 1. Sessão de Almoço
     facade.id_sessao_ativa = sessao_almoco.id
-    elegiveis_alm = {e["pront"] for e in facade.obter_estudantes_para_sessao(consumido=False)}
+    elegiveis_alm = {
+        e["pront"] for e in facade.obter_estudantes_para_sessao(consumido=False)
+    }
     assert elegiveis_alm == {"IQ3088010", "IQ3088011"}
 
     assert facade.registrar_consumo_com_reserva("IQ3088010")["autorizado"] is True
@@ -89,7 +114,9 @@ def test_consumo_almoco_e_jantar_independentes_mesma_reserva(
 
     # 2. Sessão de Jantar no mesmo dia usando a MESMA reserva de est_ambos
     facade.id_sessao_ativa = sessao_jantar.id
-    elegiveis_jan = {e["pront"] for e in facade.obter_estudantes_para_sessao(consumido=False)}
+    elegiveis_jan = {
+        e["pront"] for e in facade.obter_estudantes_para_sessao(consumido=False)
+    }
     assert elegiveis_jan == {"IQ3088010", "IQ3088012"}
 
     reg_ambos_jan = facade.registrar_consumo_com_reserva("IQ3088010")
@@ -136,7 +163,9 @@ def test_iniciar_nova_sessao_exige_reserva_do_turno(
     assert id_alm is not None
 
 
-def test_importar_reservas_csv_merge_almoco_e_jantar(db_session, tmp_path: Path, criar_estudante):
+def test_importar_reservas_csv_merge_almoco_e_jantar(
+    db_session, tmp_path: Path, criar_estudante
+):
     repo_est = RepositorioEstudante(db_session)
     repo_res = RepositorioReserva(db_session)
     e1 = criar_estudante(prontuario="IQ3088030", nome="Aluno Merge")
@@ -145,9 +174,7 @@ def test_importar_reservas_csv_merge_almoco_e_jantar(db_session, tmp_path: Path,
     # 1º CSV: Almoço para e1 e Jantar para e2 (duas linhas para e1 com Almoço e Jantar no mesmo CSV)
     csv1 = tmp_path / "lote1.csv"
     csv1.write_text(
-        "prontuário,data,refeição,turno\n"
-        "IQ3088030,15/11/2026,Tradicional,Almoço\n"
-        "IQ3088031,15/11/2026,Vegano,Jantar\n",
+        "prontuário,data,refeição,turno\nIQ3088030,15/11/2026,Tradicional,Almoço\nIQ3088031,15/11/2026,Vegano,Jantar\n",
         encoding="utf-8",
     )
     qtd1 = importar_reservas_csv(repo_est, repo_res, csv1)
@@ -161,8 +188,7 @@ def test_importar_reservas_csv_merge_almoco_e_jantar(db_session, tmp_path: Path,
     # 2º CSV: Importa Jantar para e1 (deve fazer OR-merge mantendo almoco=True)
     csv2 = tmp_path / "lote2.csv"
     csv2.write_text(
-        "prontuário,data,refeição,almoço,jantar\n"
-        "IQ3088030,15/11/2026,Tradicional,Não,Sim\n",
+        "prontuário,data,refeição,almoço,jantar\nIQ3088030,15/11/2026,Tradicional,Não,Sim\n",
         encoding="utf-8",
     )
     qtd2 = importar_reservas_csv(repo_est, repo_res, csv2)
@@ -208,4 +234,3 @@ def test_servico_importacao_defaults_e_override_por_coluna(
         itens, valores_padrao={"almoco": False, "jantar": True}
     )
     assert res["reservas_criadas"] == 2
-

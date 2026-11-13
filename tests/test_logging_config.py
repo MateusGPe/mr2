@@ -18,7 +18,9 @@ from registro.nucleo.logging_config import (
 
 def test_configurar_logging_cria_diretorio_e_handlers(tmp_path: Path):
     pasta_logs = tmp_path / "test_logs"
-    logger = configurar_logging("test_app", nivel=logging.DEBUG, diretorio_logs=pasta_logs)
+    logger = configurar_logging(
+        "test_app", nivel=logging.DEBUG, diretorio_logs=pasta_logs
+    )
 
     assert pasta_logs.exists()
     arquivo_esperado = pasta_logs / "test_app.log"
@@ -26,8 +28,15 @@ def test_configurar_logging_cria_diretorio_e_handlers(tmp_path: Path):
 
     handlers = logger.handlers
     # Deve conter pelo menos Console (StreamHandler) e Arquivo (RotatingFileHandler)
-    stream_handlers = [h for h in handlers if isinstance(h, logging.StreamHandler) and not isinstance(h, logging.FileHandler)]
-    file_handlers = [h for h in handlers if isinstance(h, logging.handlers.RotatingFileHandler)]
+    stream_handlers = [
+        h
+        for h in handlers
+        if isinstance(h, logging.StreamHandler)
+        and not isinstance(h, logging.FileHandler)
+    ]
+    file_handlers = [
+        h for h in handlers if isinstance(h, logging.handlers.RotatingFileHandler)
+    ]
 
     assert len(stream_handlers) >= 1
     assert len(file_handlers) >= 1
@@ -65,7 +74,9 @@ def test_configurar_logging_chamadas_multiplas(tmp_path: Path):
     for h in logger2.handlers:
         h.flush()
 
-    assert "Mensagem apenas para app2" in (pasta_logs / "app2.log").read_text(encoding="utf-8")
+    assert "Mensagem apenas para app2" in (pasta_logs / "app2.log").read_text(
+        encoding="utf-8"
+    )
 
 
 def test_gancho_excecao_global(tmp_path: Path, monkeypatch):

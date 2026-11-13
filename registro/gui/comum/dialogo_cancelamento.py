@@ -31,7 +31,9 @@ class DialogoConfirmarCancelamento(ttk.Toplevel):
         top_parent = (
             parent
             if isinstance(parent, (ttk.Window, tk.Tk, tk.Toplevel))
-            else (parent.winfo_toplevel() if hasattr(parent, "winfo_toplevel") else None)
+            else (
+                parent.winfo_toplevel() if hasattr(parent, "winfo_toplevel") else None
+            )
         )
         super().__init__(top_parent)
         if top_parent:
@@ -67,12 +69,16 @@ class DialogoConfirmarCancelamento(ttk.Toplevel):
         )
         lbl_aviso.pack(fill=X, pady=(0, 15))
 
-        ttk.Label(frame, text="Operador responsável:", anchor=W).pack(fill=X, pady=(0, 2))
+        ttk.Label(frame, text="Operador responsável:", anchor=W).pack(
+            fill=X, pady=(0, 2)
+        )
         self.entry_operador = ttk.Entry(frame)
         self.entry_operador.insert(0, self._operador_padrao)
         self.entry_operador.pack(fill=X, pady=(0, 10))
 
-        ttk.Label(frame, text="Motivo / Justificativa:", anchor=W).pack(fill=X, pady=(0, 2))
+        ttk.Label(frame, text="Motivo / Justificativa:", anchor=W).pack(
+            fill=X, pady=(0, 2)
+        )
         self.entry_motivo = ttk.Entry(frame)
         self.entry_motivo.insert(0, self._motivo_padrao)
         self.entry_motivo.pack(fill=X, pady=(0, 15))
@@ -121,7 +127,10 @@ def solicitar_cancelamento_consumo(
     if (
         hasattr(parent, "_mock_return_value")
         or hasattr(parent, "_spec_class")
-        or not isinstance(parent, (ttk.Window, ttk.Frame, ttk.Labelframe, tk.Tk, tk.Toplevel, tk.Frame))
+        or not isinstance(
+            parent,
+            (ttk.Window, ttk.Frame, ttk.Labelframe, tk.Tk, tk.Toplevel, tk.Frame),
+        )
     ):
         from ttkbootstrap.dialogs import Messagebox
         from ttkbootstrap.localization.msgcat import MessageCatalog

@@ -57,4 +57,3 @@ def test_gui_obter_caminho_documentos_linux(monkeypatch, tmp_path):
     monkeypatch.setattr("pathlib.Path.home", lambda: tmp_path)
     caminho = obter_caminho_documentos()
     assert str(docs_pt.resolve()) == caminho
-

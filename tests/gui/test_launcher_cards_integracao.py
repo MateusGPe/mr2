@@ -23,6 +23,7 @@ def test_facade_grade_horarios_metodos(facade: FachadaRegistro):
     assert isinstance(grade, dict)
     assert "segunda" in grade
 
-    turmas = facade.obter_turmas_previstas_para_refeicao(refeicao="almoco", dia_semana="segunda")
+    turmas = facade.obter_turmas_previstas_para_refeicao(
+        refeicao="almoco", dia_semana="segunda"
+    )
     assert isinstance(turmas, list)
-

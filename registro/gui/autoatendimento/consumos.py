@@ -220,9 +220,21 @@ class AbaConsumos(ttk.Frame):
         # --- Linha 2: Tabela de Registros de Consumo (Treeview) ---
         colunas = [
             {"text": "🆔 Prontuário", "iid": "pront", "width": 110, "minwidth": 80},
-            {"text": "👤 Nome", "iid": "nome", "width": 280, "stretch": True, "minwidth": 150},
+            {
+                "text": "👤 Nome",
+                "iid": "nome",
+                "width": 280,
+                "stretch": True,
+                "minwidth": 150,
+            },
             {"text": "👥 Turma", "iid": "turma", "width": 170, "minwidth": 100},
-            {"text": "⏱️ Hora", "iid": "hora", "width": 90, "anchor": CENTER, "minwidth": 70},
+            {
+                "text": "⏱️ Hora",
+                "iid": "hora",
+                "width": 90,
+                "anchor": CENTER,
+                "minwidth": 70,
+            },
             {"text": "🍽️ Prato / Status", "iid": "prato", "width": 140, "minwidth": 90},
             {
                 "text": self.TEXTO_COLUNA_ACAO,
@@ -266,9 +278,7 @@ class AbaConsumos(ttk.Frame):
             consumidos = self.fachada.obter_estudantes_para_sessao(
                 consumido=True, pular_grupos=True
             )
-            consumidos.sort(
-                key=lambda x: str(x.get("hora_consumo", "")), reverse=True
-            )
+            consumidos.sort(key=lambda x: str(x.get("hora_consumo", "")), reverse=True)
             self._consumos_raw = consumidos
             self._aplicar_filtro_e_renderizar()
         except Exception as e:
@@ -351,7 +361,9 @@ class AbaConsumos(ttk.Frame):
         """[Create] Abre o diálogo para registrar um novo consumo manualmente."""
         if not self.id_sessao or not self.fachada or not self.fachada.id_sessao_ativa:
             Messagebox.show_warning(
-                "Inicie ou selecione uma sessão antes de registrar.", "Aviso", parent=self
+                "Inicie ou selecione uma sessão antes de registrar.",
+                "Aviso",
+                parent=self,
             )
             return
 
@@ -387,7 +399,9 @@ class AbaConsumos(ttk.Frame):
 
         if not id_consumo:
             Messagebox.show_error(
-                "Não foi possível localizar o ID do consumo para edição.", "Erro", parent=self
+                "Não foi possível localizar o ID do consumo para edição.",
+                "Erro",
+                parent=self,
             )
             return
 
@@ -419,7 +433,9 @@ class AbaConsumos(ttk.Frame):
         pront = dados.get("pront", "")
         nome = dados.get("nome", "")
 
-        from registro.gui.comum.dialogo_cancelamento import solicitar_cancelamento_consumo
+        from registro.gui.comum.dialogo_cancelamento import (
+            solicitar_cancelamento_consumo,
+        )
 
         confirmado, op, mot = solicitar_cancelamento_consumo(
             parent=self,
@@ -432,7 +448,9 @@ class AbaConsumos(ttk.Frame):
                 if id_consumo:
                     self.fachada.desfazer_consumo(id_consumo, operador=op, motivo=mot)
                 else:
-                    self.fachada.desfazer_consumo_por_prontuario(pront, operador=op, motivo=mot)
+                    self.fachada.desfazer_consumo_por_prontuario(
+                        pront, operador=op, motivo=mot
+                    )
 
                 logger.info("Consumo de %s removido com sucesso.", pront)
                 self.carregar_consumos()
@@ -469,7 +487,9 @@ class AbaConsumos(ttk.Frame):
     def exportar_xlsx(self):
         """Exporta os registros de consumo atuais para XLSX."""
         if not self.id_sessao or not self.fachada:
-            Messagebox.show_warning("Nenhuma sessão ativa para exportar.", "Aviso", parent=self)
+            Messagebox.show_warning(
+                "Nenhuma sessão ativa para exportar.", "Aviso", parent=self
+            )
             return
 
         try:
@@ -481,7 +501,9 @@ class AbaConsumos(ttk.Frame):
             )
         except Exception as e:
             logger.exception("Erro ao exportar consumos: %s", e)
-            Messagebox.show_error(f"Falha ao exportar:\n{e}", "Erro na Exportação", parent=self)
+            Messagebox.show_error(
+                f"Falha ao exportar:\n{e}", "Erro na Exportação", parent=self
+            )
 
     # --- Handlers de Eventos ---
 

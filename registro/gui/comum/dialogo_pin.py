@@ -50,8 +50,16 @@ class DialogoPIN(ttk.Toplevel):
         self.update_idletasks()
         try:
             if self.master:
-                px = self.master.winfo_rootx() + (self.master.winfo_width() // 2) - (largura // 2)
-                py = self.master.winfo_rooty() + (self.master.winfo_height() // 2) - (altura // 2)
+                px = (
+                    self.master.winfo_rootx()
+                    + (self.master.winfo_width() // 2)
+                    - (largura // 2)
+                )
+                py = (
+                    self.master.winfo_rooty()
+                    + (self.master.winfo_height() // 2)
+                    - (altura // 2)
+                )
             else:
                 px = (self.winfo_screenwidth() // 2) - (largura // 2)
                 py = (self.winfo_screenheight() // 2) - (altura // 2)
@@ -105,10 +113,18 @@ class DialogoPIN(ttk.Toplevel):
         frame_teclado.pack(fill=BOTH, expand=True)
 
         botoes = [
-            ("1", 0, 0), ("2", 0, 1), ("3", 0, 2),
-            ("4", 1, 0), ("5", 1, 1), ("6", 1, 2),
-            ("7", 2, 0), ("8", 2, 1), ("9", 2, 2),
-            ("⌫", 3, 0), ("0", 3, 1), ("✕", 3, 2),
+            ("1", 0, 0),
+            ("2", 0, 1),
+            ("3", 0, 2),
+            ("4", 1, 0),
+            ("5", 1, 1),
+            ("6", 1, 2),
+            ("7", 2, 0),
+            ("8", 2, 1),
+            ("9", 2, 2),
+            ("⌫", 3, 0),
+            ("0", 3, 1),
+            ("✕", 3, 2),
         ]
 
         for i in range(3):

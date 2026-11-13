@@ -56,9 +56,9 @@ def test_importar_estudantes_csv_criacao_atualizacao_e_grupos(
     csv_conteudo = (
         "prontuário,nome,turma\n"
         "IQ3000001,Nome Atualizado,1º A - INFO\n"  # Atualização de nome + grupo
-        "IQ3000002,Novo Aluno,1º A - INFO\n"      # Criação
-        "IQ3000002,Novo Aluno,2º B - ELE\n"       # Mesmo prontuário em outro grupo
-        ",Sem Prontuario,1º A - INFO\n"           # Linha ignorada
+        "IQ3000002,Novo Aluno,1º A - INFO\n"  # Criação
+        "IQ3000002,Novo Aluno,2º B - ELE\n"  # Mesmo prontuário em outro grupo
+        ",Sem Prontuario,1º A - INFO\n"  # Linha ignorada
     )
     arquivo_csv = tmp_path / "estudantes.csv"
     arquivo_csv.write_text(csv_conteudo, encoding="utf-8")
@@ -80,7 +80,9 @@ def test_importar_estudantes_csv_criacao_atualizacao_e_grupos(
     assert nomes_grupos == {"1º A - INFO", "2º B - ELE"}
 
 
-def test_importar_estudantes_csv_arquivo_inexistente(db_session: Session, tmp_path: Path):
+def test_importar_estudantes_csv_arquivo_inexistente(
+    db_session: Session, tmp_path: Path
+):
     """Testa que erro ao abrir arquivo inexistente lança ErroImportacaoDados."""
     repo_est = RepositorioEstudante(db_session)
     repo_grp = RepositorioGrupo(db_session)
@@ -90,9 +92,7 @@ def test_importar_estudantes_csv_arquivo_inexistente(db_session: Session, tmp_pa
         importar_estudantes_csv(repo_est, repo_grp, arquivo_fantasma)
 
 
-def test_importar_reservas_csv_fluxo_completo(
-    db_session: Session, tmp_path: Path
-):
+def test_importar_reservas_csv_fluxo_completo(db_session: Session, tmp_path: Path):
     """Testa a importação de reservas com validação de dados, duplicatas e ignorados."""
     repo_est = RepositorioEstudante(db_session)
     repo_res = RepositorioReserva(db_session)
@@ -110,11 +110,11 @@ def test_importar_reservas_csv_fluxo_completo(
 
     csv_conteudo = (
         "prontuário,data,refeição\n"
-        "IQ3000001,21/10/2026,Padrão\n"           # Já existe no DB -> deve ignorar
-        "IQ3000002,21/10/2026,Vegetariano\n"      # Válida -> deve inserir
-        "IQ3000002,21/10/2026,Vegetariano\n"      # Duplicada no CSV -> deve ignorar segunda
-        "IQ9999999,21/10/2026,Padrão\n"           # Estudante inexistente -> deve ignorar
-        "IQ3000001,,Padrão\n"                      # Sem data -> deve ignorar
+        "IQ3000001,21/10/2026,Padrão\n"  # Já existe no DB -> deve ignorar
+        "IQ3000002,21/10/2026,Vegetariano\n"  # Válida -> deve inserir
+        "IQ3000002,21/10/2026,Vegetariano\n"  # Duplicada no CSV -> deve ignorar segunda
+        "IQ9999999,21/10/2026,Padrão\n"  # Estudante inexistente -> deve ignorar
+        "IQ3000001,,Padrão\n"  # Sem data -> deve ignorar
     )
     arquivo_csv = tmp_path / "reservas.csv"
     arquivo_csv.write_text(csv_conteudo, encoding="utf-8")

@@ -61,7 +61,9 @@ def test_salvar_importacao_preserva_categoria(facade: FachadaRegistro):
     assert mapa_res["IQ3008802"]["categorias"] == []
 
 
-def test_exportar_estudantes_inclui_coluna_categoria(facade: FachadaRegistro, tmp_path: Path):
+def test_exportar_estudantes_inclui_coluna_categoria(
+    facade: FachadaRegistro, tmp_path: Path
+):
     """Garante que as exportações CSV e XLSX incluem Turma e Categoria separadas."""
     facade.criar_estudante(
         "IQ3007701",

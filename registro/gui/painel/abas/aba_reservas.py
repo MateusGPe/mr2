@@ -102,14 +102,18 @@ class AbaReservas(ttk.Frame):
         ttk.Label(filter_frame, text="Aluno:").pack(side=LEFT, padx=(5, 3))
         self.search_aluno_var = tk.StringVar()
         self.search_aluno_var.trace_add("write", lambda *_: self._filtrar_reservas())
-        self.search_entry = ttk.Entry(filter_frame, textvariable=self.search_aluno_var, width=15)
+        self.search_entry = ttk.Entry(
+            filter_frame, textvariable=self.search_aluno_var, width=15
+        )
         self.search_entry.pack(side=LEFT, padx=3)
 
         # Filtro por Data
         ttk.Label(filter_frame, text="Data:").pack(side=LEFT, padx=(10, 3))
         datas_existentes = self.fachada_nucleo.listar_datas_reservas()
         valores_data = ["Todas"] + datas_existentes
-        self.var_data = tk.StringVar(value=datas_existentes[0] if datas_existentes else "Todas")
+        self.var_data = tk.StringVar(
+            value=datas_existentes[0] if datas_existentes else "Todas"
+        )
         self.cbo_data = ttk.Combobox(
             filter_frame,
             textvariable=self.var_data,
@@ -131,7 +135,9 @@ class AbaReservas(ttk.Frame):
         )
         self.filter_turma_combobox.set("Todas")
         self.filter_turma_combobox.pack(side=LEFT, padx=3)
-        self.filter_turma_combobox.bind("<<ComboboxSelected>>", lambda *_: self._filtrar_reservas())
+        self.filter_turma_combobox.bind(
+            "<<ComboboxSelected>>", lambda *_: self._filtrar_reservas()
+        )
 
         # -----------------------------
         # Tabela de Reservas
@@ -174,13 +180,19 @@ class AbaReservas(ttk.Frame):
         if is_selected and len(sel) >= 8:
             status = sel[-1]
             if status == "Cancelada":
-                self.btn_toggle_cancel.configure(text="Reativar Reserva", bootstyle="success")
+                self.btn_toggle_cancel.configure(
+                    text="Reativar Reserva", bootstyle="success"
+                )
             else:
-                self.btn_toggle_cancel.configure(text="Cancelar Reserva", bootstyle="warning")
+                self.btn_toggle_cancel.configure(
+                    text="Cancelar Reserva", bootstyle="warning"
+                )
 
     def _get_grupos_disponiveis(self):
         try:
-            return sorted([g["nome"] for g in self.fachada_nucleo.listar_todos_os_grupos()])
+            return sorted(
+                [g["nome"] for g in self.fachada_nucleo.listar_todos_os_grupos()]
+            )
         except Exception:
             return []
 
@@ -197,11 +209,14 @@ class AbaReservas(ttk.Frame):
         termo_aluno = self.search_aluno_var.get().strip().lower()
 
         try:
-            reservas = self.fachada_nucleo.listar_reservas(filtros=filtro if filtro else None)
+            reservas = self.fachada_nucleo.listar_reservas(
+                filtros=filtro if filtro else None
+            )
 
             if termo_aluno:
                 reservas = [
-                    r for r in reservas
+                    r
+                    for r in reservas
                     if termo_aluno in (r.get("nome_estudante") or "").lower()
                     or termo_aluno in (r.get("prontuario_estudante") or "").lower()
                 ]
@@ -222,7 +237,9 @@ class AbaReservas(ttk.Frame):
             ]
             self.reservas_table.construir_dados_tabela(dados)
         except Exception:
-            Messagebox.show_error("Erro ao carregar reservas. Verifique o console.", "Erro")
+            Messagebox.show_error(
+                "Erro ao carregar reservas. Verifique o console.", "Erro"
+            )
             traceback.print_exc()
         self._on_reserva_select()
 
@@ -288,11 +305,7 @@ class AbaReservas(ttk.Frame):
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             ext = ".xlsx" if formato == "xlsx" else ".csv"
-            ftypes = (
-                [("Excel", "*.xlsx")]
-                if formato == "xlsx"
-                else [("CSV", "*.csv")]
-            )
+            ftypes = [("Excel", "*.xlsx")] if formato == "xlsx" else [("CSV", "*.csv")]
             filepath = filedialog.asksaveasfilename(
                 initialfile=f"export_reservas_{timestamp}",
                 defaultextension=ext,
@@ -324,6 +337,8 @@ class AbaReservas(ttk.Frame):
                     Path(filepath), reservas_dados=export_dados
                 )
 
-            Messagebox.show_info(f"Reservas exportadas com sucesso em:\n{filepath}", "Sucesso")
+            Messagebox.show_info(
+                f"Reservas exportadas com sucesso em:\n{filepath}", "Sucesso"
+            )
         except Exception as e:
             Messagebox.show_error(f"Falha ao exportar reservas: {e}", "Erro")

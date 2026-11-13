@@ -12,7 +12,14 @@ from registro.nucleo.services import grade_horarios_service, sync_service
 
 def test_converter_linhas_configuracao_para_grade():
     linhas = [
-        ["Dia", "Refeição", "Horário Início", "Horário Fim", "Turmas Liberadas", "Categorias Permitidas"],
+        [
+            "Dia",
+            "Refeição",
+            "Horário Início",
+            "Horário Fim",
+            "Turmas Liberadas",
+            "Categorias Permitidas",
+        ],
         ["Segunda-feira", "Almoço", "11:30", "12:15", "1º BEM, 2º BEM", "REGULAR, PAP"],
         ["segunda", "almoço", "12:15", "13:00", "3º BEM", "REGULAR"],
         ["terça", "Lanche", "15:30", "16:00", "*", "Optativa Artes"],
@@ -186,7 +193,14 @@ def test_sincronizacao_lanches_e_configuracao(facade, monkeypatch, tmp_path):
     )
 
     valores_config = [
-        ["Dia", "Refeição", "Horário Início", "Horário Fim", "Turmas Liberadas", "Categorias Permitidas"],
+        [
+            "Dia",
+            "Refeição",
+            "Horário Início",
+            "Horário Fim",
+            "Turmas Liberadas",
+            "Categorias Permitidas",
+        ],
         ["segunda", "lanche", "10:00", "10:30", "1º BEM", "PAP"],
     ]
     valores_lanches = [
@@ -223,6 +237,7 @@ def test_sincronizacao_lanches_e_configuracao(facade, monkeypatch, tmp_path):
     caminho_lanches = caminho_config_teste / "lanches.json"
     assert caminho_lanches.exists()
     import json
+
     with open(caminho_lanches, "r", encoding="utf-8") as f:
         lanches_salvos = json.load(f)
     assert "Vitamina de Morango" in lanches_salvos
@@ -234,5 +249,6 @@ def test_sincronizacao_lanches_e_configuracao(facade, monkeypatch, tmp_path):
 
     # Testa envio de novo lanche
     sync_service.sincronizar_novo_lanche_para_planilha("Bolo de Cenoura")
-    mock_anexar.assert_called_with(mock_planilha, [["Bolo de Cenoura"]], NOME_ABA_LANCHES)
-
+    mock_anexar.assert_called_with(
+        mock_planilha, [["Bolo de Cenoura"]], NOME_ABA_LANCHES
+    )

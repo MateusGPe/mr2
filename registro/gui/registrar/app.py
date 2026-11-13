@@ -71,7 +71,9 @@ class AppRegistro(tk.Tk):
         self.colors: Optional[Any] = None
 
         try:
-            self._fachada = fachada_nucleo if fachada_nucleo is not None else FachadaRegistro()
+            self._fachada = (
+                fachada_nucleo if fachada_nucleo is not None else FachadaRegistro()
+            )
             self._configurar_estilo()
             self._configurar_layout_grid()
             self._criar_widgets()
@@ -126,10 +128,8 @@ class AppRegistro(tk.Tk):
             self.style.configure("TLabelframe.Label", font=fonte_label)
             self.style.configure("Status.TLabel", font=fonte_pequena)
             self.style.configure("Feedback.TLabel", font=fonte_pequena)
-            self.style.configure(
-                "Preview.TLabel", font=fonte_pequena, justify=LEFT)
-            self.style.configure(
-                "Count.TLabel", font=fonte_cabecalho, anchor=CENTER)
+            self.style.configure("Preview.TLabel", font=fonte_pequena, justify=LEFT)
+            self.style.configure("Count.TLabel", font=fonte_cabecalho, anchor=CENTER)
             self.colors = self.style.colors
         except (TclError, AttributeError) as e:
             logger.warning("Erro ao configurar estilo ttkbootstrap: %s.", e)
@@ -151,8 +151,7 @@ class AppRegistro(tk.Tk):
 
     def _criar_barra_superior(self):
         """Cria a barra superior com informações da sessão e botões de ação."""
-        self._barra_superior = ttk.Frame(
-            self, padding=(10, 5), bootstyle="dark")
+        self._barra_superior = ttk.Frame(self, padding=(10, 5), bootstyle="dark")
         self._barra_superior.grid(row=0, column=0, sticky="ew")
 
         self._label_info_sessao = ttk.Label(
@@ -353,7 +352,9 @@ class AppRegistro(tk.Tk):
                 self._painel_status.carregar_estudantes_registrados()
 
             self._focar_janela()
-            logger.info("UI configurada para sessão ID: %s", self._fachada.id_sessao_ativa)
+            logger.info(
+                "UI configurada para sessão ID: %s", self._fachada.id_sessao_ativa
+            )
             # Sincroniza dados mestre na inicialização
             self._sincronizar_dados_mestre(automatico=True)
 
@@ -362,8 +363,7 @@ class AppRegistro(tk.Tk):
             self.title("Refeições Reg [Sem Sessão]")
             self._var_horario_livre.set(False)
             if self._label_info_sessao:
-                self._label_info_sessao.config(
-                    text="Erro: Nenhuma Sessão Ativa")
+                self._label_info_sessao.config(text="Erro: Nenhuma Sessão Ativa")
             if self._painel_acao:
                 self._painel_acao.desabilitar_controles()
             if self._painel_status:
@@ -435,8 +435,7 @@ class AppRegistro(tk.Tk):
 
     def notificar_sucesso_registro(self, dados_estudante: Tuple):
         """Callback chamado pelo PainelAcaoBusca após um registro bem-sucedido."""
-        logger.debug("Notificação de registro recebida para: %s",
-                     dados_estudante[0])
+        logger.debug("Notificação de registro recebida para: %s", dados_estudante[0])
         if self._painel_status:
             self._painel_status.carregar_estudantes_registrados()
 
@@ -496,13 +495,10 @@ class AppRegistro(tk.Tk):
         if not self._fachada:
             return
         try:
-            grupos_selecionados = [
-                i for i in identificadores if not i.startswith("#")]
-            grupos_excluidos = [i[1:]
-                                for i in identificadores if i.startswith("#")]
+            grupos_selecionados = [i for i in identificadores if not i.startswith("#")]
+            grupos_excluidos = [i[1:] for i in identificadores if i.startswith("#")]
 
-            self._fachada.atualizar_grupos_sessao(
-                grupos_selecionados, grupos_excluidos)
+            self._fachada.atualizar_grupos_sessao(grupos_selecionados, grupos_excluidos)
             logger.info("Filtros de turma aplicados com sucesso.")
             self._atualizar_ui_apos_mudanca_dados()
         except Exception as e:  # pylint: disable=broad-exception-caught
@@ -529,7 +525,9 @@ class AppRegistro(tk.Tk):
 
             subprocess.Popen(cmd)
         except Exception as e:
-            logger.warning("Falha ao abrir processo autônomo: %s. Abrindo janela interna.", e)
+            logger.warning(
+                "Falha ao abrir processo autônomo: %s. Abrindo janela interna.", e
+            )
             JanelaSelfService(
                 parent=self,
                 fachada=self._fachada,
@@ -543,8 +541,7 @@ class AppRegistro(tk.Tk):
             if iniciar:
                 self._label_barra_status.config(text=texto or "Processando...")
                 if not self._barra_progresso.winfo_ismapped():
-                    self._barra_progresso.pack(
-                        side=RIGHT, padx=5, fill=X, expand=False)
+                    self._barra_progresso.pack(side=RIGHT, padx=5, fill=X, expand=False)
                 self._barra_progresso.start(10)
             else:
                 if self._barra_progresso.winfo_ismapped():
@@ -570,7 +567,9 @@ class AppRegistro(tk.Tk):
 
         self.mostrar_barra_progresso(True, "Sincronizando cadastros...")
         self._iniciar_thread_sinc(
-            self._fachada.sincronizar_do_google_sheets, "Sincronização de Cadastros", automatico=automatico
+            self._fachada.sincronizar_do_google_sheets,
+            "Sincronização de Cadastros",
+            automatico=automatico,
         )
 
     def sincronizar_sessao_com_planilha(self, automatico: bool = False):
@@ -581,16 +580,16 @@ class AppRegistro(tk.Tk):
         if automatico:
             logger.info("Iniciando sincronização automática de servidos para planilha.")
 
-        self.mostrar_barra_progresso(
-            True, "Sincronizando servidos para planilha..."
-        )
+        self.mostrar_barra_progresso(True, "Sincronizando servidos para planilha...")
         self._iniciar_thread_sinc(
             self._fachada.sincronizar_todas_sessoes_para_google_sheets,
             "Sincronização de Servidos",
             automatico=automatico,
         )
 
-    def _iniciar_thread_sinc(self, funcao_sinc: Callable, nome_tarefa: str, automatico: bool = False):
+    def _iniciar_thread_sinc(
+        self, funcao_sinc: Callable, nome_tarefa: str, automatico: bool = False
+    ):
         """Inicia uma função de sincronização em uma thread separada para não bloquear a UI."""
         thread = Thread(
             target=self._acao_sinc_wrapper, args=(funcao_sinc,), daemon=True
@@ -629,11 +628,15 @@ class AppRegistro(tk.Tk):
         except Exception as e:  # pylint: disable=broad-exception-caught
             thread.error = e
 
-    def _monitorar_thread_sinc(self, thread: Thread, nome_tarefa: str, automatico: bool = False):
+    def _monitorar_thread_sinc(
+        self, thread: Thread, nome_tarefa: str, automatico: bool = False
+    ):
         """Verifica o status da thread de sincronização e exibe o resultado ao final."""
         if thread.is_alive():
-            self.after(150, lambda: self._monitorar_thread_sinc(
-                thread, nome_tarefa, automatico))
+            self.after(
+                150,
+                lambda: self._monitorar_thread_sinc(thread, nome_tarefa, automatico),
+            )
             return
 
         self.mostrar_barra_progresso(False)
@@ -641,22 +644,33 @@ class AppRegistro(tk.Tk):
         sucesso = getattr(thread, "success", False)
         records_affected = getattr(thread, "records_affected", 0)
 
-        direction = 'download' if 'Cadastros' in nome_tarefa else 'upload'
+        direction = "download" if "Cadastros" in nome_tarefa else "upload"
 
         if erro:
             logger.error("%s falhou: %s", nome_tarefa, erro)
-            self._logar_sincronizacao(direction=direction, status='failure', message=str(erro), records_affected=0)
-            if not automatico:
-                Messagebox.show_error(
-                    f"{nome_tarefa} falhou:\n{erro}", "Erro na Sincronização", parent=self
-                )
-        elif sucesso:
-            logger.info("%s concluída com sucesso. Registros afetados: %d", nome_tarefa, records_affected)
             self._logar_sincronizacao(
                 direction=direction,
-                status='success',
+                status="failure",
+                message=str(erro),
+                records_affected=0,
+            )
+            if not automatico:
+                Messagebox.show_error(
+                    f"{nome_tarefa} falhou:\n{erro}",
+                    "Erro na Sincronização",
+                    parent=self,
+                )
+        elif sucesso:
+            logger.info(
+                "%s concluída com sucesso. Registros afetados: %d",
+                nome_tarefa,
+                records_affected,
+            )
+            self._logar_sincronizacao(
+                direction=direction,
+                status="success",
                 message=f"{nome_tarefa} concluída com sucesso.",
-                records_affected=records_affected
+                records_affected=records_affected,
             )
             if not automatico:
                 Messagebox.show_info(
@@ -666,13 +680,12 @@ class AppRegistro(tk.Tk):
                 )
             self._atualizar_ui_apos_mudanca_dados()
         else:
-            logger.warning(
-                "%s finalizada com estado indeterminado.", nome_tarefa)
+            logger.warning("%s finalizada com estado indeterminado.", nome_tarefa)
             self._logar_sincronizacao(
                 direction=direction,
-                status='unknown',
+                status="unknown",
                 message=f"{nome_tarefa} finalizada com estado indeterminado.",
-                records_affected=0
+                records_affected=0,
             )
             if not automatico:
                 Messagebox.show_warning(
@@ -750,8 +763,7 @@ class AppRegistro(tk.Tk):
 
         if self._painel_acao and self._painel_acao.id_after_busca is not None:
             try:
-                self._painel_acao.after_cancel(
-                    self._painel_acao.id_after_busca)
+                self._painel_acao.after_cancel(self._painel_acao.id_after_busca)
             except Exception:  # pylint: disable=broad-exception-caught
                 pass
 

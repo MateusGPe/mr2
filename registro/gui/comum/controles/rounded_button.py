@@ -135,10 +135,8 @@ class RoundedButton(tk.Canvas):
             except tk.TclError:
                 pass
 
-        self.hover_color = hover_color or Colors.update_hsv(
-            self.bg_color, vd=0.15)  # type: ignore
-        self.press_color = press_color or Colors.update_hsv(
-            self.bg_color, vd=-0.15)  # type: ignore
+        self.hover_color = hover_color or Colors.update_hsv(self.bg_color, vd=0.15)  # type: ignore
+        self.press_color = press_color or Colors.update_hsv(self.bg_color, vd=-0.15)  # type: ignore
         self.config(bg=self.theme_bg_color, highlightthickness=0)
 
     def _load_font(self, size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
@@ -202,8 +200,7 @@ class RoundedButton(tk.Canvas):
         shrunken_radius = (radius / width) * shrunken_width if width > 0 else 0
 
         font = self._get_best_font_size(width, height)
-        shrunken_font = self._get_best_font_size(
-            shrunken_width, shrunken_height)
+        shrunken_font = self._get_best_font_size(shrunken_width, shrunken_height)
 
         self.normal_image = self._create_button_image(
             width, height, self.bg_color, self.fg_color, radius, font
@@ -241,8 +238,7 @@ class RoundedButton(tk.Canvas):
         w, h = max(1, int(width)), max(1, int(height))
 
         high_res_img = Image.new(
-            "RGB", (w * self.scale_factor, h *
-                    self.scale_factor), self.theme_bg_color
+            "RGB", (w * self.scale_factor, h * self.scale_factor), self.theme_bg_color
         )
         draw = ImageDraw.Draw(high_res_img)
 
@@ -278,9 +274,7 @@ class RoundedButton(tk.Canvas):
         new_height = event.height
 
         if new_width != self._last_width or new_height != self._last_height:
-            if (
-                new_width > 1 and new_height > 1
-            ):
+            if new_width > 1 and new_height > 1:
                 self._last_width = new_width
                 self._last_height = new_height
                 self._redraw_images(new_width, new_height)
@@ -289,9 +283,7 @@ class RoundedButton(tk.Canvas):
         if "state" in kwargs:
             state = kwargs.get("state") or ""
             self.enabled = state.lower() in ["normal", "active", "enable"]
-            if (
-                self.disabled_image and self.normal_image
-            ):
+            if self.disabled_image and self.normal_image:
                 if not self.enabled:
                     self.itemconfig(self.shape_id, image=self.disabled_image)
                 else:
@@ -320,8 +312,7 @@ class RoundedButton(tk.Canvas):
     def _on_press(self, _event: tk.Event) -> None:
         if self.enabled:
             self.itemconfig(self.shape_id, image=self.shrink_image)
-            self.moveto(self.shape_id, self.shrink_offset_x,
-                        self.shrink_offset_y)
+            self.moveto(self.shape_id, self.shrink_offset_x, self.shrink_offset_y)
 
     def _on_release(self, event: tk.Event) -> None:
         if self.enabled:

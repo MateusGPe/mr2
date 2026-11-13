@@ -103,7 +103,9 @@ class AbaAlunos(ttk.Frame):
         ttk.Label(filter_frame, text="Buscar:").pack(side=LEFT, padx=(5, 3))
         self.search_aluno_var = tk.StringVar()
         self.search_aluno_var.trace_add("write", lambda *_: self._carregar_alunos())
-        self.search_entry = ttk.Entry(filter_frame, textvariable=self.search_aluno_var, width=22)
+        self.search_entry = ttk.Entry(
+            filter_frame, textvariable=self.search_aluno_var, width=22
+        )
         self.search_entry.pack(side=LEFT, padx=3)
 
         # Filtro por Turma
@@ -212,7 +214,9 @@ class AbaAlunos(ttk.Frame):
             ]
             self.alunos_table.construir_dados_tabela(dados)
         except Exception:
-            Messagebox.show_error("Erro ao carregar alunos. Verifique o console.", "Erro")
+            Messagebox.show_error(
+                "Erro ao carregar alunos. Verifique o console.", "Erro"
+            )
             traceback.print_exc()
         self._on_aluno_select()
 
@@ -276,11 +280,7 @@ class AbaAlunos(ttk.Frame):
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             ext = ".xlsx" if formato == "xlsx" else ".csv"
-            ftypes = (
-                [("Excel", "*.xlsx")]
-                if formato == "xlsx"
-                else [("CSV", "*.csv")]
-            )
+            ftypes = [("Excel", "*.xlsx")] if formato == "xlsx" else [("CSV", "*.csv")]
             filepath = filedialog.asksaveasfilename(
                 initialfile=f"export_alunos_{timestamp}",
                 defaultextension=ext,
@@ -309,6 +309,8 @@ class AbaAlunos(ttk.Frame):
                     Path(filepath), estudantes_dados=export_dados
                 )
 
-            Messagebox.show_info(f"Alunos exportados com sucesso em:\n{filepath}", "Sucesso")
+            Messagebox.show_info(
+                f"Alunos exportados com sucesso em:\n{filepath}", "Sucesso"
+            )
         except Exception as e:
             Messagebox.show_error(f"Falha ao exportar alunos: {e}", "Erro")

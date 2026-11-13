@@ -20,7 +20,12 @@ from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from gspread.exceptions import APIError, GSpreadException, SpreadsheetNotFound, WorksheetNotFound
+from gspread.exceptions import (
+    APIError,
+    GSpreadException,
+    SpreadsheetNotFound,
+    WorksheetNotFound,
+)
 from gspread.utils import ValueInputOption
 from requests.exceptions import RequestException
 
@@ -65,13 +70,19 @@ def _obter_credenciais(
                         str(caminho_credenciais), scopes=SCOPES
                     )
         except (OSError, json.JSONDecodeError, ValueError, GoogleAuthError) as e:
-            logger.debug("Credenciais em %s não são conta de serviço válida: %s", caminho_credenciais, e)
+            logger.debug(
+                "Credenciais em %s não são conta de serviço válida: %s",
+                caminho_credenciais,
+                e,
+            )
 
     # 2. Fluxo OAuth2 Desktop com token existente
     credenciais = None
     if caminho_token.exists():
         try:
-            credenciais = Credentials.from_authorized_user_file(str(caminho_token), SCOPES)
+            credenciais = Credentials.from_authorized_user_file(
+                str(caminho_token), SCOPES
+            )
         except (OSError, ValueError) as e:
             logger.debug("Token existente inválido ou ilegível: %s", e)
             credenciais = None
@@ -142,8 +153,7 @@ class GoogleSheetsService:
                 aba = self._planilha.worksheet(nome_aba)
 
             dados_existentes = {
-                _chave_identificadora_linha(row)
-                for row in aba.get_all_values()
+                _chave_identificadora_linha(row) for row in aba.get_all_values()
             }
             linhas_para_adicionar = []
             for row in linhas:
@@ -216,7 +226,9 @@ class GoogleSheetsService:
                 "mantidas": mantidas,
             }
         except (APIError, RequestException, GSpreadException) as e:
-            raise ErroAPIGoogle(f"Falha ao criar/verificar abas na planilha: {e}") from e
+            raise ErroAPIGoogle(
+                f"Falha ao criar/verificar abas na planilha: {e}"
+            ) from e
 
 
 def _formatar_cabecalho_aba(aba: gspread.Worksheet) -> None:
@@ -224,11 +236,15 @@ def _formatar_cabecalho_aba(aba: gspread.Worksheet) -> None:
     try:
         aba.freeze(rows=1)
     except (APIError, RequestException, GSpreadException) as e:
-        logger.debug("Não foi possível congelar cabeçalho da aba '%s': %s", aba.title, e)
+        logger.debug(
+            "Não foi possível congelar cabeçalho da aba '%s': %s", aba.title, e
+        )
     try:
         aba.format("1:1", {"textFormat": {"bold": True}})
     except (APIError, RequestException, GSpreadException) as e:
-        logger.debug("Não foi possível formatar cabeçalho da aba '%s': %s", aba.title, e)
+        logger.debug(
+            "Não foi possível formatar cabeçalho da aba '%s': %s", aba.title, e
+        )
 
 
 def obter_servico_planilha_padrao() -> GoogleSheetsService:
@@ -298,8 +314,7 @@ def anexar_linhas_unicas(
             criar_abas_necessarias(planilha)
             aba = planilha.worksheet(nome_aba)
         dados_existentes = {
-            _chave_identificadora_linha(row)
-            for row in aba.get_all_values()
+            _chave_identificadora_linha(row) for row in aba.get_all_values()
         }
         linhas_unicas_para_adicionar = []
         for row in linhas:
@@ -335,4 +350,3 @@ def criar_abas_necessarias(
 
     wrapper = _WrapperServico(planilha)
     return GoogleSheetsService.criar_abas_necessarias(wrapper, estrutura)  # type: ignore
-

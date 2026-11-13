@@ -52,7 +52,12 @@ def mock_fachada():
         "consumos_total": 500,
         "distribuicao_pratos": {"Almoço": 25, "Vegetariano": 5},
         "distribuicao_turmas": [
-            {"turma": "1INFO", "total_alunos": 25, "reservas_hoje": 10, "consumos_hoje": 8}
+            {
+                "turma": "1INFO",
+                "total_alunos": 25,
+                "reservas_hoje": 10,
+                "consumos_hoje": 8,
+            }
         ],
     }
     fachada.id_sessao_ativa = 1
@@ -69,10 +74,12 @@ def test_dialogo_sessao_inicializacao(app_root, mock_fachada):
     """Testa a instanciação do DialogoSessao e sua integração básica de opções e grade."""
     app_root.get_fachada = MagicMock(return_value=mock_fachada)
 
-    with patch.object(DialogoSessao, "grab_set"), \
-         patch.object(DialogoSessao, "transient"), \
-         patch.object(DialogoSessao, "deiconify"), \
-         patch.object(DialogoSessao, "_centralizar_janela"):
+    with (
+        patch.object(DialogoSessao, "grab_set"),
+        patch.object(DialogoSessao, "transient"),
+        patch.object(DialogoSessao, "deiconify"),
+        patch.object(DialogoSessao, "_centralizar_janela"),
+    ):
         dialogo = DialogoSessao(
             title="Teste Sessão",
             callback=lambda res: True,
@@ -93,9 +100,11 @@ def test_dialogo_sessao_inicializacao(app_root, mock_fachada):
 
 def test_dialogo_filtro_turmas_inicializacao(app_root, mock_fachada):
     """Testa a instanciação do DialogoFiltroTurmas."""
-    with patch.object(DialogoFiltroTurmas, "grab_set"), \
-         patch.object(DialogoFiltroTurmas, "transient"), \
-         patch.object(DialogoFiltroTurmas, "deiconify"):
+    with (
+        patch.object(DialogoFiltroTurmas, "grab_set"),
+        patch.object(DialogoFiltroTurmas, "transient"),
+        patch.object(DialogoFiltroTurmas, "deiconify"),
+    ):
         dialogo = DialogoFiltroTurmas(
             parent=app_root,
             fachada_nucleo=mock_fachada,
@@ -116,7 +125,9 @@ def test_painel_acao_busca_inicializacao(app_root, mock_fachada):
 def test_painel_status_registrados_inicializacao(app_root, mock_fachada):
     """Testa a instanciação do PainelStatusRegistrados."""
     app_root.colors = {}
-    painel = PainelStatusRegistrados(master=app_root, app=app_root, fachada_nucleo=mock_fachada)
+    painel = PainelStatusRegistrados(
+        master=app_root, app=app_root, fachada_nucleo=mock_fachada
+    )
     assert painel is not None
     painel.destroy()
 
@@ -204,7 +215,14 @@ def test_autoatendimento_dashboard_e_consumos(app_root, mock_fachada):
     from registro.gui.autoatendimento.app import AbaDashboard as AbaDashAuto
 
     mock_fachada.obter_estudantes_para_sessao.return_value = [
-        {"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "hora_consumo": "12:05", "prato": "Almoço", "id_consumo": 1}
+        {
+            "pront": "IQ30001",
+            "nome": "Aluno Teste",
+            "turma": "1INFO",
+            "hora_consumo": "12:05",
+            "prato": "Almoço",
+            "id_consumo": 1,
+        }
     ]
     mock_fachada.obter_estatisticas_sessao.return_value = {
         "id_sessao": 1,
@@ -270,31 +288,50 @@ def test_dialogos_autoatendimento_smoke(app_root, mock_fachada):
         {"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "prato": "Almoço"}
     ]
 
-    with patch.object(DialogoNovoConsumo, "wait_window"), \
-         patch.object(DialogoNovoConsumo, "grab_set"), \
-         patch.object(DialogoNovoConsumo, "transient"):
+    with (
+        patch.object(DialogoNovoConsumo, "wait_window"),
+        patch.object(DialogoNovoConsumo, "grab_set"),
+        patch.object(DialogoNovoConsumo, "transient"),
+    ):
         diag_novo = DialogoNovoConsumo(parent=app_root, fachada=mock_fachada)
         assert diag_novo is not None
         diag_novo.destroy()
 
-    with patch.object(DialogoEditarConsumo, "wait_window"), \
-         patch.object(DialogoEditarConsumo, "grab_set"), \
-         patch.object(DialogoEditarConsumo, "transient"):
+    with (
+        patch.object(DialogoEditarConsumo, "wait_window"),
+        patch.object(DialogoEditarConsumo, "grab_set"),
+        patch.object(DialogoEditarConsumo, "transient"),
+    ):
         diag_edit = DialogoEditarConsumo(
             parent=app_root,
             fachada=mock_fachada,
             id_consumo=1,
-            dados_consumo={"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "hora_consumo": "12:00", "prato": "Almoço"},
+            dados_consumo={
+                "pront": "IQ30001",
+                "nome": "Aluno Teste",
+                "turma": "1INFO",
+                "hora_consumo": "12:00",
+                "prato": "Almoço",
+            },
         )
         assert diag_edit is not None
         diag_edit.destroy()
 
-    with patch.object(DialogoDetalhesConsumo, "wait_window"), \
-         patch.object(DialogoDetalhesConsumo, "grab_set"), \
-         patch.object(DialogoDetalhesConsumo, "transient"):
+    with (
+        patch.object(DialogoDetalhesConsumo, "wait_window"),
+        patch.object(DialogoDetalhesConsumo, "grab_set"),
+        patch.object(DialogoDetalhesConsumo, "transient"),
+    ):
         diag_det = DialogoDetalhesConsumo(
             parent=app_root,
-            dados_consumo={"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "hora_consumo": "12:00", "prato": "Almoço", "id_consumo": 1},
+            dados_consumo={
+                "pront": "IQ30001",
+                "nome": "Aluno Teste",
+                "turma": "1INFO",
+                "hora_consumo": "12:00",
+                "prato": "Almoço",
+                "id_consumo": 1,
+            },
         )
         assert diag_det is not None
         diag_det.destroy()
@@ -315,6 +352,3 @@ def test_frame_self_service_totem_smoke(app_root, mock_fachada):
         assert frame_totem.formatar_matricula("1234") == "IQ3001234"
         frame_totem.stop()
         frame_totem.destroy()
-
-
-

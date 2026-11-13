@@ -165,9 +165,7 @@ class AbaDashboard(ttk.Frame):
         self.lbl_restantes_sub.pack(anchor="center")
 
         # 3. Taxa de Adesão
-        card_adesao = ttk.Frame(
-            frame_kpis, bootstyle="success", padding=(12, 12)
-        )
+        card_adesao = ttk.Frame(frame_kpis, bootstyle="success", padding=(12, 12))
         card_adesao.grid(row=0, column=2, sticky="nsew", padx=4)
         ttk.Label(
             card_adesao,
@@ -219,9 +217,7 @@ class AbaDashboard(ttk.Frame):
         self.lbl_reserva_sub.pack(anchor="center")
 
         # 5. Último Atendimento
-        card_ultimo = ttk.Frame(
-            frame_kpis, bootstyle="secondary", padding=(12, 12)
-        )
+        card_ultimo = ttk.Frame(frame_kpis, bootstyle="secondary", padding=(12, 12))
         card_ultimo.grid(row=0, column=4, sticky="nsew", padx=4)
         ttk.Label(
             card_ultimo,
@@ -349,15 +345,9 @@ class AbaDashboard(ttk.Frame):
         self.id_sessao = id_sessao
         self.atualizar_dados()
 
-    def atualizar_dados(
-        self, ultimo_consumo: Optional[Tuple[str, ...]] = None
-    ):
+    def atualizar_dados(self, ultimo_consumo: Optional[Tuple[str, ...]] = None):
         """Calcula e atualiza os contadores, gráficos e distribuições no dashboard."""
-        if (
-            not self.id_sessao
-            or not self.fachada
-            or not self.fachada.id_sessao_ativa
-        ):
+        if not self.id_sessao or not self.fachada or not self.fachada.id_sessao_ativa:
             self.lbl_total_consumos.config(text="0")
             self.lbl_restantes.config(text="0")
             self.lbl_adesao.config(text="0%")
@@ -366,9 +356,7 @@ class AbaDashboard(ttk.Frame):
             self.lbl_reserva_info.config(text="0 / 0")
             self.lbl_ultimo_consumo_nome.config(text="Sem Sessão")
             self.lbl_ultimo_consumo_hora.config(text="")
-            self.lbl_info_sessao.config(
-                text="⚠️ Nenhuma sessão ativa no momento."
-            )
+            self.lbl_info_sessao.config(text="⚠️ Nenhuma sessão ativa no momento.")
             self._limpar_paineis_analiticos()
             return
 
@@ -376,18 +364,12 @@ class AbaDashboard(ttk.Frame):
             stats = None
             if hasattr(self.fachada, "obter_estatisticas_sessao"):
                 try:
-                    stats = self.fachada.obter_estatisticas_sessao(
-                        self.id_sessao
-                    )
+                    stats = self.fachada.obter_estatisticas_sessao(self.id_sessao)
                 except Exception as ex_stats:
-                    logger.debug(
-                        "Falha em obter_estatisticas_sessao: %s", ex_stats
-                    )
+                    logger.debug("Falha em obter_estatisticas_sessao: %s", ex_stats)
 
             if not stats:
-                consumidos = self.fachada.obter_estudantes_para_sessao(
-                    consumido=True
-                )
+                consumidos = self.fachada.obter_estudantes_para_sessao(consumido=True)
                 stats = {
                     "total_consumidos": len(consumidos),
                     "total_restantes": 0,
@@ -426,26 +408,18 @@ class AbaDashboard(ttk.Frame):
             self.lbl_esperados.config(text=info_esp)
             self.lbl_reserva_info.config(text=f"{c_res} / {s_res}")
             pct_res = (
-                f"{(c_res / tot_cons * 100):.0f}% com reserva"
-                if tot_cons > 0
-                else "--"
+                f"{(c_res / tot_cons * 100):.0f}% com reserva" if tot_cons > 0 else "--"
             )
             self.lbl_reserva_sub.config(text=pct_res)
 
             # Último consumo
             if ultimo_consumo and len(ultimo_consumo) >= 4:
-                self.lbl_ultimo_consumo_nome.config(
-                    text=str(ultimo_consumo[1])
-                )
-                self.lbl_ultimo_consumo_hora.config(
-                    text=f"às {ultimo_consumo[3]}"
-                )
+                self.lbl_ultimo_consumo_nome.config(text=str(ultimo_consumo[1]))
+                self.lbl_ultimo_consumo_hora.config(text=f"às {ultimo_consumo[3]}")
             else:
                 uc = stats.get("ultimo_consumo")
                 if uc:
-                    self.lbl_ultimo_consumo_nome.config(
-                        text=str(uc.get("nome", "--"))
-                    )
+                    self.lbl_ultimo_consumo_nome.config(text=str(uc.get("nome", "--")))
                     self.lbl_ultimo_consumo_hora.config(
                         text=f"às {uc.get('hora_consumo', '')}"
                     )
@@ -487,9 +461,7 @@ class AbaDashboard(ttk.Frame):
         for widget in self.frame_lista_faixas.winfo_children():
             widget.destroy()
 
-    def _atualizar_painel_pratos(
-        self, dist_pratos: Dict[str, int], total: int
-    ):
+    def _atualizar_painel_pratos(self, dist_pratos: Dict[str, int], total: int):
         for widget in self.frame_lista_pratos.winfo_children():
             widget.destroy()
 
@@ -516,9 +488,7 @@ class AbaDashboard(ttk.Frame):
                 anchor="w",
             ).grid(row=0, column=0, sticky="w")
 
-            prog = ttk.Progressbar(
-                frame_item, value=pct, maximum=100, bootstyle="info"
-            )
+            prog = ttk.Progressbar(frame_item, value=pct, maximum=100, bootstyle="info")
             prog.grid(row=0, column=1, sticky="ew", padx=6)
 
             ttk.Label(
@@ -529,9 +499,7 @@ class AbaDashboard(ttk.Frame):
                 anchor="e",
             ).grid(row=0, column=2, sticky="e")
 
-    def _atualizar_painel_turmas(
-        self, dist_turmas: Dict[str, int], _total: int
-    ):
+    def _atualizar_painel_turmas(self, dist_turmas: Dict[str, int], _total: int):
         for widget in self.frame_lista_turmas.winfo_children():
             widget.destroy()
 
@@ -581,9 +549,7 @@ class AbaDashboard(ttk.Frame):
                 text=f"🔥 Horário de Pico: {pico[0]} ({pico[1]} refeições)"
             )
         else:
-            self.lbl_pico_horario.config(
-                text="🔥 Horário de Pico: Em cálculo..."
-            )
+            self.lbl_pico_horario.config(text="🔥 Horário de Pico: Em cálculo...")
 
         vel = stats.get("velocidade_por_minuto", 0.0)
         self.lbl_velocidade.config(

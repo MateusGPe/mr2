@@ -19,7 +19,9 @@ from registro.nucleo.utils import rollback_seguro
 def test_criar_grupo_sucesso_e_validacoes(db_session):
     repo = RepositorioGrupo(db_session)
 
-    criado = grupo_service.criar_grupo(repo, "  1º A - INF  ", ativo=True, tipo=TIPO_GRUPO_TURMA)
+    criado = grupo_service.criar_grupo(
+        repo, "  1º A - INF  ", ativo=True, tipo=TIPO_GRUPO_TURMA
+    )
     assert criado["nome"] == "1º A - INF"
     assert criado["tipo"] == TIPO_GRUPO_TURMA
     assert criado["ativo"] is True
@@ -51,7 +53,9 @@ def test_atualizar_grupo(db_session):
         grupo_service.atualizar_grupo(repo, g1["id"], {"nome": "Turma 2"})
 
     ok = grupo_service.atualizar_grupo(
-        repo, g1["id"], {"nome": "Turma 1B", "tipo": TIPO_GRUPO_CATEGORIA, "ativo": False}
+        repo,
+        g1["id"],
+        {"nome": "Turma 1B", "tipo": TIPO_GRUPO_CATEGORIA, "ativo": False},
     )
     assert ok is True
     atualizado = repo.ler_um(g1["id"])
@@ -86,7 +90,9 @@ def test_listar_turmas_detalhadas_filtros(db_session, criar_grupo, criar_estudan
     todas = grupo_service.listar_turmas_detalhadas(repo)
     assert len(todas) == 2
 
-    apenas_mec = grupo_service.listar_turmas_detalhadas(repo, termo_busca="MEC", tipo=TIPO_GRUPO_TURMA)
+    apenas_mec = grupo_service.listar_turmas_detalhadas(
+        repo, termo_busca="MEC", tipo=TIPO_GRUPO_TURMA
+    )
     assert len(apenas_mec) == 1
     assert apenas_mec[0]["nome"] == "1º A - MEC"
     assert apenas_mec[0]["total_alunos"] == 1

@@ -12,7 +12,9 @@ from registro.nucleo.importar.service import ServicoImportacao
 from registro.nucleo.importar.strategies import CarregarCSVComCabecalho
 
 
-def test_servico_importacao_preparar_arquivo_vazio(facade: FachadaRegistro, tmp_path: Path):
+def test_servico_importacao_preparar_arquivo_vazio(
+    facade: FachadaRegistro, tmp_path: Path
+):
     """Arquivo vazio ou sem dados válidos deve lançar ErroImportacaoDados."""
     arquivo_vazio = tmp_path / "vazio.csv"
     arquivo_vazio.write_text("", encoding="utf-8")
@@ -26,13 +28,14 @@ def test_servico_importacao_ciclo_completo(facade: FachadaRegistro, tmp_path: Pa
     """Executa preparar_importacao, simular e finalizar_importacao."""
     csv_file = tmp_path / "importacao.csv"
     csv_file.write_text(
-        "Matrícula,Nome,Turma,Data,Refeição\n"
-        "IQ3007001,Lucas Silva,1º A - MEC,21/10/2026,Almoço\n",
+        "Matrícula,Nome,Turma,Data,Refeição\nIQ3007001,Lucas Silva,1º A - MEC,21/10/2026,Almoço\n",
         encoding="utf-8",
     )
 
     servico = ServicoImportacao(facade)
-    resultado_prep = servico.preparar_importacao(CarregarCSVComCabecalho(), str(csv_file))
+    resultado_prep = servico.preparar_importacao(
+        CarregarCSVComCabecalho(), str(csv_file)
+    )
 
     assert "resumo" in resultado_prep
     assert resultado_prep["resumo"]["total_linhas"] == 1
@@ -70,17 +73,32 @@ def test_servico_importacao_resolucoes_vincular_e_ignorar(
         # 1. Decisão IGNORAR
         {
             "id_temp": 1,
-            "dados_csv": {"prontuario": "IQ9999991", "nome": "Ignorado", "data": "21/10/2026"},
+            "dados_csv": {
+                "prontuario": "IQ9999991",
+                "nome": "Ignorado",
+                "data": "21/10/2026",
+            },
             "resolucao_escolhida": "IGNORAR",
             "id_estudante_vinculo": None,
         },
         # 2. Decisão VINCULAR a estudante existente
         {
             "id_temp": 2,
-            "dados_csv": {"prontuario": "IQ3008888", "nome": "Aluno Grafia Errada", "data": "21/10/2026", "prato": "Padrão"},
+            "dados_csv": {
+                "prontuario": "IQ3008888",
+                "nome": "Aluno Grafia Errada",
+                "data": "21/10/2026",
+                "prato": "Padrão",
+            },
             "resolucao_escolhida": "VINCULAR",
             "id_estudante_vinculo": aluno_existente.id,
-            "candidatos": [{"id": aluno_existente.id, "nome": aluno_existente.nome, "prontuario": aluno_existente.prontuario}],
+            "candidatos": [
+                {
+                    "id": aluno_existente.id,
+                    "nome": aluno_existente.nome,
+                    "prontuario": aluno_existente.prontuario,
+                }
+            ],
         },
         # 3. Item sem data (deve ser ignorado na criação de reservas)
         {
@@ -96,7 +114,7 @@ def test_servico_importacao_resolucoes_vincular_e_ignorar(
         itens_revisao, valores_padrao={"data": "21/10/2026", "prato": "Vegetariano"}
     )
     assert len(simulacao["novos_estudantes"]) == 1  # O item 3 é novo estudante
-    assert len(simulacao["reservas"]) == 2          # Itens 2 e 3 têm data preenchida
+    assert len(simulacao["reservas"]) == 2  # Itens 2 e 3 têm data preenchida
 
     # Finalizar
     res = servico.finalizar_importacao(itens_revisao)
@@ -106,4 +124,3 @@ def test_servico_importacao_resolucoes_vincular_e_ignorar(
     reservas = facade.repo_reserva.ler_filtrado(estudante_id=aluno_existente.id)
     assert len(reservas) == 1
     assert reservas[0].data == "21/10/2026"
-

@@ -174,7 +174,9 @@ class StudentDialog(ttk.Toplevel):
         try:
             grupos = self.fachada.listar_todos_os_grupos()
             turmas = sorted(
-                g["nome"] for g in grupos if g.get("tipo", TIPO_GRUPO_TURMA) != TIPO_GRUPO_CATEGORIA
+                g["nome"]
+                for g in grupos
+                if g.get("tipo", TIPO_GRUPO_TURMA) != TIPO_GRUPO_CATEGORIA
             )
             categorias = sorted(
                 g["nome"] for g in grupos if g.get("tipo") == TIPO_GRUPO_CATEGORIA
@@ -211,10 +213,18 @@ class StudentDialog(ttk.Toplevel):
             self.nome_entry.insert(0, student_data.nome)
             self.prontuario_entry.insert(0, student_data.prontuario)
             self.prontuario_entry.config(state="readonly")
-            self.var_ativo.set(bool(student_data.ativo) if student_data.ativo is not None else True)
+            self.var_ativo.set(
+                bool(student_data.ativo) if student_data.ativo is not None else True
+            )
 
-            turmas_est = [g.nome for g in student_data.grupos if not getattr(g, "eh_categoria", False)]
-            cats_est = [g.nome for g in student_data.grupos if getattr(g, "eh_categoria", False)]
+            turmas_est = [
+                g.nome
+                for g in student_data.grupos
+                if not getattr(g, "eh_categoria", False)
+            ]
+            cats_est = [
+                g.nome for g in student_data.grupos if getattr(g, "eh_categoria", False)
+            ]
 
             if turmas_est:
                 self.grupo_combobox.set(turmas_est[0])
@@ -233,7 +243,11 @@ class StudentDialog(ttk.Toplevel):
         nome = self.nome_entry.get().strip()
         prontuario = self.prontuario_entry.get().strip()
         grupo_selecionado = self.grupo_combobox.get()
-        grupos = [grupo_selecionado] if grupo_selecionado and grupo_selecionado != "(Nenhuma)" else []
+        grupos = (
+            [grupo_selecionado]
+            if grupo_selecionado and grupo_selecionado != "(Nenhuma)"
+            else []
+        )
         categorias = (
             self.seletor_categorias.obter_selecionadas()
             if self.seletor_categorias
@@ -265,7 +279,8 @@ class StudentDialog(ttk.Toplevel):
             Messagebox.show_error(str(e), "Erro ao Salvar")
         except Exception:
             Messagebox.show_error(
-                "Ocorreu um erro ao salvar o aluno. Verifique o console.", "Erro Crítico"
+                "Ocorreu um erro ao salvar o aluno. Verifique o console.",
+                "Erro Crítico",
             )
             traceback.print_exc()
 
@@ -375,7 +390,9 @@ class TurmaDialog(ttk.Toplevel):
         )
 
         if not nome:
-            Messagebox.show_warning("O nome da turma/categoria é obrigatório.", "Validação")
+            Messagebox.show_warning(
+                "O nome da turma/categoria é obrigatório.", "Validação"
+            )
             return
 
         try:
@@ -398,7 +415,9 @@ class TurmaDialog(ttk.Toplevel):
 
 
 class VincularAlunoDialog(ttk.Toplevel):
-    def __init__(self, parent, fachada: FachadaRegistro, turma_id: int, nome_turma: str):
+    def __init__(
+        self, parent, fachada: FachadaRegistro, turma_id: int, nome_turma: str
+    ):
         super().__init__(parent)
         self.transient(parent)
         self.grab_set()
@@ -451,9 +470,9 @@ class VincularAlunoDialog(ttk.Toplevel):
         btn_frame = ttk.Frame(main_frame)
         btn_frame.grid(row=2, column=0, sticky=EW, pady=(10, 0))
 
-        ttk.Button(btn_frame, text="Fechar", command=self.destroy, bootstyle="outline").pack(
-            side=LEFT
-        )
+        ttk.Button(
+            btn_frame, text="Fechar", command=self.destroy, bootstyle="outline"
+        ).pack(side=LEFT)
         ttk.Button(
             btn_frame,
             text="Vincular Aluno Selecionado",
@@ -568,7 +587,9 @@ class ReservaDialog(ttk.Toplevel):
 
         turnos_frame = ttk.Frame(form_frame)
         turnos_frame.grid(row=4, column=0, columnspan=2, sticky=EW, pady=(2, 8))
-        ttk.Label(turnos_frame, text="Refeições:", anchor=W).pack(side=LEFT, padx=(0, 10))
+        ttk.Label(turnos_frame, text="Refeições:", anchor=W).pack(
+            side=LEFT, padx=(0, 10)
+        )
         self.almoco_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(
             turnos_frame,
@@ -826,10 +847,7 @@ class SessionDialog(ttk.Toplevel):
             sessoes_formatadas = []
             self.sessoes_map = {}
             for sessao in sorted(sessoes, key=lambda s: s["id"], reverse=True):
-                texto = (
-                    f"ID {sessao['id']}: {sessao['data']} {sessao['hora']} - "
-                    f"{sessao['refeicao'].capitalize()}"
-                )
+                texto = f"ID {sessao['id']}: {sessao['data']} {sessao['hora']} - {sessao['refeicao'].capitalize()}"
                 sessoes_formatadas.append(texto)
                 self.sessoes_map[texto] = sessao["id"]
 

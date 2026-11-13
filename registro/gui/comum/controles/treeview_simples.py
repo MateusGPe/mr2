@@ -65,7 +65,6 @@ class TreeviewSimples:
         self._ultimo_tags_hover: Union[Tuple[str, ...], Literal[""]] = ""
         self.style_config: Dict[str, str] = {}
 
-
         self.frame = ttk.Frame(
             master, borderwidth=0, padding=(4, 1, 4, 4), bootstyle=header_bootstyle
         )
@@ -81,7 +80,6 @@ class TreeviewSimples:
         )
         self.view.grid(row=0, column=0, sticky="nsew")
 
-
         self._create_and_apply_style(style_overrides or {})
 
         self.sb_v = ttk.Scrollbar(self.frame, orient=VERTICAL, command=self.view.yview)
@@ -93,7 +91,6 @@ class TreeviewSimples:
             xscrollcommand=self._autohide_scrollbar_h,
         )
         self._configurar_colunas()
-
 
         if enable_sorting:
             self.configurar_ordenacao()
@@ -107,10 +104,8 @@ class TreeviewSimples:
         style = ttkb.Style.get_instance()
         unique_id = self.view.winfo_id()
 
-
         body_style_name = f"tv_s_body_{unique_id}.Treeview"
         heading_style_name = f"{body_style_name}.Heading"
-
 
         style.configure(
             body_style_name,
@@ -119,7 +114,6 @@ class TreeviewSimples:
             borderwidth=0,
             highlightthickness=0,
         )
-
 
         try:
             colors: Colors = cast(Colors, style.colors)
@@ -135,7 +129,6 @@ class TreeviewSimples:
                 foreground=header_fg,
             )
 
-
             hover_color = Colors.update_hsv(header_bg, vd=0.15)
             press_color = Colors.update_hsv(header_bg, vd=-0.15)
             style.map(
@@ -150,9 +143,7 @@ class TreeviewSimples:
                 "Não foi possível aplicar estilos de cabeçalho ttkbootstrap."
             )
 
-
         self._setup_tag_styles(overrides)
-
 
         self.view.configure(style=body_style_name)
 

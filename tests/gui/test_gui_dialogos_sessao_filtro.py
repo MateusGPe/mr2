@@ -56,11 +56,12 @@ def test_dialogo_filtro_turmas_acoes_botoes(app_root, ambiente_gui, mock_message
     def ao_aplicar(selecionados):
         callback_chamado.append(selecionados)
 
-    with patch.object(DialogoFiltroTurmas, "grab_set"), \
-         patch.object(DialogoFiltroTurmas, "transient"), \
-         patch.object(DialogoFiltroTurmas, "deiconify"), \
-         patch.object(DialogoFiltroTurmas, "_centralizar_janela"):
-
+    with (
+        patch.object(DialogoFiltroTurmas, "grab_set"),
+        patch.object(DialogoFiltroTurmas, "transient"),
+        patch.object(DialogoFiltroTurmas, "deiconify"),
+        patch.object(DialogoFiltroTurmas, "_centralizar_janela"),
+    ):
         dialogo = DialogoFiltroTurmas(
             parent=app_root,
             fachada_nucleo=facade,
@@ -69,7 +70,9 @@ def test_dialogo_filtro_turmas_acoes_botoes(app_root, ambiente_gui, mock_message
         app_root.update()
 
         # 1. Verifica estado inicial: 1º BEM e 2º BEM devem estar marcados
-        marcados_inicial = {ident for ident, var, _ in dialogo._dados_checkbox if var.get()}
+        marcados_inicial = {
+            ident for ident, var, _ in dialogo._dados_checkbox if var.get()
+        }
         assert "1º BEM" in marcados_inicial
         assert "2º BEM" in marcados_inicial
 
@@ -81,7 +84,11 @@ def test_dialogo_filtro_turmas_acoes_botoes(app_root, ambiente_gui, mock_message
         # 3. Clicar em "✅ Marcar Todas"
         dialogo._ao_marcar_todas()
         app_root.update()
-        marcados_todos = {ident for ident, var, _ in dialogo._dados_checkbox if var.get() and not ident.startswith("#")}
+        marcados_todos = {
+            ident
+            for ident, var, _ in dialogo._dados_checkbox
+            if var.get() and not ident.startswith("#")
+        }
         assert "1º BEM" in marcados_todos
         assert "1º MEC" in marcados_todos
 
@@ -89,13 +96,19 @@ def test_dialogo_filtro_turmas_acoes_botoes(app_root, ambiente_gui, mock_message
         dialogo._ao_inverter_selecoes()
         app_root.update()
         # As turmas com reserva que estavam True agora devem ser False
-        assert all(not var.get() for ident, var, _ in dialogo._dados_checkbox if not ident.startswith("#"))
+        assert all(
+            not var.get()
+            for ident, var, _ in dialogo._dados_checkbox
+            if not ident.startswith("#")
+        )
 
         # 5. Fechar diálogo
         dialogo.destroy()
 
 
-def test_dialogo_filtro_turmas_grade_do_dia_com_e_sem_previsao(app_root, ambiente_gui, mock_messagebox, tmp_path, monkeypatch):
+def test_dialogo_filtro_turmas_grade_do_dia_com_e_sem_previsao(
+    app_root, ambiente_gui, mock_messagebox, tmp_path, monkeypatch
+):
     """Testa o botão '🕒 Grade do Dia' quando há e quando não há turmas na grade."""
     facade = ambiente_gui["facade"]
     caminho_grade = tmp_path / "grade_gui.json"
@@ -109,13 +122,16 @@ def test_dialogo_filtro_turmas_grade_do_dia_com_e_sem_previsao(app_root, ambient
     grade_horarios_service.salvar_grade_horarios(grade, caminho_grade)
 
     monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda"
+    )
 
-    with patch.object(DialogoFiltroTurmas, "grab_set"), \
-         patch.object(DialogoFiltroTurmas, "transient"), \
-         patch.object(DialogoFiltroTurmas, "deiconify"), \
-         patch.object(DialogoFiltroTurmas, "_centralizar_janela"):
-
+    with (
+        patch.object(DialogoFiltroTurmas, "grab_set"),
+        patch.object(DialogoFiltroTurmas, "transient"),
+        patch.object(DialogoFiltroTurmas, "deiconify"),
+        patch.object(DialogoFiltroTurmas, "_centralizar_janela"),
+    ):
         dialogo = DialogoFiltroTurmas(
             parent=app_root,
             fachada_nucleo=facade,
@@ -127,35 +143,45 @@ def test_dialogo_filtro_turmas_grade_do_dia_com_e_sem_previsao(app_root, ambient
         dialogo._ao_selecionar_grade()
         app_root.update()
 
-        marcados = {ident for ident, var, _ in dialogo._dados_checkbox if var.get() and not ident.startswith("#")}
+        marcados = {
+            ident
+            for ident, var, _ in dialogo._dados_checkbox
+            if var.get() and not ident.startswith("#")
+        }
         assert marcados == {"1º BEM"}
 
         # Agora simula dia sem previsão (ex: domingo)
-        monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "domingo")
+        monkeypatch.setattr(
+            grade_horarios_service, "obter_dia_semana_atual", lambda: "domingo"
+        )
         dialogo._ao_selecionar_grade()
         app_root.update()
 
         # Deve disparar aviso via Messagebox
         assert len(mock_messagebox.info_calls) > 0
         assert any(
-            "Nenhuma turma prevista" in call["message"] or "Nenhuma turma prevista" in call["title"]
+            "Nenhuma turma prevista" in call["message"]
+            or "Nenhuma turma prevista" in call["title"]
             for call in mock_messagebox.info_calls
         )
 
         dialogo.destroy()
 
 
-def test_dialogo_filtro_turmas_aplicar_categoria_e_turmas(app_root, ambiente_gui, mock_messagebox):
+def test_dialogo_filtro_turmas_aplicar_categoria_e_turmas(
+    app_root, ambiente_gui, mock_messagebox
+):
     """Testa a aplicação de filtros selecionando turmas e categorias separadas na mesma lista."""
     facade = ambiente_gui["facade"]
     facade.criar_grupo("PAP", tipo="categoria")
     aplicados = []
 
-    with patch.object(DialogoFiltroTurmas, "grab_set"), \
-         patch.object(DialogoFiltroTurmas, "transient"), \
-         patch.object(DialogoFiltroTurmas, "deiconify"), \
-         patch.object(DialogoFiltroTurmas, "_centralizar_janela"):
-
+    with (
+        patch.object(DialogoFiltroTurmas, "grab_set"),
+        patch.object(DialogoFiltroTurmas, "transient"),
+        patch.object(DialogoFiltroTurmas, "deiconify"),
+        patch.object(DialogoFiltroTurmas, "_centralizar_janela"),
+    ):
         dialogo = DialogoFiltroTurmas(
             parent=app_root,
             fachada_nucleo=facade,
@@ -179,7 +205,9 @@ def test_dialogo_filtro_turmas_aplicar_categoria_e_turmas(app_root, ambiente_gui
         assert "PAP" in aplicados[0]
 
 
-def test_dialogo_filtro_turmas_horario_livre(app_root, ambiente_gui, mock_messagebox, tmp_path, monkeypatch):
+def test_dialogo_filtro_turmas_horario_livre(
+    app_root, ambiente_gui, mock_messagebox, tmp_path, monkeypatch
+):
     """Testa a ativação e persistência da opção Horário Livre via DialogoFiltroTurmas."""
     import registro.nucleo.constants as constants
 
@@ -187,11 +215,12 @@ def test_dialogo_filtro_turmas_horario_livre(app_root, ambiente_gui, mock_messag
     facade = ambiente_gui["facade"]
     assert facade.ignorar_horario_grade is False
 
-    with patch.object(DialogoFiltroTurmas, "grab_set"), \
-         patch.object(DialogoFiltroTurmas, "transient"), \
-         patch.object(DialogoFiltroTurmas, "deiconify"), \
-         patch.object(DialogoFiltroTurmas, "_centralizar_janela"):
-
+    with (
+        patch.object(DialogoFiltroTurmas, "grab_set"),
+        patch.object(DialogoFiltroTurmas, "transient"),
+        patch.object(DialogoFiltroTurmas, "deiconify"),
+        patch.object(DialogoFiltroTurmas, "_centralizar_janela"),
+    ):
         dialogo = DialogoFiltroTurmas(
             parent=app_root,
             fachada_nucleo=facade,
@@ -217,11 +246,12 @@ def test_dialogo_sessao_editar_sessao_ativa(app_root, ambiente_gui, mock_message
     facade = ambiente_gui["facade"]
     app_root.fachada_nucleo = facade
 
-    with patch.object(DialogoSessao, "grab_set"), \
-         patch.object(DialogoSessao, "transient"), \
-         patch.object(DialogoSessao, "deiconify"), \
-         patch.object(DialogoSessao, "_centralizar_janela"):
-
+    with (
+        patch.object(DialogoSessao, "grab_set"),
+        patch.object(DialogoSessao, "transient"),
+        patch.object(DialogoSessao, "deiconify"),
+        patch.object(DialogoSessao, "_centralizar_janela"),
+    ):
         dialogo = DialogoSessao(
             title="Sessão",
             callback=lambda sid: True,
@@ -241,7 +271,10 @@ def test_dialogo_sessao_editar_sessao_ativa(app_root, ambiente_gui, mock_message
         dialogo._processar_editar_sessao()
         app_root.update()
         assert len(mock_messagebox.warning_calls) > 0
-        assert any("Selecione pelo menos uma turma" in str(c) for c in mock_messagebox.warning_calls)
+        assert any(
+            "Selecione pelo menos uma turma" in str(c)
+            for c in mock_messagebox.warning_calls
+        )
 
         # 4. Seleciona apenas 2º BEM e salva
         for nome, var, _ in dialogo._dados_checkbox_turmas_editar:
@@ -269,22 +302,35 @@ def test_grade_do_dia_com_coringa_seleciona_todas_turmas_e_categorias(
     grade = {
         "terca": {
             "almoco": [
-                {"inicio": "11:30", "fim": "13:30", "turmas": ["*"], "categorias": ["*"]}
+                {
+                    "inicio": "11:30",
+                    "fim": "13:30",
+                    "turmas": ["*"],
+                    "categorias": ["*"],
+                }
             ],
             "lanche": [
-                {"inicio": "09:30", "fim": "10:00", "turmas": ["*"], "categorias": ["*"]}
+                {
+                    "inicio": "09:30",
+                    "fim": "10:00",
+                    "turmas": ["*"],
+                    "categorias": ["*"],
+                }
             ],
         }
     }
     grade_horarios_service.salvar_grade_horarios(grade, caminho_grade)
     monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "terca")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "terca"
+    )
 
-    with patch.object(DialogoFiltroTurmas, "grab_set"), \
-         patch.object(DialogoFiltroTurmas, "transient"), \
-         patch.object(DialogoFiltroTurmas, "deiconify"), \
-         patch.object(DialogoFiltroTurmas, "_centralizar_janela"):
-
+    with (
+        patch.object(DialogoFiltroTurmas, "grab_set"),
+        patch.object(DialogoFiltroTurmas, "transient"),
+        patch.object(DialogoFiltroTurmas, "deiconify"),
+        patch.object(DialogoFiltroTurmas, "_centralizar_janela"),
+    ):
         dialogo_filtro = DialogoFiltroTurmas(
             parent=app_root,
             fachada_nucleo=facade,
@@ -305,11 +351,12 @@ def test_grade_do_dia_com_coringa_seleciona_todas_turmas_e_categorias(
         assert {"1º BEM", "2º BEM", "1º MEC", "PAP"}.issubset(marcados_filtro)
         dialogo_filtro.destroy()
 
-    with patch.object(DialogoSessao, "grab_set"), \
-         patch.object(DialogoSessao, "transient"), \
-         patch.object(DialogoSessao, "deiconify"), \
-         patch.object(DialogoSessao, "_centralizar_janela"):
-
+    with (
+        patch.object(DialogoSessao, "grab_set"),
+        patch.object(DialogoSessao, "transient"),
+        patch.object(DialogoSessao, "deiconify"),
+        patch.object(DialogoSessao, "_centralizar_janela"),
+    ):
         dialogo_sessao = DialogoSessao(
             title="Sessão",
             callback=lambda sid: True,
@@ -342,20 +389,33 @@ def test_dialogo_sessao_slots_grade_busca_e_horario_livre(
     grade = {
         "quarta": {
             "almoco": [
-                {"inicio": "11:30", "fim": "12:00", "turmas": ["1º BEM"], "categorias": []},
-                {"inicio": "12:00", "fim": "12:30", "turmas": ["1º MEC"], "categorias": []},
+                {
+                    "inicio": "11:30",
+                    "fim": "12:00",
+                    "turmas": ["1º BEM"],
+                    "categorias": [],
+                },
+                {
+                    "inicio": "12:00",
+                    "fim": "12:30",
+                    "turmas": ["1º MEC"],
+                    "categorias": [],
+                },
             ]
         }
     }
     grade_horarios_service.salvar_grade_horarios(grade, caminho_grade)
     monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "quarta")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "quarta"
+    )
 
-    with patch.object(DialogoSessao, "grab_set"), \
-         patch.object(DialogoSessao, "transient"), \
-         patch.object(DialogoSessao, "deiconify"), \
-         patch.object(DialogoSessao, "_centralizar_janela"):
-
+    with (
+        patch.object(DialogoSessao, "grab_set"),
+        patch.object(DialogoSessao, "transient"),
+        patch.object(DialogoSessao, "deiconify"),
+        patch.object(DialogoSessao, "_centralizar_janela"),
+    ):
         dialogo = DialogoSessao(
             title="Sessão",
             callback=lambda res: True,
@@ -420,15 +480,20 @@ def test_dialogo_sessao_com_reserva_e_busca_carregar(
     """Valida atalho 'Com Reserva' e filtro/colunas na aba Carregar Sessão Existente."""
     facade = ambiente_gui["facade"]
     g_ads = ambiente_gui["grupos"][3]  # ADS
-    est = criar_estudante(prontuario="IQ90001", nome="Aluno ADS", ativo=True, grupos=[g_ads])
-    criar_reserva(estudante=est, data="15/11/2026", almoco=True, jantar=False, cancelada=False)
+    est = criar_estudante(
+        prontuario="IQ90001", nome="Aluno ADS", ativo=True, grupos=[g_ads]
+    )
+    criar_reserva(
+        estudante=est, data="15/11/2026", almoco=True, jantar=False, cancelada=False
+    )
     app_root.fachada_nucleo = facade
 
-    with patch.object(DialogoSessao, "grab_set"), \
-         patch.object(DialogoSessao, "transient"), \
-         patch.object(DialogoSessao, "deiconify"), \
-         patch.object(DialogoSessao, "_centralizar_janela"):
-
+    with (
+        patch.object(DialogoSessao, "grab_set"),
+        patch.object(DialogoSessao, "transient"),
+        patch.object(DialogoSessao, "deiconify"),
+        patch.object(DialogoSessao, "_centralizar_janela"),
+    ):
         dialogo = DialogoSessao(
             title="Sessão",
             callback=lambda res: True,

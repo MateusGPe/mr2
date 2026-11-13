@@ -151,9 +151,7 @@ class DialogoSessao(tk.Toplevel):
                 "✏️ Editar Sessão Ativa", self._criar_conteudo_aba_editar_sessao
             )
 
-        self._criar_aba(
-            "➕ Criar Nova Sessão", self._criar_conteudo_aba_nova_sessao
-        )
+        self._criar_aba("➕ Criar Nova Sessão", self._criar_conteudo_aba_nova_sessao)
         self._criar_aba(
             "📂 Carregar Sessão Existente", self._criar_conteudo_aba_carregar_sessao
         )
@@ -182,7 +180,9 @@ class DialogoSessao(tk.Toplevel):
             return
         aba_selecionada = self._notebook.tab(self._notebook.select(), "text").strip()
         if "Editar" in aba_selecionada:
-            self._btn_iniciar_acao.config(text="💾 Salvar Alterações", bootstyle="primary")
+            self._btn_iniciar_acao.config(
+                text="💾 Salvar Alterações", bootstyle="primary"
+            )
         elif "Carregar" in aba_selecionada:
             self._btn_iniciar_acao.config(text="📂 Carregar Sessão", bootstyle="info")
         else:
@@ -273,7 +273,9 @@ class DialogoSessao(tk.Toplevel):
         card_turmas = self._criar_card_selecao_turmas(col_dir, modo_edicao=True)
         card_turmas.grid(row=0, column=0, sticky=NSEW)
 
-        self._dados_checkbox_turmas_editar = self._contextos["editar"]["dados_checkboxes"]
+        self._dados_checkbox_turmas_editar = self._contextos["editar"][
+            "dados_checkboxes"
+        ]
 
         grupos_atuais = set(self._sessao_ativa_info.get("grupos", []))
         for nome_turma, var, _ in self._dados_checkbox_turmas_editar:
@@ -429,7 +431,10 @@ class DialogoSessao(tk.Toplevel):
         topo.columnconfigure(0, weight=1)
 
         lbl_header = ttk.Label(
-            topo, text="Carregando grade...", font="-size 9 -weight bold", bootstyle="info"
+            topo,
+            text="Carregando grade...",
+            font="-size 9 -weight bold",
+            bootstyle="info",
         )
         lbl_header.grid(row=0, column=0, sticky=W)
         ctx["lbl_grade_header"] = lbl_header
@@ -482,9 +487,7 @@ class DialogoSessao(tk.Toplevel):
         )
         ent_busca = ttk.Entry(frame_busca, textvariable=ctx["var_busca"])
         ent_busca.grid(row=0, column=1, sticky=EW)
-        ent_busca.bind(
-            "<KeyRelease>", lambda _e: self._filtrar_checkboxes(modo_edicao)
-        )
+        ent_busca.bind("<KeyRelease>", lambda _e: self._filtrar_checkboxes(modo_edicao))
 
         ttk.Button(
             frame_busca,
@@ -509,17 +512,41 @@ class DialogoSessao(tk.Toplevel):
         frame_atalhos.columnconfigure((0, 1, 2), weight=1)
 
         atalhos = [
-            ("🕒 Grade do Dia", lambda: self._ao_selecionar_grade_do_dia(modo_edicao), "success-outline"),
-            ("📋 Com Reserva", lambda: self._ao_selecionar_com_reserva(modo_edicao), "primary-outline"),
-            ("🔗 Integrado", lambda: self._ao_selecionar_integral(modo_edicao), "info-outline"),
-            ("📚 Outros", lambda: self._ao_selecionar_outros(modo_edicao), "info-outline"),
-            ("🔄 Inverter", lambda: self._ao_inverter_turmas(modo_edicao), "secondary-outline"),
-            ("⚪ Limpar", lambda: self._ao_limpar_turmas(modo_edicao), "secondary-outline"),
+            (
+                "🕒 Grade do Dia",
+                lambda: self._ao_selecionar_grade_do_dia(modo_edicao),
+                "success-outline",
+            ),
+            (
+                "📋 Com Reserva",
+                lambda: self._ao_selecionar_com_reserva(modo_edicao),
+                "primary-outline",
+            ),
+            (
+                "🔗 Integrado",
+                lambda: self._ao_selecionar_integral(modo_edicao),
+                "info-outline",
+            ),
+            (
+                "📚 Outros",
+                lambda: self._ao_selecionar_outros(modo_edicao),
+                "info-outline",
+            ),
+            (
+                "🔄 Inverter",
+                lambda: self._ao_inverter_turmas(modo_edicao),
+                "secondary-outline",
+            ),
+            (
+                "⚪ Limpar",
+                lambda: self._ao_limpar_turmas(modo_edicao),
+                "secondary-outline",
+            ),
         ]
         for idx, (texto, cmd, estilo) in enumerate(atalhos):
-            ttk.Button(
-                frame_atalhos, text=texto, command=cmd, bootstyle=estilo
-            ).grid(row=idx // 3, column=idx % 3, sticky=EW, padx=2, pady=2)
+            ttk.Button(frame_atalhos, text=texto, command=cmd, bootstyle=estilo).grid(
+                row=idx // 3, column=idx % 3, sticky=EW, padx=2, pady=2
+            )
 
         # 3. Grade rolável de checkboxes (Turmas + Categorias)
         frame_checks = self._criar_checkboxes_turmas(card, modo_edicao=modo_edicao)
@@ -558,7 +585,12 @@ class DialogoSessao(tk.Toplevel):
                 anchor=W,
             )
             lbl_sec.grid(
-                row=row_base, column=0, columnspan=num_cols, sticky=EW, padx=8, pady=(8, 4)
+                row=row_base,
+                column=0,
+                columnspan=num_cols,
+                sticky=EW,
+                padx=8,
+                pady=(8, 4),
             )
             row_base += 1
             for i, nome in enumerate(itens):
@@ -679,7 +711,10 @@ class DialogoSessao(tk.Toplevel):
             bootstyle="warning-outline",
         ).grid(row=0, column=0, sticky=W)
         ttk.Button(
-            frame, text="❌ Cancelar", command=self._ao_fechar, bootstyle="danger-outline"
+            frame,
+            text="❌ Cancelar",
+            command=self._ao_fechar,
+            bootstyle="danger-outline",
         ).grid(row=0, column=1, sticky=E, padx=6)
         self._btn_iniciar_acao = ttk.Button(
             frame, text="✔️ Iniciar Sessão", command=self._ao_ok, bootstyle="success"
@@ -706,7 +741,9 @@ class DialogoSessao(tk.Toplevel):
     def _obter_refeicao_contexto(self, modo_edicao: bool) -> str:
         """Retorna o nome da refeição do contexto ativo em minúsculas."""
         if modo_edicao and self._sessao_ativa_info:
-            return str(self._sessao_ativa_info.get("refeicao", "lanche")).strip().lower()
+            return (
+                str(self._sessao_ativa_info.get("refeicao", "lanche")).strip().lower()
+            )
         if self._combobox_refeicao:
             val = self._combobox_refeicao.get().strip().lower()
             if val:
@@ -728,7 +765,9 @@ class DialogoSessao(tk.Toplevel):
                 return dia_fachada
         return grade_horarios_service.obter_dia_semana_atual()
 
-    def _obter_slots_grade(self, dia_semana: str, refeicao: str) -> List[Dict[str, Any]]:
+    def _obter_slots_grade(
+        self, dia_semana: str, refeicao: str
+    ) -> List[Dict[str, Any]]:
         """Busca os slots configurados na grade horária para o dia e refeição."""
         grade: Any = None
         try:
@@ -776,7 +815,9 @@ class DialogoSessao(tk.Toplevel):
     def _resumo_slot_texto(self, slot: Dict[str, Any]) -> str:
         """Gera descrição legível das turmas e categorias de um slot."""
         turmas_slot = [str(t).strip() for t in slot.get("turmas", []) if str(t).strip()]
-        cats_slot = [str(c).strip() for c in slot.get("categorias", []) if str(c).strip()]
+        cats_slot = [
+            str(c).strip() for c in slot.get("categorias", []) if str(c).strip()
+        ]
         rest_turma = grade_horarios_service._tem_restricao_especifica(turmas_slot)
         rest_cat = grade_horarios_service._tem_restricao_especifica(cats_slot)
 
@@ -786,7 +827,9 @@ class DialogoSessao(tk.Toplevel):
         partes: List[str] = []
         if rest_turma:
             if len(turmas_slot) > 4:
-                partes.append(", ".join(turmas_slot[:4]) + f" (+{len(turmas_slot) - 4})")
+                partes.append(
+                    ", ".join(turmas_slot[:4]) + f" (+{len(turmas_slot) - 4})"
+                )
             else:
                 partes.append(", ".join(turmas_slot))
         if rest_cat:
@@ -827,16 +870,17 @@ class DialogoSessao(tk.Toplevel):
         if aplicar_selecao:
             turmas_grade = self._obter_turmas_grade(dia_semana, refeicao)
             if turmas_grade:
-                turmas_grade_norm = {t.strip().lower() for t in turmas_grade if t and str(t).strip()}
+                turmas_grade_norm = {
+                    t.strip().lower() for t in turmas_grade if t and str(t).strip()
+                }
                 ctx["slot_selecionado_idx"] = None
                 self._definir_checkboxes_turmas(
-                    lambda n, _v: n.strip().lower() in turmas_grade_norm, modo_edicao=modo_edicao
+                    lambda n, _v: n.strip().lower() in turmas_grade_norm,
+                    modo_edicao=modo_edicao,
                 )
                 self._renderizar_slots_grade(modo_edicao, slots)
 
-    def _renderizar_slots_grade(
-        self, modo_edicao: bool, slots: List[Dict[str, Any]]
-    ):
+    def _renderizar_slots_grade(self, modo_edicao: bool, slots: List[Dict[str, Any]]):
         """Renderiza os cartões clicáveis dos horários da grade no painel esquerdo."""
         ctx = self._contextos[self._chave_modo(modo_edicao)]
         container: Optional[ScrolledFrame] = ctx.get("frame_slots_grade")
@@ -886,10 +930,7 @@ class DialogoSessao(tk.Toplevel):
                 estilo_btn = "secondary-outline"
                 marcador = "Clique p/ filtrar"
 
-            texto_btn = (
-                f"🕒 {inicio} – {fim}   [{marcador}]\n"
-                f"    {self._resumo_slot_texto(slot)}"
-            )
+            texto_btn = f"🕒 {inicio} – {fim}   [{marcador}]\n    {self._resumo_slot_texto(slot)}"
             btn = ttk.Button(
                 container,
                 text=texto_btn,
@@ -909,7 +950,9 @@ class DialogoSessao(tk.Toplevel):
 
         ctx["slot_selecionado_idx"] = idx
         grupos_slot = self._expandir_grupos_slot(slots[idx])
-        grupos_slot_norm = {g.strip().lower() for g in grupos_slot if g and str(g).strip()}
+        grupos_slot_norm = {
+            g.strip().lower() for g in grupos_slot if g and str(g).strip()
+        }
         self._definir_checkboxes_turmas(
             lambda n, _v: n.strip().lower() in grupos_slot_norm, modo_edicao=modo_edicao
         )
@@ -1002,9 +1045,7 @@ class DialogoSessao(tk.Toplevel):
         if not self._combobox_refeicao or not self._combobox_lanche:
             return
         eh_com_reserva = self._combobox_refeicao.get() in ("Almoço", "Jantar")
-        self._combobox_lanche.config(
-            state="disabled" if eh_com_reserva else "normal"
-        )
+        self._combobox_lanche.config(state="disabled" if eh_com_reserva else "normal")
         if eh_com_reserva:
             self._combobox_lanche.set("")
         elif NOME_LANCHE_PADRAO in self._conjunto_opcoes_lanche:
@@ -1069,9 +1110,12 @@ class DialogoSessao(tk.Toplevel):
             self._renderizar_slots_grade(modo_edicao, slots)
 
         if turmas_grade:
-            turmas_grade_norm = {t.strip().lower() for t in turmas_grade if t and str(t).strip()}
+            turmas_grade_norm = {
+                t.strip().lower() for t in turmas_grade if t and str(t).strip()
+            }
             self._definir_checkboxes_turmas(
-                lambda n, _v: n.strip().lower() in turmas_grade_norm, modo_edicao=modo_edicao
+                lambda n, _v: n.strip().lower() in turmas_grade_norm,
+                modo_edicao=modo_edicao,
             )
         else:
             Messagebox.show_info(
@@ -1117,7 +1161,9 @@ class DialogoSessao(tk.Toplevel):
             return
 
         self._limpar_slot_selecionado(modo_edicao)
-        grupos_norm = {g.strip().lower() for g in grupos_com_reserva if g and str(g).strip()}
+        grupos_norm = {
+            g.strip().lower() for g in grupos_com_reserva if g and str(g).strip()
+        }
         self._definir_checkboxes_turmas(
             lambda n, _v: n.strip().lower() in grupos_norm, modo_edicao=modo_edicao
         )
@@ -1227,7 +1273,9 @@ class DialogoSessao(tk.Toplevel):
                     bool(ctx_editar["var_horario_livre"].get())
                 )
 
-            logger.info("Sessão ativa ID %s atualizada.", self._sessao_ativa_info.get("id"))
+            logger.info(
+                "Sessão ativa ID %s atualizada.", self._sessao_ativa_info.get("id")
+            )
             Messagebox.show_info(
                 f"Sessão ID {self._sessao_ativa_info.get('id')} atualizada com sucesso!\n"
                 f"Turmas participantes: {len(turmas)}",
@@ -1304,13 +1352,17 @@ class DialogoSessao(tk.Toplevel):
 
         logger.info("Tentando criar uma nova sessão.")
         if self._callback(dados_nova_sessao):
-            if horario_livre and hasattr(self._fachada, "definir_ignorar_horario_grade"):
+            if horario_livre and hasattr(
+                self._fachada, "definir_ignorar_horario_grade"
+            ):
                 try:
                     self._fachada.definir_ignorar_horario_grade(True)
                     if hasattr(self._parente_app, "_atualizar_estado_horario_livre"):
                         self._parente_app._atualizar_estado_horario_livre()
                 except Exception as e:
-                    logger.warning("Não foi possível ativar Horário Livre após criar sessão: %s", e)
+                    logger.warning(
+                        "Não foi possível ativar Horário Livre após criar sessão: %s", e
+                    )
             self.grab_release()
             self.destroy()
 
@@ -1319,9 +1371,7 @@ class DialogoSessao(tk.Toplevel):
         try:
             dt.datetime.strptime(self._entrada_hora.get(), "%H:%M")
         except ValueError:
-            Messagebox.show_warning(
-                "Hora inválida. Use o formato HH:MM.", parent=self
-            )
+            Messagebox.show_warning("Hora inválida. Use o formato HH:MM.", parent=self)
             return False
 
         if not self._entrada_data.entry.get():
@@ -1362,19 +1412,21 @@ class DialogoSessao(tk.Toplevel):
             turmas = sorted(
                 g.get("nome", "")
                 for g in grupos
-                if isinstance(g, dict) and g.get("nome") and g.get("tipo") != "categoria"
+                if isinstance(g, dict)
+                and g.get("nome")
+                and g.get("tipo") != "categoria"
             )
             categorias = sorted(
                 g.get("nome", "")
                 for g in grupos
-                if isinstance(g, dict) and g.get("nome") and g.get("tipo") == "categoria"
+                if isinstance(g, dict)
+                and g.get("nome")
+                and g.get("tipo") == "categoria"
             )
             return turmas, categorias
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao buscar turmas e categorias: %s", e)
-            Messagebox.show_error(
-                "Não foi possível buscar as turmas.", parent=self
-            )
+            Messagebox.show_error("Não foi possível buscar as turmas.", parent=self)
             return [], []
 
     def _buscar_turmas_disponiveis(self) -> List[str]:
@@ -1503,9 +1555,7 @@ class DialogoSessao(tk.Toplevel):
     def _ao_sincronizar_reservas(self):
         """Inicia o processo de sincronização de reservas em uma thread."""
         if hasattr(self._parente_app, "mostrar_barra_progresso"):
-            self._parente_app.mostrar_barra_progresso(
-                True, "Sincronizando reservas..."
-            )
+            self._parente_app.mostrar_barra_progresso(True, "Sincronizando reservas...")
         self.update_idletasks()
 
         thread = Thread(target=self._acao_sincronizacao, daemon=True)
@@ -1535,9 +1585,7 @@ class DialogoSessao(tk.Toplevel):
                 f"Falha ao sincronizar reservas:\n{erro}", parent=self
             )
         else:
-            Messagebox.show_info(
-                "Reservas sincronizadas com sucesso.", parent=self
-            )
+            Messagebox.show_info("Reservas sincronizadas com sucesso.", parent=self)
             self._atualizar_treeview_sessoes_existentes()
             opcoes, lista_exib = self._carregar_opcoes_lanche()
             self._conjunto_opcoes_lanche = opcoes

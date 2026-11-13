@@ -16,7 +16,7 @@ def test_importar_estudantes_com_categoria_pap(
         "Matrícula,Nome,Turma,Categoria\n"
         "IQ3011111,Aluno Bolsista,1º BEM,PAP\n"
         "IQ3022222,Aluno Regular,1º BEM,REGULAR\n"
-        "IQ3033333,Aluno Optativa,1º BEM,\"ESP1, LIB0\"\n"
+        'IQ3033333,Aluno Optativa,1º BEM,"ESP1, LIB0"\n'
     )
     csv_file.write_text(csv_content, encoding="utf-8")
 

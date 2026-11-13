@@ -25,9 +25,9 @@ def test_ruff_static_code_integrity():
         capture_output=True,
         text=True,
     )
-    assert (
-        resultado.returncode == 0
-    ), f"Ruff encontrou erros de integridade/referências indefinidas:\n{resultado.stdout}\n{resultado.stderr}"
+    assert resultado.returncode == 0, (
+        f"Ruff encontrou erros de integridade/referências indefinidas:\n{resultado.stdout}\n{resultado.stderr}"
+    )
 
 
 def test_importabilidade_de_todos_os_modulos():
@@ -43,4 +43,6 @@ def test_importabilidade_de_todos_os_modulos():
         except Exception as e:
             modulos_falhos.append((mod_name, str(e)))
 
-    assert not modulos_falhos, f"Falha ao importar os seguintes módulos:\n{modulos_falhos}"
+    assert not modulos_falhos, (
+        f"Falha ao importar os seguintes módulos:\n{modulos_falhos}"
+    )

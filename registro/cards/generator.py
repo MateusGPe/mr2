@@ -79,7 +79,9 @@ def _configurar_fontes_reportlab() -> Tuple[str, str]:
                 nome_bold = "Roboto-Card"
                 _FONTE_REGISTRADA = True
             except (OSError, ValueError) as e:
-                logger.debug("Falha ao registrar fonte Roboto-Card (%s): %s", caminho_roboto, e)
+                logger.debug(
+                    "Falha ao registrar fonte Roboto-Card (%s): %s", caminho_roboto, e
+                )
     elif "Roboto-Card" in pdfmetrics.getRegisteredFontNames():
         nome_regular = "Roboto-Card"
         nome_bold = "Roboto-Card"
@@ -115,7 +117,9 @@ def _normalizar_linha(linha: Dict[str, Any]) -> Optional[Dict[str, str]]:
 
     chave_reg = None
     for k in chaves:
-        if any(term in k for term in ("reg", "matr", "pront", "id", "código", "codigo")):
+        if any(
+            term in k for term in ("reg", "matr", "pront", "id", "código", "codigo")
+        ):
             chave_reg = k
             break
 
@@ -177,7 +181,11 @@ def load_students_from_file(filepath: Union[Path, str]) -> List[Dict[str, str]]:
             for row in linhas[1:]:
                 dicionario = {}
                 for col_idx, valor in enumerate(row):
-                    chave = cabecalho[col_idx] if col_idx < len(cabecalho) and cabecalho[col_idx] else f"col_{col_idx}"
+                    chave = (
+                        cabecalho[col_idx]
+                        if col_idx < len(cabecalho) and cabecalho[col_idx]
+                        else f"col_{col_idx}"
+                    )
                     dicionario[chave] = str(valor or "").strip()
                 item = _normalizar_linha(dicionario)
                 if item:
@@ -199,7 +207,9 @@ def load_students_from_file(filepath: Union[Path, str]) -> List[Dict[str, str]]:
 
         delimitador = ","
         primeira_linha = linhas_brutas[0]
-        if ";" in primeira_linha and primeira_linha.count(";") > primeira_linha.count(","):
+        if ";" in primeira_linha and primeira_linha.count(";") > primeira_linha.count(
+            ","
+        ):
             delimitador = ";"
         elif "\t" in primeira_linha:
             delimitador = "\t"
@@ -334,7 +344,9 @@ def generate_cards_pdf(
                     img_qr = generate_qr_pil(matricula)
                     c.drawInlineImage(img_qr, qr_x, qr_y, width=qr_size, height=qr_size)
                 except (OSError, ValueError) as e:
-                    logger.debug("Falha ao gerar/desenhar QR Code para '%s': %s", matricula, e)
+                    logger.debug(
+                        "Falha ao gerar/desenhar QR Code para '%s': %s", matricula, e
+                    )
 
             # Informações textuais (lado direito do cartão)
             text_x = qr_x + qr_size + 2.5 * mm
@@ -347,7 +359,9 @@ def generate_cards_pdf(
                 c.drawString(text_x, y_top - 4.5 * mm, options.header_text[:40])
 
             # Nome do estudante (quebra de linha inteligente em até 2 linhas e ajuste fino de fonte)
-            linhas_nome, tam_fonte_nome = _formatar_nome_em_linhas(c, nome, max_text_w, fonte_reg)
+            linhas_nome, tam_fonte_nome = _formatar_nome_em_linhas(
+                c, nome, max_text_w, fonte_reg
+            )
 
             # Ajusta posição vertical conforme a quantidade de linhas do nome
             if len(linhas_nome) > 1:
@@ -548,7 +562,9 @@ def generate_cards_html(
         for row in batch:
             qr = generate_qr_base64(row.get("register", ""))
             indicator_html = (
-                f'<div class="page-indicator">P.{page_num}</div>' if options.show_page_number else ""
+                f'<div class="page-indicator">P.{page_num}</div>'
+                if options.show_page_number
+                else ""
             )
             header_html = (
                 f'<div class="inst-header">{html.escape(str(options.header_text))}</div>'

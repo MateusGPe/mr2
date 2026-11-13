@@ -48,7 +48,9 @@ def test_iniciar_sessao_almoco_sem_reservas_retorna_none(repos, criar_grupo):
     assert id_sessao is None
 
 
-def test_iniciar_sessao_almoco_com_reservas_sucesso(repos, criar_estudante, criar_reserva):
+def test_iniciar_sessao_almoco_com_reservas_sucesso(
+    repos, criar_estudante, criar_reserva
+):
     """Sessão de almoço inicia com sucesso quando há reservas na data."""
     estudante = criar_estudante(prontuario="IQ3005001", nome="Aluno Almoço")
     criar_reserva(estudante=estudante, data="21/10/2026", prato="Feijoada")
@@ -73,10 +75,14 @@ def test_obter_detalhes_sessao_inexistente_lanca_erro(repos):
         service_logic.obter_detalhes_sessao(repos["sessao"], 999999)
 
 
-def test_registrar_consumo_lanche_estudante_autorizado(repos, criar_grupo, criar_estudante, criar_sessao):
+def test_registrar_consumo_lanche_estudante_autorizado(
+    repos, criar_grupo, criar_estudante, criar_sessao
+):
     """Registra consumo com sucesso para estudante da turma da sessão."""
     grupo = criar_grupo(nome="2º A - MEC")
-    estudante = criar_estudante(prontuario="IQ3005002", nome="Aluno Autorizado", grupos=[grupo])
+    estudante = criar_estudante(
+        prontuario="IQ3005002", nome="Aluno Autorizado", grupos=[grupo]
+    )
     sessao = criar_sessao(refeicao="lanche", grupos=[grupo], item_servido="Fruta")
 
     resultado = service_logic.registrar_consumo(
@@ -125,8 +131,12 @@ def test_registrar_consumo_almoco_com_reserva_e_sem_reserva(
 ):
     """Verifica autorização de almoço com e sem reserva."""
     grupo = criar_grupo(nome="3º A - MAC")
-    aluno_com_reserva = criar_estudante(prontuario="IQ3005003", nome="Com Reserva", grupos=[grupo])
-    aluno_sem_reserva = criar_estudante(prontuario="IQ3005004", nome="Sem Reserva", grupos=[grupo])
+    aluno_com_reserva = criar_estudante(
+        prontuario="IQ3005003", nome="Com Reserva", grupos=[grupo]
+    )
+    aluno_sem_reserva = criar_estudante(
+        prontuario="IQ3005004", nome="Sem Reserva", grupos=[grupo]
+    )
 
     sessao = criar_sessao(refeicao="almoço", data="21/10/2026", grupos=[grupo])
     criar_reserva(estudante=aluno_com_reserva, data="21/10/2026", prato="Lasanha")
@@ -249,7 +259,9 @@ def test_deletar_e_atualizar_sessao_erros(repos):
         service_logic.deletar_sessao(repos["sessao"], 999999)
 
     with pytest.raises(ErroSessao, match="não encontrada para atualização"):
-        service_logic.atualizar_sessao(repos["sessao"], 999999, {"item_servido": "Novo"})
+        service_logic.atualizar_sessao(
+            repos["sessao"], 999999, {"item_servido": "Novo"}
+        )
 
 
 def test_obter_estudantes_para_sessao_almoco_filtros(
@@ -260,9 +272,15 @@ def test_obter_estudantes_para_sessao_almoco_filtros(
     g_excecao = criar_grupo(nome="2º B - MEC")
     g_fora = criar_grupo(nome="3º C - ELE")
 
-    e1 = criar_estudante(prontuario="IQ3009501", nome="Aluno Grupo Sessao", grupos=[g_sessao])
-    e2 = criar_estudante(prontuario="IQ3009502", nome="Aluno Grupo Excecao", grupos=[g_excecao])
-    e3 = criar_estudante(prontuario="IQ3009503", nome="Aluno Sem Reserva", grupos=[g_sessao])
+    e1 = criar_estudante(
+        prontuario="IQ3009501", nome="Aluno Grupo Sessao", grupos=[g_sessao]
+    )
+    e2 = criar_estudante(
+        prontuario="IQ3009502", nome="Aluno Grupo Excecao", grupos=[g_excecao]
+    )
+    e3 = criar_estudante(
+        prontuario="IQ3009503", nome="Aluno Sem Reserva", grupos=[g_sessao]
+    )
 
     sessao = criar_sessao(refeicao="almoço", data="21/10/2026", grupos=[g_sessao])
 
@@ -307,9 +325,15 @@ def test_registrar_consumo_estudante_fluxo_agendado(
     g_outro = criar_grupo(nome="Outra Turma")
 
     e_ok = criar_estudante(prontuario="IQ3009601", nome="Aluno OK", grupos=[g_sessao])
-    e_exc = criar_estudante(prontuario="IQ3009602", nome="Aluno Excecao", grupos=[g_excecao])
-    e_sem_res = criar_estudante(prontuario="IQ3009603", nome="Aluno Sem Res", grupos=[g_sessao])
-    e_outro = criar_estudante(prontuario="IQ3009604", nome="Aluno Outro Grupo", grupos=[g_outro])
+    e_exc = criar_estudante(
+        prontuario="IQ3009602", nome="Aluno Excecao", grupos=[g_excecao]
+    )
+    e_sem_res = criar_estudante(
+        prontuario="IQ3009603", nome="Aluno Sem Res", grupos=[g_sessao]
+    )
+    e_outro = criar_estudante(
+        prontuario="IQ3009604", nome="Aluno Outro Grupo", grupos=[g_outro]
+    )
 
     sessao = criar_sessao(refeicao="almoço", data="21/10/2026", grupos=[g_sessao])
 
@@ -319,32 +343,48 @@ def test_registrar_consumo_estudante_fluxo_agendado(
 
     # 1. Estudante não encontrado
     res1 = service_logic.registrar_consumo_com_reserva(
-        repos["sessao"], repos["estudante"], repos["reserva"], repos["consumo"],
-        id_sessao=sessao.id, prontuario="IQ9999999",
+        repos["sessao"],
+        repos["estudante"],
+        repos["reserva"],
+        repos["consumo"],
+        id_sessao=sessao.id,
+        prontuario="IQ9999999",
     )
     assert res1["autorizado"] is False
     assert "Estudante não encontrado" in res1["motivo"]
 
     # 2. Estudante sem reserva
     res2 = service_logic.registrar_consumo_com_reserva(
-        repos["sessao"], repos["estudante"], repos["reserva"], repos["consumo"],
-        id_sessao=sessao.id, prontuario="IQ3009603",
+        repos["sessao"],
+        repos["estudante"],
+        repos["reserva"],
+        repos["consumo"],
+        id_sessao=sessao.id,
+        prontuario="IQ3009603",
     )
     assert res2["autorizado"] is False
     assert "Sem reserva válida" in res2["motivo"]
 
     # 3. Com reserva mas sem permissão de grupo
     res3 = service_logic.registrar_consumo_com_reserva(
-        repos["sessao"], repos["estudante"], repos["reserva"], repos["consumo"],
-        id_sessao=sessao.id, prontuario="IQ3009604",
+        repos["sessao"],
+        repos["estudante"],
+        repos["reserva"],
+        repos["consumo"],
+        id_sessao=sessao.id,
+        prontuario="IQ3009604",
     )
     assert res3["autorizado"] is False
     assert "sem permissão de grupo" in res3["motivo"]
 
     # 4. Com reserva e grupo da sessão (autorizado)
     res4 = service_logic.registrar_consumo_com_reserva(
-        repos["sessao"], repos["estudante"], repos["reserva"], repos["consumo"],
-        id_sessao=sessao.id, prontuario="IQ3009601",
+        repos["sessao"],
+        repos["estudante"],
+        repos["reserva"],
+        repos["consumo"],
+        id_sessao=sessao.id,
+        prontuario="IQ3009601",
     )
     assert res4["autorizado"] is True
     assert "grupo da sessão" in res4["motivo"]
@@ -352,24 +392,38 @@ def test_registrar_consumo_estudante_fluxo_agendado(
 
     # 5. Tentativa de consumo duplicado
     res5 = service_logic.registrar_consumo_com_reserva(
-        repos["sessao"], repos["estudante"], repos["reserva"], repos["consumo"],
-        id_sessao=sessao.id, prontuario="IQ3009601",
+        repos["sessao"],
+        repos["estudante"],
+        repos["reserva"],
+        repos["consumo"],
+        id_sessao=sessao.id,
+        prontuario="IQ3009601",
     )
     assert res5["autorizado"] is False
     assert "Consumo já registrado" in res5["motivo"]
 
     # 6. Autorizado via grupo de exceção
     res6 = service_logic.registrar_consumo_com_reserva(
-        repos["sessao"], repos["estudante"], repos["reserva"], repos["consumo"],
-        id_sessao=sessao.id, prontuario="IQ3009602", excecao_grupos={"Turma Excecao"},
+        repos["sessao"],
+        repos["estudante"],
+        repos["reserva"],
+        repos["consumo"],
+        id_sessao=sessao.id,
+        prontuario="IQ3009602",
+        excecao_grupos={"Turma Excecao"},
     )
     assert res6["autorizado"] is True
     assert "grupo de exceção" in res6["motivo"]
 
     # 7. Autorizado pulando grupos
     res7 = service_logic.registrar_consumo_com_reserva(
-        repos["sessao"], repos["estudante"], repos["reserva"], repos["consumo"],
-        id_sessao=sessao.id, prontuario="IQ3009604", pular_grupos=True,
+        repos["sessao"],
+        repos["estudante"],
+        repos["reserva"],
+        repos["consumo"],
+        id_sessao=sessao.id,
+        prontuario="IQ3009604",
+        pular_grupos=True,
     )
     assert res7["autorizado"] is True
     assert "grupos ignorados" in res7["motivo"]
@@ -380,6 +434,7 @@ def test_exportar_consumos_para_xlsx(
 ):
     """Testa exportação de consumos para arquivo XLSX."""
     from pathlib import Path
+
     e = criar_estudante(prontuario="IQ3009701", nome="Aluno Planilha")
     s = criar_sessao(refeicao="lanche")
     criar_consumo(estudante=e, sessao=s, hora_consumo="10:15:00")
@@ -409,15 +464,19 @@ def test_sincronizacao_google_sheets(repos, tmp_path, monkeypatch):
     """Testa a sincronização de entrada e saída com o Google Sheets."""
     from unittest.mock import patch
 
-
     # Sincronizar de Google Sheets
-    with patch("registro.nucleo.google_api_service.obter_planilha") as mock_pl, \
-         patch("registro.nucleo.google_api_service.buscar_valores_aba") as mock_buscar, \
-         patch("registro.nucleo.utils.salvar_csv", return_value=True), \
-         patch("registro.nucleo.importers_service.importar_estudantes_csv") as mock_imp_e, \
-         patch("registro.nucleo.importers_service.importar_reservas_csv") as mock_imp_r:
-
-        mock_buscar.side_effect = lambda pl, aba: [["col1"]] if aba in ["Discentes", "DB"] else []
+    with (
+        patch("registro.nucleo.google_api_service.obter_planilha") as mock_pl,
+        patch("registro.nucleo.google_api_service.buscar_valores_aba") as mock_buscar,
+        patch("registro.nucleo.utils.salvar_csv", return_value=True),
+        patch(
+            "registro.nucleo.importers_service.importar_estudantes_csv"
+        ) as mock_imp_e,
+        patch("registro.nucleo.importers_service.importar_reservas_csv") as mock_imp_r,
+    ):
+        mock_buscar.side_effect = lambda pl, aba: (
+            [["col1"]] if aba in ["Discentes", "DB"] else []
+        )
         service_logic.sincronizar_do_google_sheets(
             repos["estudante"], repos["reserva"], repos["grupo"]
         )
@@ -426,6 +485,7 @@ def test_sincronizacao_google_sheets(repos, tmp_path, monkeypatch):
 
     # Sincronizar para Google Sheets
     from registro.nucleo.models import Consumo, Estudante, Sessao
+
     e = Estudante(prontuario="IQ3009801", nome="Aluno Sync")
     s = Sessao(refeicao="lanche", data="21/10/2026", hora="09:00")
     repos["estudante"].obter_sessao().add_all([e, s])
@@ -435,15 +495,21 @@ def test_sincronizacao_google_sheets(repos, tmp_path, monkeypatch):
     repos["consumo"].obter_sessao().add(c)
     repos["consumo"].obter_sessao().commit()
 
-    with patch("registro.nucleo.google_api_service.obter_planilha"), \
-         patch("registro.nucleo.google_api_service.anexar_linhas_unicas") as mock_anexar:
+    with (
+        patch("registro.nucleo.google_api_service.obter_planilha"),
+        patch("registro.nucleo.google_api_service.anexar_linhas_unicas") as mock_anexar,
+    ):
         # Sessão específica
-        service_logic.sincronizar_para_google_sheets(repos["sessao"], repos["consumo"], s.id)
+        service_logic.sincronizar_para_google_sheets(
+            repos["sessao"], repos["consumo"], s.id
+        )
         mock_anexar.assert_called_once()
 
         # Todas as sessões
         mock_anexar.reset_mock()
-        service_logic.sincronizar_todas_sessoes_para_google_sheets(repos["sessao"], repos["consumo"])
+        service_logic.sincronizar_todas_sessoes_para_google_sheets(
+            repos["sessao"], repos["consumo"]
+        )
         mock_anexar.assert_called_once()
 
 
@@ -503,7 +569,10 @@ def test_service_logic_reserva_crud_e_listagem(repos):
     # Criar reserva com estudante inexistente
     with pytest.raises(ValueError, match="não encontrado"):
         service_logic.criar_reserva(
-            repos["estudante"], repos["reserva"], "IQ9999999", {"prato": "Normal", "data": "22/10/2026"}
+            repos["estudante"],
+            repos["reserva"],
+            "IQ9999999",
+            {"prato": "Normal", "data": "22/10/2026"},
         )
 
     # Listar datas de reservas
@@ -551,11 +620,17 @@ def test_service_logic_salvar_importacao_dados(repos):
     assert est[0].nome == "Estudante Batch"
 
 
-def test_atualizar_consumo_e_estatisticas_sessao(repos, criar_estudante, criar_reserva, criar_grupo):
+def test_atualizar_consumo_e_estatisticas_sessao(
+    repos, criar_estudante, criar_reserva, criar_grupo
+):
     """Testa atualizar_consumo e a geração detalhada de obter_estatisticas_sessao."""
     grupo = criar_grupo(nome="1INFO")
-    est1 = criar_estudante(prontuario="IQ3099901", nome="Estudante Alpha", grupos=[grupo])
-    est2 = criar_estudante(prontuario="IQ3099902", nome="Estudante Beta", grupos=[grupo])
+    est1 = criar_estudante(
+        prontuario="IQ3099901", nome="Estudante Alpha", grupos=[grupo]
+    )
+    est2 = criar_estudante(
+        prontuario="IQ3099902", nome="Estudante Beta", grupos=[grupo]
+    )
 
     # Cria sessão
     dados_sessao = {
@@ -575,8 +650,12 @@ def test_atualizar_consumo_e_estatisticas_sessao(repos, criar_estudante, criar_r
 
     # Registra consumo para est1
     res = service_logic.registrar_consumo(
-        repos["sessao"], repos["estudante"], repos["reserva"], repos["consumo"],
-        id_sessao=id_sessao, prontuario="IQ3099901"
+        repos["sessao"],
+        repos["estudante"],
+        repos["reserva"],
+        repos["consumo"],
+        id_sessao=id_sessao,
+        prontuario="IQ3099901",
     )
     assert res.get("autorizado") is True
     consumo = repos["consumo"].por_prontuario_e_sessao("IQ3099901", id_sessao)
@@ -585,8 +664,11 @@ def test_atualizar_consumo_e_estatisticas_sessao(repos, criar_estudante, criar_r
 
     # Testa atualizar_consumo
     ok_att = service_logic.atualizar_consumo(
-        repos["consumo"], repos["reserva"],
-        id_consumo=id_consumo, hora_consumo="12:15:30", prato="Vegano"
+        repos["consumo"],
+        repos["reserva"],
+        id_consumo=id_consumo,
+        hora_consumo="12:15:30",
+        prato="Vegano",
     )
     assert ok_att is True
 
@@ -597,8 +679,12 @@ def test_atualizar_consumo_e_estatisticas_sessao(repos, criar_estudante, criar_r
 
     # Testa estatísticas da sessão
     stats = service_logic.obter_estatisticas_sessao(
-        repos["sessao"], repos["estudante"], repos["reserva"],
-        repos["consumo"], repos["grupo"], id_sessao=id_sessao
+        repos["sessao"],
+        repos["estudante"],
+        repos["reserva"],
+        repos["consumo"],
+        repos["grupo"],
+        id_sessao=id_sessao,
     )
     assert stats["id_sessao"] == id_sessao
     assert stats["total_consumidos"] == 1
@@ -608,6 +694,3 @@ def test_atualizar_consumo_e_estatisticas_sessao(repos, criar_estudante, criar_r
     assert stats["total_com_reserva"] == 1
     assert "Vegano" in stats["distribuicao_pratos"]
     assert "1INFO" in stats["distribuicao_turmas"]
-
-
-

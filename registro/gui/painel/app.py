@@ -124,12 +124,14 @@ class App(ttk.Window):
         frame_ativo.grid(row=0, column=0, sticky=NSEW)
         self.after(10, frame_ativo.focus)
 
+
 def main():
     from registro.nucleo.logging_config import configurar_logging
 
     configurar_logging("painel")
     app = App()
     app.mainloop()
+
 
 if __name__ == "__main__":
     main()

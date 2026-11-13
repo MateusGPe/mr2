@@ -277,7 +277,9 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
         try:
             slots_ordenados = sorted(
                 slots_brutos,
-                key=lambda s: grade_horarios_service._hora_para_minutos(s.get("inicio", "00:00")),
+                key=lambda s: grade_horarios_service._hora_para_minutos(
+                    s.get("inicio", "00:00")
+                ),
             )
         except Exception:
             slots_ordenados = slots_brutos
@@ -322,9 +324,7 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
         )
         lbl_msg.pack(fill=X)
 
-    def _criar_card_slot(
-        self, slot: Dict[str, Any], index: int, minutos_atuais: int
-    ):
+    def _criar_card_slot(self, slot: Dict[str, Any], index: int, minutos_atuais: int):
         """Cria o cartão visual correspondente a um slot de horário."""
         ini_str = str(slot.get("inicio", "--:--")).strip()
         fim_str = str(slot.get("fim", "--:--")).strip()
@@ -429,7 +429,9 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
 
                 ttk.Label(
                     frame_turmas,
-                    text=", ".join(str(t).strip() for t in turmas_raw if str(t).strip()),
+                    text=", ".join(
+                        str(t).strip() for t in turmas_raw if str(t).strip()
+                    ),
                     font=("Segoe UI", 11),
                     bootstyle="default",
                     wraplength=600,
@@ -533,7 +535,9 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
                 if minutos_atuais < ini_m:
                     txt_tempo = f"Liberado (Tolerância inicial) • Restam {minutos_restantes} min"
                 else:
-                    txt_tempo = f"Restam {minutos_restantes} min até o término ({fim_str})"
+                    txt_tempo = (
+                        f"Restam {minutos_restantes} min até o término ({fim_str})"
+                    )
 
                 lbl_badge.config(
                     text="●  LIBERADO AGORA",

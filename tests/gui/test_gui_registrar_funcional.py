@@ -92,7 +92,9 @@ def test_painel_busca_e_registro_sucesso(app_root, registrar_dados, mock_message
     painel.destroy()
 
 
-def test_painel_busca_estudante_inexistente_improvavel(app_root, registrar_dados, mock_messagebox):
+def test_painel_busca_estudante_inexistente_improvavel(
+    app_root, registrar_dados, mock_messagebox
+):
     """Cenário Improvável: Busca por estudante que não existe no banco de dados."""
     facade = registrar_dados["facade"]
 
@@ -149,12 +151,18 @@ def test_painel_duplo_registro_gera_aviso(app_root, registrar_dados, mock_messag
     # Verifica que exibiu aviso de Já Registrado
     assert len(mock_messagebox.warning_calls) >= 1
     aviso = mock_messagebox.warning_calls[0]
-    assert "Já Registrado" in aviso["title"] or "já consumiu" in aviso["message"].lower() or "já registrado" in aviso["message"].lower()
+    assert (
+        "Já Registrado" in aviso["title"]
+        or "já consumiu" in aviso["message"].lower()
+        or "já registrado" in aviso["message"].lower()
+    )
 
     painel.destroy()
 
 
-def test_painel_status_registrados_cancelamento_consumo(app_root, registrar_dados, mock_messagebox):
+def test_painel_status_registrados_cancelamento_consumo(
+    app_root, registrar_dados, mock_messagebox
+):
     """Cenário Provável: Cancelar/excluir um consumo registrado reverte a persistência no SQLite."""
     facade = registrar_dados["facade"]
     estudante1 = registrar_dados["estudante1"]
@@ -164,6 +172,7 @@ def test_painel_status_registrados_cancelamento_consumo(app_root, registrar_dado
     assert len(facade.obter_estudantes_para_sessao(consumido=True)) == 1
 
     mock_app = MagicMock()
+
     # Configura mock_app.tratar_delecao_consumo para chamar a fachada como AppRegistro faz
     def fake_tratar_delecao(dados_para_logica, _iid):
         pront = dados_para_logica[0]
@@ -203,7 +212,9 @@ def test_painel_status_registrados_cancelamento_consumo(app_root, registrar_dado
     painel_status.destroy()
 
 
-def test_app_registro_janela_completa(facade, registrar_dados, mock_messagebox, tmp_path, monkeypatch):
+def test_app_registro_janela_completa(
+    facade, registrar_dados, mock_messagebox, tmp_path, monkeypatch
+):
     """Garante inicialização integrada da janela AppRegistro com a Fachada real injetada."""
     import registro.nucleo.constants as constants
 

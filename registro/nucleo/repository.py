@@ -8,6 +8,7 @@
 Fornece implementações concretas do Padrão de Repositório, especializando
 a classe CRUD genérica para cada modelo de dados da aplicação.
 """
+
 from typing import Any, Dict, List, Optional, Sequence, Set
 
 from sqlalchemy import or_

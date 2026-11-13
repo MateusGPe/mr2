@@ -22,7 +22,12 @@ def test_chave_identificadora_linha():
 
     # 4 ou mais itens -> primeiros 2 + últimos 2
     longa = ["IQ30001", "Maria", "Turma A", "Almoço", "12:00"]
-    assert gas._chave_identificadora_linha(longa) == ("IQ30001", "Maria", "Almoço", "12:00")
+    assert gas._chave_identificadora_linha(longa) == (
+        "IQ30001",
+        "Maria",
+        "Almoço",
+        "12:00",
+    )
 
 
 def test_obter_credenciais_token_valido(tmp_path: Path):
@@ -33,7 +38,9 @@ def test_obter_credenciais_token_valido(tmp_path: Path):
     mock_creds = MagicMock()
     mock_creds.valid = True
 
-    with patch.object(gas.Credentials, "from_authorized_user_file", return_value=mock_creds):
+    with patch.object(
+        gas.Credentials, "from_authorized_user_file", return_value=mock_creds
+    ):
         creds = gas._obter_credenciais(caminho_token, tmp_path / "cred.json")
         assert creds == mock_creds
 
@@ -49,7 +56,9 @@ def test_obter_credenciais_token_expirado_com_refresh(tmp_path: Path):
     mock_creds.refresh_token = "token123"
     mock_creds.to_json.return_value = '{"refreshed": true}'
 
-    with patch.object(gas.Credentials, "from_authorized_user_file", return_value=mock_creds):
+    with patch.object(
+        gas.Credentials, "from_authorized_user_file", return_value=mock_creds
+    ):
         creds = gas._obter_credenciais(caminho_token, tmp_path / "cred.json")
         mock_creds.refresh.assert_called_once()
         assert creds == mock_creds
@@ -67,7 +76,9 @@ def test_obter_credenciais_refresh_falha(tmp_path: Path):
     mock_creds.refresh.side_effect = Exception("Erro rede")
 
     with (
-        patch.object(gas.Credentials, "from_authorized_user_file", return_value=mock_creds),
+        patch.object(
+            gas.Credentials, "from_authorized_user_file", return_value=mock_creds
+        ),
         pytest.raises(ErroAPIGoogle, match="Falha ao atualizar token"),
     ):
         gas._obter_credenciais(caminho_token, tmp_path / "cred.json")
@@ -84,7 +95,9 @@ def test_obter_credenciais_fluxo_oauth_sucesso(tmp_path: Path):
     mock_creds.to_json.return_value = '{"access": "ok"}'
     mock_flow.run_local_server.return_value = mock_creds
 
-    with patch.object(gas.InstalledAppFlow, "from_client_secrets_file", return_value=mock_flow):
+    with patch.object(
+        gas.InstalledAppFlow, "from_client_secrets_file", return_value=mock_flow
+    ):
         creds = gas._obter_credenciais(caminho_token, caminho_creds)
         assert creds == mock_creds
         assert caminho_token.exists()
@@ -102,8 +115,10 @@ def test_obter_credenciais_arquivo_credenciais_nao_encontrado(tmp_path: Path):
 def test_google_sheets_service_inicializacao_e_erros():
     """Testa inicialização do GoogleSheetsService e tratamento de exceções."""
     # Sucesso
-    with patch("registro.nucleo.google_api_service._obter_credenciais") as mock_obter_c, \
-         patch("gspread.authorize") as mock_auth:
+    with (
+        patch("registro.nucleo.google_api_service._obter_credenciais") as mock_obter_c,
+        patch("gspread.authorize") as mock_auth,
+    ):
         mock_cliente = MagicMock()
         mock_auth.return_value = mock_cliente
         mock_planilha = MagicMock()
@@ -113,8 +128,10 @@ def test_google_sheets_service_inicializacao_e_erros():
         assert service.planilha == mock_planilha
 
     # SpreadsheetNotFound
-    with patch("registro.nucleo.google_api_service._obter_credenciais"), \
-         patch("gspread.authorize") as mock_auth:
+    with (
+        patch("registro.nucleo.google_api_service._obter_credenciais"),
+        patch("gspread.authorize") as mock_auth,
+    ):
         mock_cliente = MagicMock()
         mock_auth.return_value = mock_cliente
         mock_cliente.open_by_key.side_effect = SpreadsheetNotFound()
@@ -124,7 +141,10 @@ def test_google_sheets_service_inicializacao_e_erros():
 
     # Erro genérico
     with (
-        patch("registro.nucleo.google_api_service._obter_credenciais", side_effect=RuntimeError("Boom")),
+        patch(
+            "registro.nucleo.google_api_service._obter_credenciais",
+            side_effect=RuntimeError("Boom"),
+        ),
         pytest.raises(ErroAPIGoogle, match="Erro inesperado na inicialização"),
     ):
         gas.GoogleSheetsService("fake_key")
@@ -132,8 +152,10 @@ def test_google_sheets_service_inicializacao_e_erros():
 
 def test_google_sheets_service_ler_aba_completa():
     """Testa a leitura de aba completa no GoogleSheetsService."""
-    with patch("registro.nucleo.google_api_service._obter_credenciais"), \
-         patch("gspread.authorize") as mock_auth:
+    with (
+        patch("registro.nucleo.google_api_service._obter_credenciais"),
+        patch("gspread.authorize") as mock_auth,
+    ):
         mock_cliente = MagicMock()
         mock_auth.return_value = mock_cliente
         mock_planilha = MagicMock()
@@ -155,8 +177,10 @@ def test_google_sheets_service_ler_aba_completa():
 
 def test_google_sheets_service_anexar_linhas_unicas():
     """Testa anexar linhas únicas no GoogleSheetsService evitando duplicatas."""
-    with patch("registro.nucleo.google_api_service._obter_credenciais"), \
-         patch("gspread.authorize") as mock_auth:
+    with (
+        patch("registro.nucleo.google_api_service._obter_credenciais"),
+        patch("gspread.authorize") as mock_auth,
+    ):
         mock_cliente = MagicMock()
         mock_auth.return_value = mock_cliente
         mock_planilha = MagicMock()
@@ -172,7 +196,7 @@ def test_google_sheets_service_anexar_linhas_unicas():
 
         linhas_novas = [
             ["IQ30001", "Maria", "Turma A", "Almoço", "12:00"],  # Duplicada
-            ["IQ30002", "João", "Turma B", "Almoço", "12:05"],   # Nova
+            ["IQ30002", "João", "Turma B", "Almoço", "12:05"],  # Nova
         ]
         inseridas = service.anexar_linhas_unicas("Consumos", linhas_novas)
         assert inseridas == 1
@@ -181,7 +205,9 @@ def test_google_sheets_service_anexar_linhas_unicas():
         # Erro APIError
         mock_aba.append_rows.side_effect = RequestException("Timeout")
         with pytest.raises(ErroAPIGoogle, match="Falha ao anexar linhas"):
-            service.anexar_linhas_unicas("Consumos", [["IQ30003", "Ana", "Turma A", "Almoço", "12:10"]])
+            service.anexar_linhas_unicas(
+                "Consumos", [["IQ30003", "Ana", "Turma A", "Almoço", "12:10"]]
+            )
 
 
 def test_obter_servico_planilha_padrao_e_erros(monkeypatch, tmp_path: Path):
@@ -212,7 +238,9 @@ def test_obter_planilha(monkeypatch):
 
     # Sem sheet_key (singleton)
     gas._ServicoPadrao._instance = None
-    with patch("registro.nucleo.google_api_service.obter_servico_planilha_padrao") as mock_obter_padrao:
+    with patch(
+        "registro.nucleo.google_api_service.obter_servico_planilha_padrao"
+    ) as mock_obter_padrao:
         mock_inst2 = MagicMock()
         mock_obter_padrao.return_value = mock_inst2
         res2 = gas.obter_planilha()
@@ -252,7 +280,10 @@ def test_buscar_valores_aba_e_anexar_linhas_unicas_funcoes():
 
 def test_criar_abas_necessarias_servico():
     """Testa o método criar_abas_necessarias da classe GoogleSheetsService."""
-    with patch.object(gas, "_obter_credenciais"), patch.object(gas.gspread, "authorize") as mock_auth:
+    with (
+        patch.object(gas, "_obter_credenciais"),
+        patch.object(gas.gspread, "authorize") as mock_auth,
+    ):
         mock_client = MagicMock()
         mock_planilha = MagicMock()
         mock_auth.return_value = mock_client
@@ -260,13 +291,19 @@ def test_criar_abas_necessarias_servico():
 
         ws_existente_com_dados = MagicMock()
         ws_existente_com_dados.title = "Discentes"
-        ws_existente_com_dados.get_all_values.return_value = [["Matrícula", "Nome", "Turma"], ["1", "Ana", "A"]]
+        ws_existente_com_dados.get_all_values.return_value = [
+            ["Matrícula", "Nome", "Turma"],
+            ["1", "Ana", "A"],
+        ]
 
         ws_existente_vazia = MagicMock()
         ws_existente_vazia.title = "DB"
         ws_existente_vazia.get_all_values.return_value = [["   ", ""]]
 
-        mock_planilha.worksheets.return_value = [ws_existente_com_dados, ws_existente_vazia]
+        mock_planilha.worksheets.return_value = [
+            ws_existente_com_dados,
+            ws_existente_vazia,
+        ]
 
         ws_nova = MagicMock()
         mock_planilha.add_worksheet.return_value = ws_nova
@@ -284,7 +321,9 @@ def test_criar_abas_necessarias_servico():
         assert res["criadas"] == ["Almoço"]
 
         # Verifica chamadas na aba nova
-        mock_planilha.add_worksheet.assert_called_once_with(title="Almoço", rows=100, cols=10)
+        mock_planilha.add_worksheet.assert_called_once_with(
+            title="Almoço", rows=100, cols=10
+        )
         ws_nova.append_row.assert_called_once()
         ws_nova.freeze.assert_called_once_with(rows=1)
         ws_nova.format.assert_called_once_with("1:1", {"textFormat": {"bold": True}})
@@ -292,7 +331,9 @@ def test_criar_abas_necessarias_servico():
         # Verifica chamada na aba vazia
         ws_existente_vazia.append_row.assert_called_once()
         ws_existente_vazia.freeze.assert_called_once_with(rows=1)
-        ws_existente_vazia.format.assert_called_once_with("1:1", {"textFormat": {"bold": True}})
+        ws_existente_vazia.format.assert_called_once_with(
+            "1:1", {"textFormat": {"bold": True}}
+        )
 
         # Aba mantida não deve ter append_row
         ws_existente_com_dados.append_row.assert_not_called()
@@ -311,4 +352,3 @@ def test_criar_abas_necessarias_funcao_modulo():
     )
     assert res["criadas"] == ["NovaAba"]
     mock_planilha.add_worksheet.assert_called_once()
-

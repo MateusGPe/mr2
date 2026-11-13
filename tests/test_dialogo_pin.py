@@ -11,7 +11,9 @@ from registro.gui.comum.dialogo_pin import solicitar_pin
 
 
 def test_solicitar_pin_sem_pin_configurado():
-    with patch("registro.gui.comum.dialogo_pin.tem_pin_configurado", return_value=False):
+    with patch(
+        "registro.gui.comum.dialogo_pin.tem_pin_configurado", return_value=False
+    ):
         # Deve retornar True sem abrir nenhuma janela
         assert solicitar_pin() is True
 
@@ -21,7 +23,9 @@ def test_solicitar_pin_com_pin_configurado_confirmado():
         mock_dialogo = MagicMock()
         mock_dialogo.resultado = True
 
-        with patch("registro.gui.comum.dialogo_pin.DialogoPIN", return_value=mock_dialogo) as mock_cls:
+        with patch(
+            "registro.gui.comum.dialogo_pin.DialogoPIN", return_value=mock_dialogo
+        ) as mock_cls:
             res = solicitar_pin(titulo="Teste", mensagem="Digite:")
             mock_cls.assert_called_once()
             mock_dialogo.wait_window.assert_called_once()
@@ -33,6 +37,8 @@ def test_solicitar_pin_com_pin_configurado_cancelado():
         mock_dialogo = MagicMock()
         mock_dialogo.resultado = False
 
-        with patch("registro.gui.comum.dialogo_pin.DialogoPIN", return_value=mock_dialogo):
+        with patch(
+            "registro.gui.comum.dialogo_pin.DialogoPIN", return_value=mock_dialogo
+        ):
             res = solicitar_pin()
             assert res is False

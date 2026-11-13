@@ -48,11 +48,9 @@ class PainelAcaoBusca(ttk.Frame):
         self._app = app
         self._fachada = fachada_nucleo
 
-
         self._id_after_busca: Optional[str] = None
         self._dados_correspondencias_elegiveis_atuais: List[Dict[str, Any]] = []
         self._dados_elegivel_selecionado: Optional[Dict[str, Any]] = None
-
 
         self._var_entrada_busca: tk.StringVar = tk.StringVar()
         self._var_bypass_horario: tk.BooleanVar = tk.BooleanVar(value=False)
@@ -70,8 +68,6 @@ class PainelAcaoBusca(ttk.Frame):
         self._criar_widgets()
         self._configurar_vinculos_eventos()
 
-
-
     @property
     def id_after_busca(self) -> Optional[str]:
         return self._id_after_busca
@@ -79,10 +75,6 @@ class PainelAcaoBusca(ttk.Frame):
     @id_after_busca.setter
     def id_after_busca(self, value: Optional[str]):
         self._id_after_busca = value
-
-
-
-
 
     def _configurar_layout(self):
         """Configura o grid layout do painel."""
@@ -177,7 +169,8 @@ class PainelAcaoBusca(ttk.Frame):
                 "<Return>", lambda _: self._registrar_elegivel_selecionado()
             )
             self._entrada_busca.bind(
-                "<Shift-Return>", lambda _: self._registrar_elegivel_selecionado(forcar_bypass=True)
+                "<Shift-Return>",
+                lambda _: self._registrar_elegivel_selecionado(forcar_bypass=True),
             )
             self._entrada_busca.bind(
                 "<Down>", lambda _: self._selecionar_proximo_elegivel(1)
@@ -196,10 +189,6 @@ class PainelAcaoBusca(ttk.Frame):
             self._tree_estudantes_elegiveis.view.bind(
                 "<Double-1>", lambda _: self._registrar_elegivel_selecionado()
             )
-
-
-
-
 
     def habilitar_controles(self):
         """Habilita os controles do painel para interação."""
@@ -253,10 +242,6 @@ class PainelAcaoBusca(ttk.Frame):
             self.after_cancel(self._id_after_busca)
             self._id_after_busca = None
         self._executar_busca_real()
-
-
-
-
 
     def _na_mudanca_entrada_busca(self, *_):
         """
@@ -322,10 +307,6 @@ class PainelAcaoBusca(ttk.Frame):
         finally:
             self._atualizar_label_preview()
 
-
-
-
-
     def _executar_busca_real(self):
         """
         Executa a busca na fachada do núcleo com o termo atual e atualiza a
@@ -353,7 +334,7 @@ class PainelAcaoBusca(ttk.Frame):
         except ErroSessaoNaoAtiva:
             logger.error("Nenhuma sessão ativa para realizar a busca.")
             elegiveis = []
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao buscar elegíveis da fachada: %s", e)
             elegiveis = None
 
@@ -392,7 +373,9 @@ class PainelAcaoBusca(ttk.Frame):
             return
 
         bypass = forcar_bypass or self._var_bypass_horario.get()
-        logger.info("Registrando consumo para: %s - %s (bypass=%s)", pront, nome, bypass)
+        logger.info(
+            "Registrando consumo para: %s - %s (bypass=%s)", pront, nome, bypass
+        )
         try:
             resultado = self._fachada.registrar_consumo(
                 pront, pular_grupos=True, permitir_fora_horario=bypass
@@ -400,12 +383,19 @@ class PainelAcaoBusca(ttk.Frame):
             logger.info("Resultado do registro para %s: %s", pront, resultado)
 
             if resultado.get("autorizado"):
-                categoria = resultado.get("categoria", self._dados_elegivel_selecionado.get("Categoria", "REGULAR"))
+                categoria = resultado.get(
+                    "categoria",
+                    self._dados_elegivel_selecionado.get("Categoria", "REGULAR"),
+                )
                 tupla_estudante = (
                     str(resultado.get("prontuario", pront)),
                     str(resultado.get("nome", nome)),
                     str(resultado.get("turma", "")),
-                    str(resultado.get("hora_consumo", datetime.now().strftime("%H:%M:%S"))),
+                    str(
+                        resultado.get(
+                            "hora_consumo", datetime.now().strftime("%H:%M:%S")
+                        )
+                    ),
                     str(resultado.get("prato", "")),
                     str(categoria),
                 )
@@ -428,7 +418,7 @@ class PainelAcaoBusca(ttk.Frame):
                         parent=self._app,
                     )
 
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.warning("Falha ao registrar %s: %s", pront, e)
             Messagebox.show_error(
                 f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nErro: {e}",
@@ -440,10 +430,6 @@ class PainelAcaoBusca(ttk.Frame):
             self._atualizar_label_preview()
             if self._botao_registrar:
                 self._botao_registrar.config(state=DISABLED)
-
-
-
-
 
     def _resetar_estado_busca(self):
         """Limpa a lista de resultados e reseta os componentes relacionados."""
@@ -465,7 +451,6 @@ class PainelAcaoBusca(ttk.Frame):
     ) -> List[Dict[str, Any]]:
         """Retorna todos os estudantes elegíveis que ainda não consumiram."""
         logger.debug("Filtrando %d alunos elegíveis.", len(estudantes_elegiveis))
-
 
         elegiveis_formatados = [
             {
@@ -491,7 +476,6 @@ class PainelAcaoBusca(ttk.Frame):
         """
         termo_lower = termo_busca.lower().strip()
         correspondencias = []
-
 
         busca_por_pront = bool(
             re.fullmatch(r"(?:[a-z]{2})?[\dx\s]+", termo_lower, re.IGNORECASE)
@@ -561,10 +545,9 @@ class PainelAcaoBusca(ttk.Frame):
         try:
             view = self._tree_estudantes_elegiveis.view
             for linha in linhas_para_inserir:
-
                 view.insert("", tk.END, iid=linha[1], values=linha)
             self._tree_estudantes_elegiveis.apply_zebra_striping()
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao construir tabela de elegíveis: %s", e)
             Messagebox.show_error(
                 "Não foi possível exibir os resultados.", "Erro de UI", parent=self._app
@@ -590,7 +573,9 @@ class PainelAcaoBusca(ttk.Frame):
             )
             turma = self._dados_elegivel_selecionado.get("Turma", "S/ Turma")
             prato = self._dados_elegivel_selecionado.get("Prato") or "Sem Reserva"
-            texto = f"Pront: {pront}\nNome: {nome}{tag_cat}\nTurma: {turma}\nPrato: {prato}"
+            texto = (
+                f"Pront: {pront}\nNome: {nome}{tag_cat}\nTurma: {turma}\nPrato: {prato}"
+            )
             estilo = "@primary"
         else:
             texto = "Pesquise um aluno."
@@ -636,5 +621,5 @@ class PainelAcaoBusca(ttk.Frame):
                 view.focus(primeiro_iid)
                 view.selection_set(primeiro_iid)
                 view.see(primeiro_iid)
-        except Exception as e: # pylint: disable=broad-exception-caught
+        except Exception as e:  # pylint: disable=broad-exception-caught
             logger.error("Erro ao auto-selecionar primeiro item: %s", e)

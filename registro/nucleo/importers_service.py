@@ -69,8 +69,7 @@ def importar_estudantes_csv(
         prontuarios_no_csv = set()
 
         mapa_estudantes_existentes = {
-            s.prontuario: s
-            for s in repo_estudante.ler_todos_com_grupos()
+            s.prontuario: s for s in repo_estudante.ler_todos_com_grupos()
         }
 
         with open(caminho_arquivo_csv, "r", encoding="utf-8") as arquivo_csv:
@@ -138,14 +137,18 @@ def importar_estudantes_csv(
             mapa_grupos: Dict[str, int] = {}
             if turmas_nomes:
                 mapa_grupos.update(
-                    _obter_ou_criar_grupos(sessao_db, turmas_nomes, tipo=TIPO_GRUPO_TURMA)
+                    _obter_ou_criar_grupos(
+                        sessao_db, turmas_nomes, tipo=TIPO_GRUPO_TURMA
+                    )
                 )
             # Categorias explícitas nunca sobrescrevem o tipo se o mesmo nome já veio como turma,
             # mas se veio apenas na coluna Categoria é criado como TIPO_GRUPO_CATEGORIA.
             cats_novas = categorias_nomes - set(mapa_grupos.keys())
             if cats_novas:
                 mapa_grupos.update(
-                    _obter_ou_criar_grupos(sessao_db, cats_novas, tipo=TIPO_GRUPO_CATEGORIA)
+                    _obter_ou_criar_grupos(
+                        sessao_db, cats_novas, tipo=TIPO_GRUPO_CATEGORIA
+                    )
                 )
 
             todos_nomes_grupos = turmas_nomes | categorias_nomes
@@ -168,7 +171,9 @@ def importar_estudantes_csv(
                 if estudante and id_grupo:
                     ids_grupos_atuais = {g.id for g in estudante.grupos}
                     if id_grupo not in ids_grupos_atuais:
-                        grupo = mapa_grupos_obj.get(id_grupo) or repo_grupo.ler_um(id_grupo)
+                        grupo = mapa_grupos_obj.get(id_grupo) or repo_grupo.ler_um(
+                            id_grupo
+                        )
                         if grupo:
                             estudante.grupos.append(grupo)
 
@@ -190,8 +195,7 @@ def importar_reservas_csv(
 ) -> int:
     """Importa reservas de um arquivo CSV, mesclando turnos e vinculando categorias pontuais."""
     try:
-        mapa_estudantes = {
-            s.prontuario: s.id for s in repo_estudante.ler_todos()}
+        mapa_estudantes = {s.prontuario: s.id for s in repo_estudante.ler_todos()}
         itens_reservas = []
         linhas_ignoradas = 0
 
@@ -217,7 +221,9 @@ def importar_reservas_csv(
 
                 almoco, jantar = resolver_turnos_reserva(linha)
                 cats_linha = normalizar_lista_categorias(
-                    linha.get("categorias") if linha.get("categorias") is not None else linha.get("categoria")
+                    linha.get("categorias")
+                    if linha.get("categorias") is not None
+                    else linha.get("categoria")
                 )
 
                 itens_reservas.append(

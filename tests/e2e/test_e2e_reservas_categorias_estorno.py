@@ -34,13 +34,15 @@ def _fixar_relogio(hora_hm: str, dia_semana: str = "segunda"):
         "domingo": 6,
     }
     hora_hms = f"{hora_hm}:00"
-    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt_c, \
-         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_g:
-        mock_dt_c.now.return_value.strftime.side_effect = (
-            lambda fmt: hora_hm if fmt == "%H:%M" else hora_hms
+    with (
+        patch("registro.nucleo.services.consumo_service.datetime") as mock_dt_c,
+        patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_g,
+    ):
+        mock_dt_c.now.return_value.strftime.side_effect = lambda fmt: (
+            hora_hm if fmt == "%H:%M" else hora_hms
         )
-        mock_dt_g.now.return_value.strftime.side_effect = (
-            lambda fmt: hora_hm if fmt == "%H:%M" else hora_hms
+        mock_dt_g.now.return_value.strftime.side_effect = lambda fmt: (
+            hora_hm if fmt == "%H:%M" else hora_hms
         )
         mock_dt_g.now.return_value.weekday.return_value = weekday_map.get(dia_semana, 0)
         yield
@@ -69,12 +71,22 @@ def test_categoria_pontual_na_reserva_vale_apenas_na_data_e_nao_contamina_estuda
         {
             "segunda": {
                 "almoco": [
-                    {"inicio": "12:00", "fim": "12:30", "turmas": ["*"], "categorias": ["PAP"]},
+                    {
+                        "inicio": "12:00",
+                        "fim": "12:30",
+                        "turmas": ["*"],
+                        "categorias": ["PAP"],
+                    },
                 ]
             },
             "terca": {
                 "almoco": [
-                    {"inicio": "12:00", "fim": "12:30", "turmas": ["*"], "categorias": ["PAP"]},
+                    {
+                        "inicio": "12:00",
+                        "fim": "12:30",
+                        "turmas": ["*"],
+                        "categorias": ["PAP"],
+                    },
                 ]
             },
         },
@@ -82,7 +94,9 @@ def test_categoria_pontual_na_reserva_vale_apenas_na_data_e_nao_contamina_estuda
     )
 
     turma = criar_grupo(nome="1º A", tipo="turma")
-    aluno = criar_estudante(prontuario="IQ3040001", nome="Aluno Pontual", grupos=[turma])
+    aluno = criar_estudante(
+        prontuario="IQ3040001", nome="Aluno Pontual", grupos=[turma]
+    )
 
     # Reserva Dia 1 com vínculo pontual PAP
     res_d1 = facade.criar_reserva(
@@ -114,13 +128,15 @@ def test_categoria_pontual_na_reserva_vale_apenas_na_data_e_nao_contamina_estuda
     assert [g.nome for g in perfil.grupos if g.eh_categoria] == []
 
     # Dia 1 (segunda, 12:10): autorizado como PAP
-    id_s1 = facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "Tarde",
-        "data": "2026-11-10",
-        "hora": "12:00",
-        "grupos": ["1º A"],
-    })
+    id_s1 = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": "2026-11-10",
+            "hora": "12:00",
+            "grupos": ["1º A"],
+        }
+    )
     assert id_s1 is not None
 
     elegiveis_d1 = facade.obter_estudantes_para_sessao(consumido=False)
@@ -133,13 +149,15 @@ def test_categoria_pontual_na_reserva_vale_apenas_na_data_e_nao_contamina_estuda
         assert reg_d1["categoria"] == "PAP"
 
     # Dia 2 (terça, 12:10): bloqueado no slot exclusivo PAP pois não possui categoria permanente
-    id_s2 = facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "Tarde",
-        "data": "2026-11-11",
-        "hora": "12:00",
-        "grupos": ["1º A"],
-    })
+    id_s2 = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": "2026-11-11",
+            "hora": "12:00",
+            "grupos": ["1º A"],
+        }
+    )
     assert id_s2 is not None
 
     with _fixar_relogio("12:10", "terca"):
@@ -163,7 +181,9 @@ def test_ciclo_estorno_reuso_reserva_cancelamento_reativacao_e_edicao(
     5. Estorno de lanche libera a cota do mesmo período para novo registro.
     """
     turma = criar_grupo(nome="3º MEC", tipo="turma")
-    aluno = criar_estudante(prontuario="IQ3050001", nome="Mariana Ciclo", grupos=[turma])
+    aluno = criar_estudante(
+        prontuario="IQ3050001", nome="Mariana Ciclo", grupos=[turma]
+    )
 
     res = facade.criar_reserva(
         aluno.prontuario,
@@ -172,27 +192,33 @@ def test_ciclo_estorno_reuso_reserva_cancelamento_reativacao_e_edicao(
     id_reserva = res["id"]
 
     # Sessões de Almoço 1, Almoço 2 e Jantar no mesmo dia
-    id_alm_1 = facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "Tarde",
-        "data": "2026-11-10",
-        "hora": "11:30",
-        "grupos": ["3º MEC"],
-    })
-    id_alm_2 = facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "Tarde",
-        "data": "2026-11-10",
-        "hora": "12:30",
-        "grupos": ["3º MEC"],
-    })
-    id_jan = facade.iniciar_nova_sessao({
-        "refeicao": "jantar",
-        "periodo": "Noite",
-        "data": "2026-11-10",
-        "hora": "19:00",
-        "grupos": ["3º MEC"],
-    })
+    id_alm_1 = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": "2026-11-10",
+            "hora": "11:30",
+            "grupos": ["3º MEC"],
+        }
+    )
+    id_alm_2 = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": "2026-11-10",
+            "hora": "12:30",
+            "grupos": ["3º MEC"],
+        }
+    )
+    id_jan = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "jantar",
+            "periodo": "Noite",
+            "data": "2026-11-10",
+            "hora": "19:00",
+            "grupos": ["3º MEC"],
+        }
+    )
 
     # 1. Consome almoço na sessão 1
     facade.id_sessao_ativa = id_alm_1
@@ -232,9 +258,16 @@ def test_ciclo_estorno_reuso_reserva_cancelamento_reativacao_e_edicao(
     assert r_reat["autorizado"] is True
     assert r_reat["prato"] == "Frango"
 
-    consumo_ativo = facade.repo_consumo.por_prontuario_e_sessao(aluno.prontuario, id_alm_2)
+    consumo_ativo = facade.repo_consumo.por_prontuario_e_sessao(
+        aluno.prontuario, id_alm_2
+    )
     assert consumo_ativo is not None
-    assert facade.atualizar_consumo(consumo_ativo.id, hora_consumo="12:34:56", prato="Omelete") is True
+    assert (
+        facade.atualizar_consumo(
+            consumo_ativo.id, hora_consumo="12:34:56", prato="Omelete"
+        )
+        is True
+    )
     db_session.refresh(consumo_ativo)
     assert consumo_ativo.hora_consumo == "12:34:56"
     assert consumo_ativo.reserva.prato == "Omelete"
@@ -246,14 +279,16 @@ def test_ciclo_estorno_reuso_reserva_cancelamento_reativacao_e_edicao(
     assert r_jan["prato"] == "Omelete"
 
     # 7. Lanche: estorno libera cota do mesmo período
-    facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Vespertino",
-        "data": "2026-11-10",
-        "hora": "15:30",
-        "item_servido": "Maçã",
-        "grupos": ["3º MEC"],
-    })
+    facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Vespertino",
+            "data": "2026-11-10",
+            "hora": "15:30",
+            "item_servido": "Maçã",
+            "grupos": ["3º MEC"],
+        }
+    )
     assert facade.registrar_consumo(aluno.prontuario)["autorizado"] is True
     assert facade.desfazer_consumo_por_prontuario(aluno.prontuario) is True
     assert facade.registrar_consumo(aluno.prontuario)["autorizado"] is True

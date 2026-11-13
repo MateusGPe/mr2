@@ -49,9 +49,7 @@ def test_load_students_from_csv_comma(tmp_path: Path):
     """Testa leitura de arquivo CSV com delimitador por vírgula e cabeçalho padrão."""
     csv_file = tmp_path / "students.csv"
     csv_file.write_text(
-        "register,name,turma\n"
-        "SP1001,Alice da Silva,1A\n"
-        "SP1002,Bob dos Santos,1B\n",
+        "register,name,turma\nSP1001,Alice da Silva,1A\nSP1002,Bob dos Santos,1B\n",
         encoding="utf-8",
     )
 
@@ -67,9 +65,7 @@ def test_load_students_from_csv_semicolon_and_aliases(tmp_path: Path):
     """Testa leitura de CSV com ponto-e-vírgula e cabeçalhos em português (matrícula/aluno)."""
     csv_file = tmp_path / "alunos.csv"
     csv_file.write_text(
-        "Matrícula;Nome do Aluno;Curso\n"
-        "IQ2026001;Carlos Eduardo;Engenharia\n"
-        "IQ2026002;Daniela Rocha;Informática\n",
+        "Matrícula;Nome do Aluno;Curso\nIQ2026001;Carlos Eduardo;Engenharia\nIQ2026002;Daniela Rocha;Informática\n",
         encoding="utf-8-sig",
     )
 
@@ -107,10 +103,18 @@ def test_generate_cards_pdf(tmp_path: Path):
     """Gera PDF com múltiplos estudantes e valida integridade do arquivo gerado."""
     estudantes = [
         {"register": f"SP{1000 + i}", "name": f"Aluno Número {i}", "turma": "1A"}
-        for i in range(25)  # 25 alunos forçam geração de 2 páginas (21 por página em 3x7)
+        for i in range(
+            25
+        )  # 25 alunos forçam geração de 2 páginas (21 por página em 3x7)
     ]
     out_pdf = tmp_path / "cartoes.pdf"
-    opts = CardOptions(cols=3, rows=7, show_cut_lines=True, header_text="IFSP Teste", show_page_number=True)
+    opts = CardOptions(
+        cols=3,
+        rows=7,
+        show_cut_lines=True,
+        header_text="IFSP Teste",
+        show_page_number=True,
+    )
 
     total = generate_cards_pdf(estudantes, out_pdf, opts)
     assert total == 25
@@ -125,7 +129,9 @@ def test_generate_cards_html(tmp_path: Path):
         {"register": "SP102", "name": "João Souza", "turma": "1B"},
     ]
     out_html = tmp_path / "cartoes.html"
-    opts = CardOptions(cols=2, rows=5, show_cut_lines=True, header_text="Escola Técnica")
+    opts = CardOptions(
+        cols=2, rows=5, show_cut_lines=True, header_text="Escola Técnica"
+    )
 
     total = generate_cards_html(estudantes, out_html, opts)
     assert total == 2
@@ -152,7 +158,9 @@ def test_formatar_nome_em_linhas():
     c = canvas.Canvas(BytesIO())
 
     # Nome curto cabe em 1 linha
-    linhas, font_sz = _formatar_nome_em_linhas(c, "Ana Silva", max_w=150, fonte="Helvetica")
+    linhas, font_sz = _formatar_nome_em_linhas(
+        c, "Ana Silva", max_w=150, fonte="Helvetica"
+    )
     assert len(linhas) == 1
     assert linhas[0] == "ANA SILVA"
     assert font_sz == 7.0
@@ -180,8 +188,16 @@ def test_generate_cards_pdf_with_multiline_names(tmp_path: Path):
     """Gera PDF com nomes de comprimentos variados validando a robustez do leiaute."""
     estudantes = [
         {"register": "SP001", "name": "Ana", "turma": "1A"},
-        {"register": "SP002", "name": "João da Silva Sauro Cavalcanti de Albuquerque", "turma": "1A"},
-        {"register": "SP003", "name": "Maria Eduarda Santos Rodrigues Ferreira da Costa", "turma": "2B"},
+        {
+            "register": "SP002",
+            "name": "João da Silva Sauro Cavalcanti de Albuquerque",
+            "turma": "1A",
+        },
+        {
+            "register": "SP003",
+            "name": "Maria Eduarda Santos Rodrigues Ferreira da Costa",
+            "turma": "2B",
+        },
     ]
     out_pdf = tmp_path / "cartoes_nomes_longos.pdf"
     opts = CardOptions(cols=3, rows=7)
@@ -209,4 +225,3 @@ def test_generate_cards_html_escapes_xss(tmp_path: Path):
     assert "&lt;script&gt;alert(1)&lt;/script&gt;" in content
     assert "&lt;img src=x onerror=alert(2)&gt;" in content
     assert "&lt;b&gt;IFSP&lt;/b&gt;" in content
-

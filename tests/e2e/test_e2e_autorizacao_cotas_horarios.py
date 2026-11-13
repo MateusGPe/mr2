@@ -38,13 +38,15 @@ def _fixar_relogio(hora_hm: str, dia_semana: str = "segunda"):
         "domingo": 6,
     }
     hora_hms = f"{hora_hm}:00"
-    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt_c, \
-         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_g:
-        mock_dt_c.now.return_value.strftime.side_effect = (
-            lambda fmt: hora_hm if fmt == "%H:%M" else hora_hms
+    with (
+        patch("registro.nucleo.services.consumo_service.datetime") as mock_dt_c,
+        patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_g,
+    ):
+        mock_dt_c.now.return_value.strftime.side_effect = lambda fmt: (
+            hora_hm if fmt == "%H:%M" else hora_hms
         )
-        mock_dt_g.now.return_value.strftime.side_effect = (
-            lambda fmt: hora_hm if fmt == "%H:%M" else hora_hms
+        mock_dt_g.now.return_value.strftime.side_effect = lambda fmt: (
+            hora_hm if fmt == "%H:%M" else hora_hms
         )
         mock_dt_g.now.return_value.weekday.return_value = weekday_map.get(dia_semana, 0)
         yield
@@ -123,13 +125,21 @@ def test_matriz_completa_autorizacao_e_coerencia_gui(
 
     data_br = "10/11/2026"
     if estado_reserva == "almoco":
-        criar_reserva(estudante=aluno, data=data_br, almoco=True, jantar=False, prato="Frango")
+        criar_reserva(
+            estudante=aluno, data=data_br, almoco=True, jantar=False, prato="Frango"
+        )
     elif estado_reserva == "jantar_only":
-        criar_reserva(estudante=aluno, data=data_br, almoco=False, jantar=True, prato="Sopa")
+        criar_reserva(
+            estudante=aluno, data=data_br, almoco=False, jantar=True, prato="Sopa"
+        )
     elif estado_reserva == "ambos":
-        criar_reserva(estudante=aluno, data=data_br, almoco=True, jantar=True, prato="Especial")
+        criar_reserva(
+            estudante=aluno, data=data_br, almoco=True, jantar=True, prato="Especial"
+        )
     elif estado_reserva == "cancelada":
-        criar_reserva(estudante=aluno, data=data_br, almoco=True, jantar=True, cancelada=True)
+        criar_reserva(
+            estudante=aluno, data=data_br, almoco=True, jantar=True, cancelada=True
+        )
 
     sessao = criar_sessao(
         refeicao=refeicao,
@@ -158,11 +168,19 @@ def test_matriz_completa_autorizacao_e_coerencia_gui(
         assert "inativo" in res_estrito["motivo"].lower()
 
     if esperado_estrito:
-        consumos_ativos = db_session.query(Consumo).filter_by(sessao_id=sessao.id, ativo=True).all()
+        consumos_ativos = (
+            db_session.query(Consumo).filter_by(sessao_id=sessao.id, ativo=True).all()
+        )
         assert len(consumos_ativos) == 1
-        assert facade.desfazer_consumo(consumos_ativos[0].id, motivo="Reset matriz") is True
+        assert (
+            facade.desfazer_consumo(consumos_ativos[0].id, motivo="Reset matriz")
+            is True
+        )
     else:
-        assert db_session.query(Consumo).filter_by(sessao_id=sessao.id, ativo=True).count() == 0
+        assert (
+            db_session.query(Consumo).filter_by(sessao_id=sessao.id, ativo=True).count()
+            == 0
+        )
 
     # 3. Testa modo padrão (usado pelo Totem e Operador)
     res_padrao = facade.registrar_consumo(
@@ -173,9 +191,15 @@ def test_matriz_completa_autorizacao_e_coerencia_gui(
     assert res_padrao["autorizado"] is esperado_padrao
     if esperado_padrao:
         assert res_padrao["prontuario"] == aluno.prontuario
-        assert db_session.query(Consumo).filter_by(sessao_id=sessao.id, ativo=True).count() == 1
+        assert (
+            db_session.query(Consumo).filter_by(sessao_id=sessao.id, ativo=True).count()
+            == 1
+        )
     else:
-        assert db_session.query(Consumo).filter_by(sessao_id=sessao.id, ativo=True).count() == 0
+        assert (
+            db_session.query(Consumo).filter_by(sessao_id=sessao.id, ativo=True).count()
+            == 0
+        )
 
 
 # ============================================================================
@@ -209,26 +233,30 @@ def test_cotas_cross_sessao_blindadas_contra_bypass_e_turnos_independentes(
     )
 
     # Sessão 1 de Almoço
-    id_alm_1 = facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "Tarde",
-        "data": "2026-11-10",
-        "hora": "11:30",
-        "grupos": ["2º INFO"],
-    })
+    id_alm_1 = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": "2026-11-10",
+            "hora": "11:30",
+            "grupos": ["2º INFO"],
+        }
+    )
     assert id_alm_1 is not None
     res_alm_1 = facade.registrar_consumo("iq3010001")
     assert res_alm_1["autorizado"] is True
     assert res_alm_1["prato"] == "Executivo"
 
     # Sessão 2 de Almoço no mesmo dia -> cota diária bloqueia mesmo com pular_grupos=True
-    id_alm_2 = facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "Tarde",
-        "data": "2026-11-10",
-        "hora": "12:45",
-        "grupos": ["2º INFO"],
-    })
+    id_alm_2 = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": "2026-11-10",
+            "hora": "12:45",
+            "grupos": ["2º INFO"],
+        }
+    )
     assert id_alm_2 is not None
     res_alm_2 = facade.registrar_consumo(
         "IQ3010001", pular_grupos=True, permitir_fora_horario=True
@@ -237,67 +265,80 @@ def test_cotas_cross_sessao_blindadas_contra_bypass_e_turnos_independentes(
     assert "Cota diária atingida" in res_alm_2["motivo"]
 
     # Sessão de Jantar no mesmo dia -> usa a mesma reserva (jantar=True) e autoriza
-    id_jan = facade.iniciar_nova_sessao({
-        "refeicao": "jantar",
-        "periodo": "Noite",
-        "data": "2026-11-10",
-        "hora": "19:00",
-        "grupos": ["2º INFO"],
-    })
+    id_jan = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "jantar",
+            "periodo": "Noite",
+            "data": "2026-11-10",
+            "hora": "19:00",
+            "grupos": ["2º INFO"],
+        }
+    )
     assert id_jan is not None
     res_jan = facade.registrar_consumo("IQ3010001")
     assert res_jan["autorizado"] is True
     assert res_jan["prato"] == "Executivo"
 
     # Sessão de Jantar 2 no mesmo dia -> bloqueada
-    id_jan_2 = facade.iniciar_nova_sessao({
-        "refeicao": "jantar",
-        "periodo": "Noite",
-        "data": "2026-11-10",
-        "hora": "20:00",
-        "grupos": ["2º INFO"],
-    })
+    id_jan_2 = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "jantar",
+            "periodo": "Noite",
+            "data": "2026-11-10",
+            "hora": "20:00",
+            "grupos": ["2º INFO"],
+        }
+    )
     res_jan_2 = facade.registrar_consumo("IQ3010001", pular_grupos=True)
     assert res_jan_2["autorizado"] is False
     assert "Cota diária atingida" in res_jan_2["motivo"]
 
     # Lanches no mesmo dia: Matutino OK -> segundo "matutino" bloqueado -> Vespertino OK
-    id_lan_m1 = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Matutino",
-        "data": "2026-11-10",
-        "hora": "09:30",
-        "item_servido": "Biscoito",
-        "grupos": ["2º INFO"],
-    })
+    id_lan_m1 = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Matutino",
+            "data": "2026-11-10",
+            "hora": "09:30",
+            "item_servido": "Biscoito",
+            "grupos": ["2º INFO"],
+        }
+    )
     assert facade.registrar_consumo("IQ3010001")["autorizado"] is True
 
-    facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "matutino",
-        "data": "2026-11-10",
-        "hora": "10:15",
-        "item_servido": "Fruta",
-        "grupos": ["2º INFO"],
-    })
+    facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "matutino",
+            "data": "2026-11-10",
+            "hora": "10:15",
+            "item_servido": "Fruta",
+            "grupos": ["2º INFO"],
+        }
+    )
     res_lan_m2 = facade.registrar_consumo("IQ3010001", pular_grupos=True)
     assert res_lan_m2["autorizado"] is False
     assert "Cota atingida" in res_lan_m2["motivo"]
 
-    facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Vespertino",
-        "data": "2026-11-10",
-        "hora": "15:30",
-        "item_servido": "Suco",
-        "grupos": ["2º INFO"],
-    })
+    facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Vespertino",
+            "data": "2026-11-10",
+            "hora": "15:30",
+            "item_servido": "Suco",
+            "grupos": ["2º INFO"],
+        }
+    )
     res_lan_v = facade.registrar_consumo("IQ3010001")
     assert res_lan_v["autorizado"] is True
     assert res_lan_v["prato"] == "Suco"
 
     # Total exato de consumos gravados no dia = 4 (1 almoço, 1 jantar, 2 lanches)
-    assert db_session.query(Consumo).filter_by(estudante_id=aluno.id, ativo=True).count() == 4
+    assert (
+        db_session.query(Consumo).filter_by(estudante_id=aluno.id, ativo=True).count()
+        == 4
+    )
     # Confirma que aluno atendido em sessão aparece em consumido=True mesmo após remoção da turma
     facade.id_sessao_ativa = id_lan_m1
     facade.atualizar_grupos_sessao([])
@@ -330,11 +371,26 @@ def test_grade_horaria_fronteiras_tolerancia_slots_invalidos_e_bypasses(
         "segunda": {
             "almoco": [
                 # Slot malformado no meio da grade não pode derrubar a validação
-                {"inicio": "99:99", "fim": "invalido", "turmas": ["1º A"], "categorias": ["*"]},
+                {
+                    "inicio": "99:99",
+                    "fim": "invalido",
+                    "turmas": ["1º A"],
+                    "categorias": ["*"],
+                },
                 # Slot 1: 11:30 - 12:00 (com tolerância 5 min: 11:25 até 12:05) -> 1º A
-                {"inicio": "11:30", "fim": "12:00", "turmas": ["1º A"], "categorias": ["*"]},
+                {
+                    "inicio": "11:30",
+                    "fim": "12:00",
+                    "turmas": ["1º A"],
+                    "categorias": ["*"],
+                },
                 # Slot 2: 12:10 - 12:40 (tolerância: 12:05 até 12:45) -> apenas PAP
-                {"inicio": "12:10", "fim": "12:40", "turmas": ["*"], "categorias": ["PAP"]},
+                {
+                    "inicio": "12:10",
+                    "fim": "12:40",
+                    "turmas": ["*"],
+                    "categorias": ["PAP"],
+                },
             ]
         }
     }
@@ -345,19 +401,23 @@ def test_grade_horaria_fronteiras_tolerancia_slots_invalidos_e_bypasses(
     g_pap = criar_grupo(nome="PAP", tipo="categoria")
 
     e_1a = criar_estudante(prontuario="IQ3020001", nome="Regular 1A", grupos=[g_1a])
-    e_2a_pap = criar_estudante(prontuario="IQ3020002", nome="PAP 2A", grupos=[g_2a, g_pap])
+    e_2a_pap = criar_estudante(
+        prontuario="IQ3020002", nome="PAP 2A", grupos=[g_2a, g_pap]
+    )
     e_2a_reg = criar_estudante(prontuario="IQ3020003", nome="Fora Grade", grupos=[g_2a])
 
     for est in (e_1a, e_2a_pap, e_2a_reg):
         criar_reserva(estudante=est, data="10/11/2026", almoco=True)
 
-    facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "Tarde",
-        "data": "2026-11-10",
-        "hora": "11:30",
-        "grupos": ["1º A", "2º A"],
-    })
+    facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": "2026-11-10",
+            "hora": "11:30",
+            "grupos": ["1º A", "2º A"],
+        }
+    )
 
     # 11:24 -> 1 minuto antes da tolerância (11:25) -> BLOQUEADO com horário previsto
     with _fixar_relogio("11:24", "segunda"):
@@ -377,7 +437,10 @@ def test_grade_horaria_fronteiras_tolerancia_slots_invalidos_e_bypasses(
     with _fixar_relogio("12:06", "segunda"):
         r_apos = facade.registrar_consumo(e_1a.prontuario)
         assert r_apos["autorizado"] is False
-        assert "Fora do horário da sua turma. Seu horário: 11:30 às 12:00." in r_apos["motivo"]
+        assert (
+            "Fora do horário da sua turma. Seu horário: 11:30 às 12:00."
+            in r_apos["motivo"]
+        )
 
         # Mas e_2a_pap (2º A + PAP) é AUTORIZADO no Slot 2
         r_pap = facade.registrar_consumo(e_2a_pap.prontuario)
@@ -395,5 +458,7 @@ def test_grade_horaria_fronteiras_tolerancia_slots_invalidos_e_bypasses(
         assert "não possui autorização" in r_ignora_nao_previsto["motivo"]
 
         # Com permitir_fora_horario=True (bypass do operador), ignora a grade totalmente
-        r_bypass_horario = facade.registrar_consumo(e_2a_reg.prontuario, permitir_fora_horario=True)
+        r_bypass_horario = facade.registrar_consumo(
+            e_2a_reg.prontuario, permitir_fora_horario=True
+        )
         assert r_bypass_horario["autorizado"] is True

@@ -37,9 +37,7 @@ try:
     if sys.platform == "win32":
         import pyzbar
 
-        _pyzbar_dll_path = os.add_dll_directory(
-            os.path.dirname(pyzbar.__file__)
-        )
+        _pyzbar_dll_path = os.add_dll_directory(os.path.dirname(pyzbar.__file__))
 
     from pyzbar.pyzbar import ZBarSymbol, decode
 
@@ -105,7 +103,9 @@ class FrameSelfService(ttk.Frame):
         self.recarregar_sessao()
 
         self._totem_cfg = obter_config_totem()
-        self._feedback_frames = max(5, int(self._totem_cfg.get("feedback_delay_ms", 1500) / 100))
+        self._feedback_frames = max(
+            5, int(self._totem_cfg.get("feedback_delay_ms", 1500) / 100)
+        )
 
         if OPENCV_DISPONIVEL and self._totem_cfg.get("camera_on_start", True):
             self._iniciar_camera()
@@ -151,7 +151,11 @@ class FrameSelfService(ttk.Frame):
             topo = self.winfo_toplevel()
             # Se houver diálogo Toplevel aberto e visível, o totem está em segundo plano
             for w in topo.winfo_children():
-                if isinstance(w, tk.Toplevel) and w.winfo_exists() and w.winfo_viewable():
+                if (
+                    isinstance(w, tk.Toplevel)
+                    and w.winfo_exists()
+                    and w.winfo_viewable()
+                ):
                     if getattr(w, "permite_leitura_totem", False):
                         continue
                     return False
@@ -297,9 +301,7 @@ class FrameSelfService(ttk.Frame):
                         text=f"🍲 {refeicao} ({hora}){texto_item} | 📅 {data} | 👥 {grupos_str}{horario_livre_info}"
                     )
 
-                consumidos = self._fachada.obter_estudantes_para_sessao(
-                    consumido=True
-                )
+                consumidos = self._fachada.obter_estudantes_para_sessao(consumido=True)
                 self._total_atendidos_sessao = len(consumidos)
                 if self._lbl_contador_sessao:
                     self._lbl_contador_sessao.config(
@@ -311,9 +313,7 @@ class FrameSelfService(ttk.Frame):
             if self._lbl_refeicao_ativa:
                 self._lbl_refeicao_ativa.config(text="Nenhuma sessão ativa")
             if self._lbl_contador_sessao:
-                self._lbl_contador_sessao.config(
-                    text="Aguardando início de sessão"
-                )
+                self._lbl_contador_sessao.config(text="Aguardando início de sessão")
             if self._lbl_sessao_topo:
                 self._lbl_sessao_topo.config(
                     text="⚠️ Nenhuma sessão ativa no momento — Clique em '⚙️ Controles'"
@@ -358,7 +358,7 @@ class FrameSelfService(ttk.Frame):
             font=("Segoe UI", 10, "bold"),
             bootstyle="@dark",
             anchor="e",
-            wraplength=400
+            wraplength=400,
         )
         self._lbl_sessao_topo.grid(row=0, column=1, sticky="ew")
 
@@ -403,9 +403,7 @@ class FrameSelfService(ttk.Frame):
 
         # Clique com o botão direito para exibir o menu de contexto
         self.bind("<Button-3>", lambda e: self._ao_clicar_controles(event=e))
-        self._lbl_video.bind(
-            "<Button-3>", lambda e: self._ao_clicar_controles(event=e)
-        )
+        self._lbl_video.bind("<Button-3>", lambda e: self._ao_clicar_controles(event=e))
 
         # Frame de Informações e Feedback (Direita) - Ocupa 100% da altura
         self._frame_info = tk.Frame(self, bg=self.COR_FUNDO_PADRAO)
@@ -413,9 +411,7 @@ class FrameSelfService(ttk.Frame):
         self._frame_info.pack_propagate(False)
 
         # Top Header
-        self._frame_cabecalho = tk.Frame(
-            self._frame_info, bg=self.COR_FUNDO_PADRAO
-        )
+        self._frame_cabecalho = tk.Frame(self._frame_info, bg=self.COR_FUNDO_PADRAO)
         self._frame_cabecalho.pack(fill=X, padx=24, pady=(24, 12))
 
         self._lbl_titulo_cabecalho = tk.Label(
@@ -425,7 +421,7 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg=self.COR_TEXTO,
             anchor="center",
-            wraplength=400
+            wraplength=400,
         )
         self._lbl_titulo_cabecalho.pack(fill=X)
 
@@ -455,14 +451,12 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg=self.COR_TEXTO,
             anchor="center",
-            wraplength=400
+            wraplength=400,
         )
         self._lbl_status.pack(fill=X, pady=(5, 18))
 
         # Cartão Central do Estudante
-        self._frame_estudante = tk.Frame(
-            self._frame_info, bg=self.COR_FUNDO_PADRAO
-        )
+        self._frame_estudante = tk.Frame(self._frame_info, bg=self.COR_FUNDO_PADRAO)
         self._frame_estudante.pack(fill=BOTH, expand=True, padx=24)
 
         self._lbl_nome = tk.Label(
@@ -484,7 +478,7 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg="#E5E7EB",
             anchor="center",
-            wraplength=400
+            wraplength=400,
         )
         self._lbl_turma.pack(fill=X, pady=2)
 
@@ -495,7 +489,7 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg="#93C5FD",
             anchor="center",
-            wraplength=400
+            wraplength=400,
         )
         self._lbl_prato.pack(fill=X, pady=3)
 
@@ -519,7 +513,7 @@ class FrameSelfService(ttk.Frame):
             bg=self.COR_FUNDO_PADRAO,
             fg="#9CA3AF",
             anchor="center",
-            wraplength=400
+            wraplength=400,
         )
         self._lbl_contador_sessao.pack(fill=X, pady=(0, 12))
 
@@ -545,9 +539,7 @@ class FrameSelfService(ttk.Frame):
         )
         self._entrada_manual.grid(row=0, column=0, sticky="ew", padx=(0, 8))
         self._entrada_manual.bind("<Return>", self._ao_submeter_manual)
-        self._var_entrada_manual.trace_add(
-            "write", self._na_mudanca_entrada_manual
-        )
+        self._var_entrada_manual.trace_add("write", self._na_mudanca_entrada_manual)
 
         ttk.Button(
             self._frame_manual,
@@ -573,9 +565,7 @@ class FrameSelfService(ttk.Frame):
 
     def _exibir_erro_dependencia(self):
         dica_so = (
-            " (No Linux: sudo apt install libzbar0)"
-            if sys.platform != "win32"
-            else ""
+            " (No Linux: sudo apt install libzbar0)" if sys.platform != "win32" else ""
         )
         msg = (
             f"Bibliotecas 'opencv-python' e/ou 'pyzbar' não encontradas{dica_so}.\n"
@@ -692,9 +682,7 @@ class FrameSelfService(ttk.Frame):
                 )
             return
 
-        self._id_after_busca_manual = self.after(
-            300, self._atualizar_sugestao_manual
-        )
+        self._id_after_busca_manual = self.after(300, self._atualizar_sugestao_manual)
 
     def _atualizar_sugestao_manual(self):
         """Busca por sugestão de estudante e exibe dica."""

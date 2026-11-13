@@ -30,7 +30,9 @@ def isolar_grade_horarios(monkeypatch, tmp_path_factory):
     from registro.nucleo.services import grade_horarios_service
 
     monkeypatch.setattr(constants, "CAMINHO_GRADE_HORARIOS", caminho_tmp_grade)
-    monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_tmp_grade)
+    monkeypatch.setattr(
+        grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_tmp_grade
+    )
 
 
 @pytest.fixture
@@ -94,7 +96,6 @@ def repos(db_session: Session) -> Dict[str, Any]:
     }
 
 
-
 # --- Factories para criação de dados de teste ---
 
 
@@ -124,9 +125,7 @@ def criar_estudante(db_session: Session) -> Callable[..., Estudante]:
         ativo: bool = True,
         grupos: Optional[List[Grupo]] = None,
     ) -> Estudante:
-        estudante = Estudante(
-            prontuario=prontuario, nome=nome, ativo=ativo
-        )
+        estudante = Estudante(prontuario=prontuario, nome=nome, ativo=ativo)
         if grupos:
             estudante.grupos.extend(grupos)
         db_session.add(estudante)
@@ -252,7 +251,4 @@ def csv_com_linhas_vazias_e_resumos() -> str:
 @pytest.fixture
 def csv_sem_cabecalho_explicito() -> str:
     """CSV onde os dados precisam de detecção heurística/regex de padrão."""
-    return (
-        "SP3012345,Fernanda Lima,3º A - MEC\n"
-        "SP3098765,Gabriel Alves,3º B - MEC\n"
-    )
+    return "SP3012345,Fernanda Lima,3º A - MEC\nSP3098765,Gabriel Alves,3º B - MEC\n"

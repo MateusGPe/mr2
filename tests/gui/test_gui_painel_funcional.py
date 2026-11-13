@@ -20,7 +20,9 @@ from registro.gui.painel.app import App as PainelApp
 
 
 @pytest.fixture
-def painel_dados(facade, criar_grupo, criar_estudante, criar_sessao, criar_reserva, criar_consumo):
+def painel_dados(
+    facade, criar_grupo, criar_estudante, criar_sessao, criar_reserva, criar_consumo
+):
     """Popula o SQLite com dados realistas para o Painel Administrativo."""
     grupo_info = criar_grupo(nome="1INFO", ativo=True)
     grupo_mec = criar_grupo(nome="2MEC", ativo=True)
@@ -116,7 +118,9 @@ def test_painel_aba_turmas_contagem_alunos(app_root, painel_dados, mock_messageb
     aba.destroy()
 
 
-def test_painel_aba_dashboard_estatisticas_reais(app_root, painel_dados, mock_messagebox):
+def test_painel_aba_dashboard_estatisticas_reais(
+    app_root, painel_dados, mock_messagebox
+):
     """Cenário Provável: AbaDashboard exibe estatísticas calculadas pelo backend real."""
     facade = painel_dados["facade"]
 
@@ -168,9 +172,11 @@ def test_painel_dialogs_turma_tipo_e_reserva_categoria_pontual(
 
     facade = painel_dados["facade"]
 
-    with patch.object(TurmaDialog, "grab_set"), \
-         patch.object(TurmaDialog, "transient"), \
-         patch.object(TurmaDialog, "wait_window"):
+    with (
+        patch.object(TurmaDialog, "grab_set"),
+        patch.object(TurmaDialog, "transient"),
+        patch.object(TurmaDialog, "wait_window"),
+    ):
         dlg_turma = TurmaDialog(app_root, facade)
         dlg_turma.nome_entry.insert(0, "ESP1")
         dlg_turma.tipo_combobox.set("Categoria (Optativa / Programa / Evento)")
@@ -182,9 +188,11 @@ def test_painel_dialogs_turma_tipo_e_reserva_categoria_pontual(
     assert grupos_esp1[0]["tipo"] == "categoria"
 
     # Cria reserva para aluno Bruno Silveira (IQ3000002) vinculando ESP1 e LIB0 na reserva
-    with patch.object(ReservaDialog, "grab_set"), \
-         patch.object(ReservaDialog, "transient"), \
-         patch.object(ReservaDialog, "wait_window"):
+    with (
+        patch.object(ReservaDialog, "grab_set"),
+        patch.object(ReservaDialog, "transient"),
+        patch.object(ReservaDialog, "wait_window"),
+    ):
         dlg_res = ReservaDialog(app_root, facade)
         dlg_res.aluno_combobox.set("IQ3000002 - Bruno Silveira")
         dlg_res.data_entry.entry.delete(0, "end")
@@ -217,9 +225,11 @@ def test_painel_reserva_dialog_almoco_jantar_e_aba_reservas(
 
     facade = painel_dados["facade"]
 
-    with patch.object(ReservaDialog, "grab_set"), \
-         patch.object(ReservaDialog, "transient"), \
-         patch.object(ReservaDialog, "wait_window"):
+    with (
+        patch.object(ReservaDialog, "grab_set"),
+        patch.object(ReservaDialog, "transient"),
+        patch.object(ReservaDialog, "wait_window"),
+    ):
         dlg = ReservaDialog(app_root, facade)
         dlg.aluno_combobox.set("IQ3000001 - Alice Ferreira")
         dlg.data_entry.entry.delete(0, "end")

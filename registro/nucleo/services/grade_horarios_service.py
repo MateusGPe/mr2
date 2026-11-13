@@ -82,7 +82,9 @@ def carregar_grade_horarios(
             return grade
     except (OSError, json.JSONDecodeError, ValueError) as e:
         logger.warning(
-            "Erro ao ler grade horária de %s: %s. Utilizando padrão.", caminho_arquivo, e
+            "Erro ao ler grade horária de %s: %s. Utilizando padrão.",
+            caminho_arquivo,
+            e,
         )
         return GRADE_PADRAO
 
@@ -156,8 +158,7 @@ def converter_linhas_configuracao_para_grade(
     dicionário estruturado da grade horária semanal.
     """
     grade: Dict[str, Dict[str, List[Dict[str, Any]]]] = {
-        dia: {"almoco": [], "jantar": [], "lanche": []}
-        for dia in GRADE_PADRAO
+        dia: {"almoco": [], "jantar": [], "lanche": []} for dia in GRADE_PADRAO
     }
 
     if not linhas:
@@ -203,7 +204,9 @@ def converter_linhas_configuracao_para_grade(
             _hora_para_minutos(inicio)
             _hora_para_minutos(fim)
         except (ValueError, TypeError):
-            logger.warning("Linha com horário inválido na configuração: %s - %s", inicio, fim)
+            logger.warning(
+                "Linha com horário inválido na configuração: %s - %s", inicio, fim
+            )
             continue
 
         turmas_brutas = valores[4] if len(valores) > 4 else ""
@@ -239,7 +242,9 @@ def _tem_restricao_especifica(valores: List[str]) -> bool:
     return bool(norm) and "*" not in norm and "TODAS" not in norm
 
 
-def _turmas_autorizadas_para_slot(slot: Dict[str, Any], turmas_estudante: Set[str]) -> bool:
+def _turmas_autorizadas_para_slot(
+    slot: Dict[str, Any], turmas_estudante: Set[str]
+) -> bool:
     """Verifica se alguma turma do estudante é aceita pelo slot."""
     turmas_slot = slot.get("turmas", [])
     if not _tem_restricao_especifica(turmas_slot):
@@ -256,8 +261,12 @@ def _categorias_autorizadas_para_slot(
     categorias_slot = slot.get("categorias", [])
     if not _tem_restricao_especifica(categorias_slot):
         return True
-    cats_slot_norm = {c.strip().upper() for c in categorias_slot if c and str(c).strip()}
-    est_cats_norm = {c.strip().upper() for c in categorias_estudante if c and str(c).strip()}
+    cats_slot_norm = {
+        c.strip().upper() for c in categorias_slot if c and str(c).strip()
+    }
+    est_cats_norm = {
+        c.strip().upper() for c in categorias_estudante if c and str(c).strip()
+    }
     return bool(est_cats_norm.intersection(cats_slot_norm))
 
 
@@ -279,9 +288,13 @@ def _slot_autoriza_estudante(
     if not rest_turma and not rest_cat:
         return True, "livre"
 
-    turma_ok = _turmas_autorizadas_para_slot(slot, turmas_estudante) if rest_turma else False
+    turma_ok = (
+        _turmas_autorizadas_para_slot(slot, turmas_estudante) if rest_turma else False
+    )
     cat_ok = (
-        _categorias_autorizadas_para_slot(slot, categorias_estudante) if rest_cat else False
+        _categorias_autorizadas_para_slot(slot, categorias_estudante)
+        if rest_cat
+        else False
     )
 
     if turma_ok:
@@ -322,7 +335,9 @@ def validar_janela_horario(
     if not slots_refeicao:
         return True, ""
 
-    conjunto_turmas_estudante = {t.strip() for t in turmas_estudante if t and str(t).strip()}
+    conjunto_turmas_estudante = {
+        t.strip() for t in turmas_estudante if t and str(t).strip()
+    }
     conjunto_categorias_estudante: Set[str] = set()
     if categorias_estudante:
         conjunto_categorias_estudante.update(
@@ -341,7 +356,10 @@ def validar_janela_horario(
             )
             if ok:
                 return True, ""
-        return False, "Sua turma ou categoria não possui autorização para esta refeição hoje."
+        return (
+            False,
+            "Sua turma ou categoria não possui autorização para esta refeição hoje.",
+        )
 
     if hora_atual is None:
         hora_atual = datetime.now().strftime("%H:%M")
@@ -401,9 +419,15 @@ def validar_janela_horario(
 
     # Se a turma/categoria do estudante nem sequer está prevista na grade do dia
     if slot_corrente:
-        return False, "Sua turma ou categoria não possui autorização para este horário de refeição."
+        return (
+            False,
+            "Sua turma ou categoria não possui autorização para este horário de refeição.",
+        )
 
-    return False, "Horário de refeição encerrado ou não iniciado para sua turma ou categoria."
+    return (
+        False,
+        "Horário de refeição encerrado ou não iniciado para sua turma ou categoria.",
+    )
 
 
 def obter_turmas_previstas_para_refeicao(

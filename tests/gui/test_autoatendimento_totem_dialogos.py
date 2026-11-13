@@ -135,8 +135,10 @@ def test_pausa_qr_code_quando_dialogo_aberto(app_root, mock_fachada):
         app_root.update()
 
         fake_frame = MagicMock()
-        with patch.object(totem, "_detectar_qr_code") as mock_detectar, \
-             patch.object(totem, "_exibir_frame_no_label"):
+        with (
+            patch.object(totem, "_detectar_qr_code") as mock_detectar,
+            patch.object(totem, "_exibir_frame_no_label"),
+        ):
             totem._cap = MagicMock()
             totem._cap.read.return_value = (True, fake_frame)
             totem._running = True

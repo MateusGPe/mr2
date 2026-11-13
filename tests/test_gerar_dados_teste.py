@@ -105,7 +105,9 @@ def test_geracao_configuracao_compativel_com_servico_grade():
     }
 
     # Verifica presença dos coringas '*' e 'TODAS' na planilha bruta
-    celulas_coringa = {row[4] for row in linhas_config} | {row[5] for row in linhas_config}
+    celulas_coringa = {row[4] for row in linhas_config} | {
+        row[5] for row in linhas_config
+    }
     assert "*" in celulas_coringa
     assert "TODAS" in celulas_coringa
 
@@ -177,8 +179,7 @@ def test_massa_completa_consistencia():
     assert ("Não", "Sim") in turnos_presentes
     assert ("Sim", "Sim") in turnos_presentes
     assert any(
-        any(tag in row[6] for tag in CATEGORIAS_PONTUAIS_RESERVA)
-        for row in lin_res
+        any(tag in row[6] for tag in CATEGORIAS_PONTUAIS_RESERVA) for row in lin_res
     )
 
     cab_alm, lin_alm = dados["Almoço"]
@@ -192,4 +193,3 @@ def test_massa_completa_consistencia():
     cab_canc, lin_canc = dados["Consumo_Cancelados"]
     assert cab_canc == CABECALHO_CANCELADOS
     assert len(lin_canc) > 0
-

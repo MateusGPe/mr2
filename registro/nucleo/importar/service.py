@@ -71,7 +71,6 @@ class ServicoImportacao:
             itens_revisados, valores_padrao
         )
 
-
         novos = []
         reservas = []
         prontuarios_vistos = set()
@@ -93,7 +92,6 @@ class ServicoImportacao:
                         "turma": linha.get("turma", "-"),
                     }
                 )
-
 
             nome_display = linha.get("nome")
 
@@ -142,11 +140,7 @@ class ServicoImportacao:
                 novo["_id_banco"] = item["id_estudante_vinculo"]
                 if iid := item.get("id_estudante_vinculo"):
                     cand = next(
-                        (
-                            c
-                            for c in item.get("candidatos", [])
-                            if c["id"] == iid
-                        ),
+                        (c for c in item.get("candidatos", []) if c["id"] == iid),
                         None,
                     )
                     if cand is not None:

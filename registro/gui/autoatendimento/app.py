@@ -99,7 +99,9 @@ class AppSelfService(ttk.Window):
 
     def mostrar_barra_progresso(self, iniciar: bool, texto: Optional[str] = None):
         """Exibe ou oculta barra de progresso discreta no rodapé."""
-        if not hasattr(self, "_frame_progresso") or not hasattr(self, "_barra_progresso"):
+        if not hasattr(self, "_frame_progresso") or not hasattr(
+            self, "_barra_progresso"
+        ):
             return
 
         def _atualizar():
@@ -175,9 +177,7 @@ class AppSelfService(ttk.Window):
         else:
             logger.info("Iniciando sincronização automática de consumos para planilha.")
 
-        self.mostrar_barra_progresso(
-            True, "Sincronizando servidos para planilha..."
-        )
+        self.mostrar_barra_progresso(True, "Sincronizando servidos para planilha...")
         self._iniciar_thread_sinc(
             self.fachada_nucleo.sincronizar_todas_sessoes_para_google_sheets,
             "Sincronização de Servidos",
@@ -249,9 +249,7 @@ class AppSelfService(ttk.Window):
         if thread.is_alive():
             self.after(
                 150,
-                lambda: self._monitorar_thread_sinc(
-                    thread, nome_tarefa, automatico
-                ),
+                lambda: self._monitorar_thread_sinc(thread, nome_tarefa, automatico),
             )
             return
 
@@ -288,7 +286,9 @@ class AppSelfService(ttk.Window):
                 message=f"{nome_tarefa} concluída com sucesso.",
                 records_affected=records_affected,
             )
-            if direction == "download" and hasattr(self.fachada_nucleo, "expirar_cache_sessao"):
+            if direction == "download" and hasattr(
+                self.fachada_nucleo, "expirar_cache_sessao"
+            ):
                 self.fachada_nucleo.expirar_cache_sessao()
             if not automatico:
                 Messagebox.show_info(
@@ -298,9 +298,7 @@ class AppSelfService(ttk.Window):
                 )
             self._atualizar_barra_sessao()
         else:
-            logger.warning(
-                "%s finalizada com estado indeterminado.", nome_tarefa
-            )
+            logger.warning("%s finalizada com estado indeterminado.", nome_tarefa)
             self._logar_sincronizacao(
                 direction=direction,
                 status="unknown",
@@ -341,7 +339,11 @@ class AppSelfService(ttk.Window):
         # Se houver diálogo Toplevel aberto e visível, não interfere nas digitações do usuário
         try:
             for w in self.winfo_children():
-                if isinstance(w, tk.Toplevel) and w.winfo_exists() and w.winfo_viewable():
+                if (
+                    isinstance(w, tk.Toplevel)
+                    and w.winfo_exists()
+                    and w.winfo_viewable()
+                ):
                     return
         except Exception:
             pass
@@ -372,12 +374,32 @@ class AppSelfService(ttk.Window):
 
         # Teclas de controle (F1-F12, Escape, Alt, Tab, etc.) não são redirecionadas
         if event.keysym in (
-            "F1", "F2", "F3", "F4", "F5", "F6", "F7", "F8", "F9", "F10", "F11", "F12",
-            "Escape", "Alt_L", "Alt_R", "Control_L", "Control_R", "Shift_L", "Shift_R", "Tab"
+            "F1",
+            "F2",
+            "F3",
+            "F4",
+            "F5",
+            "F6",
+            "F7",
+            "F8",
+            "F9",
+            "F10",
+            "F11",
+            "F12",
+            "Escape",
+            "Alt_L",
+            "Alt_R",
+            "Control_L",
+            "Control_R",
+            "Shift_L",
+            "Shift_R",
+            "Tab",
         ):
             return
 
-        if "selfservice" in self.frames and hasattr(self.frames["selfservice"], "_entrada_manual"):
+        if "selfservice" in self.frames and hasattr(
+            self.frames["selfservice"], "_entrada_manual"
+        ):
             frame_ss = self.frames["selfservice"]
             if hasattr(frame_ss, "focar_entrada"):
                 frame_ss.focar_entrada()
@@ -432,7 +454,8 @@ class AppSelfService(ttk.Window):
                 self.id_sessao_ativa = sessao_recente["id"]
                 self._configurar_grade_sessao_ativa()
                 logger.info(
-                    "Sessão de hoje detectada automaticamente: ID %s", self.id_sessao_ativa
+                    "Sessão de hoje detectada automaticamente: ID %s",
+                    self.id_sessao_ativa,
                 )
         except Exception as e:
             logger.error("Erro na detecção inicial de sessão: %s", e)
@@ -542,9 +565,7 @@ class AppSelfService(ttk.Window):
         menu.add_separator()
 
         # Sistema
-        label_fs = (
-            "🗗  Janela Normal" if self._fullscreen else "⛶  Tela Cheia (F11)"
-        )
+        label_fs = "🗗  Janela Normal" if self._fullscreen else "⛶  Tela Cheia (F11)"
         menu.add_command(
             label=label_fs,
             command=self._toggle_fullscreen,
@@ -667,7 +688,10 @@ class AppSelfService(ttk.Window):
         """Trata a escolha de carregar ou criar sessão vinda do DialogoSessao."""
         if resultado is None:
             logger.info("Diálogo de sessão fechado sem alteração.")
-            if getattr(self, "selected_frame_name", "") == "selfservice" and "selfservice" in self.frames:
+            if (
+                getattr(self, "selected_frame_name", "") == "selfservice"
+                and "selfservice" in self.frames
+            ):
                 self.after(100, self.frames["selfservice"].focar_entrada)
             return True
 
@@ -741,7 +765,9 @@ class AppSelfService(ttk.Window):
             )
             return
 
-        novo_estado = getattr(self.fachada_nucleo, "ignorar_horario_grade", False) is not True
+        novo_estado = (
+            getattr(self.fachada_nucleo, "ignorar_horario_grade", False) is not True
+        )
         self.fachada_nucleo.definir_ignorar_horario_grade(novo_estado)
         self._atualizar_barra_sessao()
         msg = (
@@ -778,7 +804,9 @@ class AppSelfService(ttk.Window):
         except Exception as e:
             logger.exception("Erro ao aplicar filtros de turma: %s", e)
             Messagebox.show_error(
-                f"Não foi possível aplicar filtros:\n{e}", "Erro ao Filtrar", parent=self
+                f"Não foi possível aplicar filtros:\n{e}",
+                "Erro ao Filtrar",
+                parent=self,
             )
 
     def _atualizar_apos_mudanca_sessao(self):
@@ -812,10 +840,7 @@ class AppSelfService(ttk.Window):
 
     def _on_closing(self):
         """Encerramento seguro de recursos com proteção por PIN e sincronização final."""
-        if (
-            self.totem_cfg.get("require_pin_to_exit", True)
-            and tem_pin_configurado()
-        ):
+        if self.totem_cfg.get("require_pin_to_exit", True) and tem_pin_configurado():
             if not solicitar_pin(
                 parent=self,
                 titulo="🔒 Sair do Totem",
@@ -869,8 +894,7 @@ def main():
         logger.critical("Erro fatal ao iniciar a aplicação de autoatendimento.")
         logger.critical(traceback.format_exc())
         Messagebox.show_error(
-            "A aplicação encontrou um erro irrecuperável e será fechada. "
-            "Verifique os logs para mais detalhes.",
+            "A aplicação encontrou um erro irrecuperável e será fechada. Verifique os logs para mais detalhes.",
             "Erro Crítico",
         )
 

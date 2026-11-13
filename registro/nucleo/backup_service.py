@@ -39,7 +39,9 @@ def criar_backup(
     timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     nome_arquivo = f"{prefixo}_{timestamp}.zip"
 
-    pasta_destino = Path(destino_personalizado) if destino_personalizado else DIRETORIO_BACKUPS
+    pasta_destino = (
+        Path(destino_personalizado) if destino_personalizado else DIRETORIO_BACKUPS
+    )
 
     pasta_destino.mkdir(parents=True, exist_ok=True)
     caminho_zip = pasta_destino / nome_arquivo
@@ -57,7 +59,9 @@ def criar_backup(
             for item in DIRETORIO_CONFIG.glob("*"):
                 if item.is_file():
                     # Não inclui arquivos temporários, de lock ou sidecars WAL/SHM
-                    if item.suffix in (".tmp", ".lock") or item.name.endswith(("-wal", "-shm")):
+                    if item.suffix in (".tmp", ".lock") or item.name.endswith(
+                        ("-wal", "-shm")
+                    ):
                         continue
                     zipf.write(item, arcname=f"config/{item.name}")
 
@@ -131,7 +135,10 @@ def restaurar_backup(
 
             motor.dispose()
         except (ImportError, SQLAlchemyError, OSError) as e:
-            logger.debug("Não foi possível descartar conexões SQLAlchemy antes da restauração: %s", e)
+            logger.debug(
+                "Não foi possível descartar conexões SQLAlchemy antes da restauração: %s",
+                e,
+            )
 
         for sufixo_wal in ("registro.db-wal", "registro.db-shm"):
             (DIRETORIO_CONFIG / sufixo_wal).unlink(missing_ok=True)

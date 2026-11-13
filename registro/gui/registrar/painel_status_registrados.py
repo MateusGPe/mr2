@@ -73,8 +73,7 @@ class PainelStatusRegistrados(ttk.Frame):
             font=("Segoe UI", 10, "bold"),
             anchor=CENTER,
         )
-        self._label_contagem_registrados.grid(
-            row=0, column=0, sticky="ew", padx=(0, 5))
+        self._label_contagem_registrados.grid(row=0, column=0, sticky="ew", padx=(0, 5))
 
         self._label_contagem_restantes = ttk.Label(
             frame,
@@ -83,8 +82,7 @@ class PainelStatusRegistrados(ttk.Frame):
             font=("Segoe UI", 10, "bold"),
             anchor=CENTER,
         )
-        self._label_contagem_restantes.grid(
-            row=0, column=1, sticky="ew", padx=(5, 0))
+        self._label_contagem_restantes.grid(row=0, column=1, sticky="ew", padx=(5, 0))
 
     def _criar_tabela_registrados(self):
         """Cria a tabela (Treeview) para listar os estudantes registrados."""
@@ -104,8 +102,7 @@ class PainelStatusRegistrados(ttk.Frame):
             for cd in self._definicao_cols_registrados
             if cd.get("iid") != self.ID_COLUNA_ACAO
         ]
-        self._tabela_estudantes_registrados.configurar_ordenacao(
-            cols_ordenaveis)
+        self._tabela_estudantes_registrados.configurar_ordenacao(cols_ordenaveis)
 
     def _configurar_vinculos_eventos(self):
         """Configura os bindings de eventos para a tabela de registrados."""
@@ -126,10 +123,8 @@ class PainelStatusRegistrados(ttk.Frame):
                 consumido=True, pular_grupos=True
             )
             if dados_servidos:
-                linhas = [self._formatar_linha_para_tabela(
-                    e) for e in dados_servidos]
-                linhas_ordenadas = sorted(
-                    linhas, key=lambda l: l[3], reverse=True)
+                linhas = [self._formatar_linha_para_tabela(e) for e in dados_servidos]
+                linhas_ordenadas = sorted(linhas, key=lambda l: l[3], reverse=True)
                 self._tabela_estudantes_registrados.construir_dados_tabela(
                     linhas_ordenadas
                 )
@@ -141,8 +136,7 @@ class PainelStatusRegistrados(ttk.Frame):
             self.atualizar_contadores()
 
         except ErroSessaoNaoAtiva:
-            logger.warning(
-                "Tentativa de carregar registrados sem sessão ativa.")
+            logger.warning("Tentativa de carregar registrados sem sessão ativa.")
             self.limpar_tabela()
         except Exception as e:  # pylint: disable=broad-exception-caught
             logger.exception("Erro ao carregar tabela de registrados: %s", e)
@@ -162,8 +156,7 @@ class PainelStatusRegistrados(ttk.Frame):
             registrados = self._fachada.obter_estudantes_para_sessao(
                 consumido=True, pular_grupos=True
             )
-            elegiveis = self._fachada.obter_estudantes_para_sessao(
-                consumido=False)
+            elegiveis = self._fachada.obter_estudantes_para_sessao(consumido=False)
 
             n_reg = len(registrados)
             dist_cats: Dict[str, int] = {}
@@ -174,7 +167,8 @@ class PainelStatusRegistrados(ttk.Frame):
                     cats = [
                         p.strip()
                         for p in cat_str.split(",")
-                        if p.strip() and p.strip().upper() not in ("-", "REGULAR", "N/A")
+                        if p.strip()
+                        and p.strip().upper() not in ("-", "REGULAR", "N/A")
                     ]
                 for c in cats:
                     dist_cats[c] = dist_cats.get(c, 0) + 1
@@ -199,8 +193,7 @@ class PainelStatusRegistrados(ttk.Frame):
             texto_reg, texto_rem = "Registrados: Erro", "Elegíveis: Erro"
             estilo = "danger"
 
-        self._label_contagem_registrados.config(
-            text=texto_reg, bootstyle=estilo)
+        self._label_contagem_registrados.config(text=texto_reg, bootstyle=estilo)
         self._label_contagem_restantes.config(text=texto_rem, bootstyle=estilo)
 
     def limpar_tabela(self):
@@ -222,15 +215,13 @@ class PainelStatusRegistrados(ttk.Frame):
             logger.debug("Coluna de ação clicada para iid: %s", iid)
             self._confirmar_e_deletar_consumo(iid)
         elif iid and self._tabela_estudantes_registrados.view.exists(iid):
-
             try:
                 view = self._tabela_estudantes_registrados.view
                 view.focus(iid)
                 if view.selection() != (iid,):
                     view.selection_set(iid)
             except tk.TclError as e:
-                logger.warning(
-                    "Erro Tcl ao focar/selecionar linha %s: %s", iid, e)
+                logger.warning("Erro Tcl ao focar/selecionar linha %s: %s", iid, e)
 
     def _ao_teclar_delete(self, _=None):
         """Callback para as teclas Delete/Backspace na tabela."""
@@ -243,8 +234,7 @@ class PainelStatusRegistrados(ttk.Frame):
     def _confirmar_e_deletar_consumo(self, iid: str):
         """Exibe um diálogo de confirmação e, se confirmado, solicita a deleção do consumo."""
         try:
-            dados_linha = self._tabela_estudantes_registrados.obter_valores_linha(
-                iid)
+            dados_linha = self._tabela_estudantes_registrados.obter_valores_linha(iid)
             if not dados_linha or len(dados_linha) < 2:
                 raise ValueError("Dados da linha incompletos ou inválidos.")
 
@@ -258,7 +248,9 @@ class PainelStatusRegistrados(ttk.Frame):
             )
             return
 
-        from registro.gui.comum.dialogo_cancelamento import solicitar_cancelamento_consumo
+        from registro.gui.comum.dialogo_cancelamento import (
+            solicitar_cancelamento_consumo,
+        )
 
         confirmado, op, mot = solicitar_cancelamento_consumo(
             parent=self._app,
@@ -266,10 +258,14 @@ class PainelStatusRegistrados(ttk.Frame):
             nome=nome,
         )
         if confirmado:
-            logger.info("Confirmada exclusão para %s (operador=%s, motivo=%s).", pront, op, mot)
+            logger.info(
+                "Confirmada exclusão para %s (operador=%s, motivo=%s).", pront, op, mot
+            )
             dados_para_logica = tuple(dados_linha[:5])
             try:
-                self._app.tratar_delecao_consumo(dados_para_logica, iid, operador=op, motivo=mot)
+                self._app.tratar_delecao_consumo(
+                    dados_para_logica, iid, operador=op, motivo=mot
+                )
             except TypeError:
                 self._app.tratar_delecao_consumo(dados_para_logica, iid)
         else:

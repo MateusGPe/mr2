@@ -155,13 +155,19 @@ def _avaliar_regra_padrao(
             prato = "Reserva Utilizada"
         else:
             excecao_norm = {
-                g.strip().lower() for g in (excecao_grupos or set()) if g and str(g).strip()
+                g.strip().lower()
+                for g in (excecao_grupos or set())
+                if g and str(g).strip()
             }
             ids_excecao_grupos = {
                 g.id for g in sessao.grupos if g.nome.strip().lower() in excecao_norm
             }
             nomes_estudante_norm = {n.strip().lower() for n in nomes_estudante if n}
-            if ids_excecao_grupos.intersection(ids_grupos_estudante) or excecao_norm and nomes_estudante_norm.intersection(excecao_norm):
+            if (
+                ids_excecao_grupos.intersection(ids_grupos_estudante)
+                or excecao_norm
+                and nomes_estudante_norm.intersection(excecao_norm)
+            ):
                 autorizado = True
                 motivo = "Autorizado por exceção (grupo)."
                 prato = "Sem Reserva (Grupo)"
@@ -213,9 +219,13 @@ def _avaliar_regra_com_reserva(
     _, nomes_grupos_estudante = _grupos_efetivos_ids_e_nomes(
         estudante, reserva_dia or reserva_ativa
     )
-    nomes_grupos_estudante_norm = {n.strip().lower() for n in nomes_grupos_estudante if n}
+    nomes_grupos_estudante_norm = {
+        n.strip().lower() for n in nomes_grupos_estudante if n
+    }
     nomes_grupos_sessao_norm = {g.nome.strip().lower() for g in sessao.grupos}
-    excecao_norm = {g.strip().lower() for g in (excecao_grupos or set()) if g and str(g).strip()}
+    excecao_norm = {
+        g.strip().lower() for g in (excecao_grupos or set()) if g and str(g).strip()
+    }
 
     grupo_autorizado = False
     motivo = "Acesso Negado"
@@ -334,7 +344,9 @@ def _processar_consumo_pipeline(
             )
         )
         if periodo_sessao:
-            query_lanche = query_lanche.filter(models.Sessao.periodo.ilike(periodo_sessao))
+            query_lanche = query_lanche.filter(
+                models.Sessao.periodo.ilike(periodo_sessao)
+            )
         consumo_lanche_existente = query_lanche.first()
         if consumo_lanche_existente:
             detalhe_periodo = f" no período {periodo_sessao}" if periodo_sessao else ""
@@ -518,7 +530,9 @@ def desfazer_consumo_por_prontuario(
             repo_consumo.obter_sessao().commit()
             return True
         except Exception as e:
-            logger.exception("Falha ao desfazer consumo por prontuário %s: %s", prontuario, e)
+            logger.exception(
+                "Falha ao desfazer consumo por prontuário %s: %s", prontuario, e
+            )
             rollback_seguro(repo_consumo.obter_sessao())
             return False
     return False

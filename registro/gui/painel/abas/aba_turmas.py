@@ -86,10 +86,12 @@ class AbaTurmas(ttk.Frame):
         )
         menu_exp_turmas = tk.Menu(self.btn_export_turmas, tearoff=0)
         menu_exp_turmas.add_command(
-            label="Exportar para Excel (.xlsx)", command=lambda: self._exportar_turmas("xlsx")
+            label="Exportar para Excel (.xlsx)",
+            command=lambda: self._exportar_turmas("xlsx"),
         )
         menu_exp_turmas.add_command(
-            label="Exportar para CSV (.csv)", command=lambda: self._exportar_turmas("csv")
+            label="Exportar para CSV (.csv)",
+            command=lambda: self._exportar_turmas("csv"),
         )
         self.btn_export_turmas["menu"] = menu_exp_turmas
         self.btn_export_turmas.pack(side=RIGHT, padx=(5, 0))
@@ -281,7 +283,9 @@ class AbaTurmas(ttk.Frame):
     def _editar_turma(self):
         if not self.turma_selecionada_id:
             return
-        dialog = TurmaDialog(self, self.fachada_nucleo, turma_id=self.turma_selecionada_id)
+        dialog = TurmaDialog(
+            self, self.fachada_nucleo, turma_id=self.turma_selecionada_id
+        )
         if dialog.result:
             self._carregar_turmas()
 
@@ -340,11 +344,7 @@ class AbaTurmas(ttk.Frame):
         try:
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             ext = ".xlsx" if formato == "xlsx" else ".csv"
-            ftypes = (
-                [("Excel", "*.xlsx")]
-                if formato == "xlsx"
-                else [("CSV", "*.csv")]
-            )
+            ftypes = [("Excel", "*.xlsx")] if formato == "xlsx" else [("CSV", "*.csv")]
             filepath = filedialog.asksaveasfilename(
                 initialfile=f"export_turmas_{timestamp}",
                 defaultextension=ext,
@@ -358,6 +358,8 @@ class AbaTurmas(ttk.Frame):
             else:
                 self.fachada_nucleo.exportar_turmas_para_csv(Path(filepath))
 
-            Messagebox.show_info(f"Turmas exportadas com sucesso em:\n{filepath}", "Sucesso")
+            Messagebox.show_info(
+                f"Turmas exportadas com sucesso em:\n{filepath}", "Sucesso"
+            )
         except Exception as e:
             Messagebox.show_error(f"Falha ao exportar turmas: {e}", "Erro")

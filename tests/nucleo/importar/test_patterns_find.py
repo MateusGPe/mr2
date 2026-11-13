@@ -20,7 +20,10 @@ def test_checar_prontuario():
 
 def test_checar_nome():
     """Valida identificação de nomes e exclusão de palavras proibidas ou números."""
-    assert patterns_find.checar_nome("Carlos Eduardo da Silva") == "Carlos Eduardo da Silva"
+    assert (
+        patterns_find.checar_nome("Carlos Eduardo da Silva")
+        == "Carlos Eduardo da Silva"
+    )
     assert patterns_find.checar_nome("ana maria") == "Ana Maria"
 
     # Inválidos: números, palavra única ou palavras de cardápio
@@ -54,7 +57,9 @@ def test_checar_turma():
 def test_detectar_tipo_coluna():
     """Testa inferência vertical de tipo de dados de uma coluna."""
     col_prontuarios = ["IQ3001001", "IQ3001002", "IQ3001003", "invalido"]
-    assert patterns_find.detectar_tipo_coluna(col_prontuarios, limiar=0.7) == "prontuario"
+    assert (
+        patterns_find.detectar_tipo_coluna(col_prontuarios, limiar=0.7) == "prontuario"
+    )
 
     col_nomes = ["João Silva", "Maria Souza", "Carlos Ferreira", ""]
     assert patterns_find.detectar_tipo_coluna(col_nomes, limiar=0.7) == "nome"

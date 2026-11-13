@@ -56,9 +56,7 @@ def sincronizar_do_google_sheets(
         caminho_config.mkdir(parents=True, exist_ok=True)
         planilha = google_api_service.obter_planilha()
 
-        discentes = google_api_service.buscar_valores_aba(
-            planilha, "Discentes"
-        )
+        discentes = google_api_service.buscar_valores_aba(planilha, "Discentes")
         if discentes:
             caminho_csv = caminho_config / "students.csv"
             if salvar_csv(discentes, caminho_csv):
@@ -113,7 +111,9 @@ def sincronizar_do_google_sheets(
                                 str(item).strip() for item in dados if str(item).strip()
                             }
                 except (OSError, json.JSONDecodeError, ValueError) as e:
-                    logger.debug("Falha ao ler lanches locais de %s: %s", caminho_lanches, e)
+                    logger.debug(
+                        "Falha ao ler lanches locais de %s: %s", caminho_lanches, e
+                    )
 
             novos_lanches_remotos = set()
             if linhas_lanches:
@@ -121,19 +121,31 @@ def sincronizar_do_google_sheets(
                     if not row:
                         continue
                     item = str(row[0]).strip()
-                    if not item or item.lower() in ("lanche", "item", "cardápio", "cardapio"):
+                    if not item or item.lower() in (
+                        "lanche",
+                        "item",
+                        "cardápio",
+                        "cardapio",
+                    ):
                         continue
                     novos_lanches_remotos.add(item)
 
             if novos_lanches_remotos or lanches_locais:
-                lanches_unificados = sorted(list(lanches_locais | novos_lanches_remotos))
+                lanches_unificados = sorted(
+                    list(lanches_locais | novos_lanches_remotos)
+                )
                 with open(caminho_lanches, "w", encoding="utf-8") as f:
                     json.dump(lanches_unificados, f, indent=2, ensure_ascii=False)
-                logger.info("Lista de opções de lanches sincronizada (%d itens).", len(lanches_unificados))
+                logger.info(
+                    "Lista de opções de lanches sincronizada (%d itens).",
+                    len(lanches_unificados),
+                )
 
                 # Bidirecional: envia itens locais que ainda não existiam na planilha
                 lanches_para_enviar = [
-                    [lanche] for lanche in lanches_locais if lanche not in novos_lanches_remotos
+                    [lanche]
+                    for lanche in lanches_locais
+                    if lanche not in novos_lanches_remotos
                 ]
                 if lanches_para_enviar:
                     google_api_service.anexar_linhas_unicas(
@@ -147,9 +159,7 @@ def sincronizar_do_google_sheets(
         raise e
     except Exception as e:
         repo_estudante.obter_sessao().rollback()
-        raise ErroNucleoRegistro(
-            f"Erro inesperado na sincronização: {e}"
-        ) from e
+        raise ErroNucleoRegistro(f"Erro inesperado na sincronização: {e}") from e
 
 
 def _carregar_reservas_ativas_sessao(

@@ -129,9 +129,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
         # 3. Lista de Turmas e Categorias com Rolagem e Toggles de Coluna
         try:
             grupos = self._fachada.listar_todos_os_grupos()
-            turmas = sorted(
-                g["nome"] for g in grupos if g.get("tipo") != "categoria"
-            )
+            turmas = sorted(g["nome"] for g in grupos if g.get("tipo") != "categoria")
             categorias = sorted(
                 g["nome"] for g in grupos if g.get("tipo") == "categoria"
             )
@@ -162,10 +160,16 @@ class DialogoFiltroTurmas(tk.Toplevel):
         frame_botoes.grid(row=0, column=1, sticky=E)
 
         ttk.Button(
-            frame_botoes, text="❌ Cancelar", command=self._ao_cancelar, bootstyle="danger"
+            frame_botoes,
+            text="❌ Cancelar",
+            command=self._ao_cancelar,
+            bootstyle="danger",
         ).pack(side=tk.LEFT, padx=5)
         ttk.Button(
-            frame_botoes, text="✔️ Aplicar Filtros", command=self._ao_aplicar, bootstyle="success"
+            frame_botoes,
+            text="✔️ Aplicar Filtros",
+            command=self._ao_aplicar,
+            bootstyle="success",
         ).pack(side=tk.LEFT)
 
     def _criar_secao_turmas(
@@ -182,7 +186,9 @@ class DialogoFiltroTurmas(tk.Toplevel):
 
         categorias = categorias or []
         if not turmas and not categorias:
-            ttk.Label(frame, text="Nenhuma turma ou categoria disponível.").grid(row=0, column=0)
+            ttk.Label(frame, text="Nenhuma turma ou categoria disponível.").grid(
+                row=0, column=0
+            )
             return frame
 
         self._vars_com_reserva.clear()
@@ -273,7 +279,9 @@ class DialogoFiltroTurmas(tk.Toplevel):
                 row=prox_row, column=0, columnspan=3, sticky=EW, pady=6
             )
             prox_row += 1
-        _adicionar_secao("🏷️ Categorias (Eventos, Optativas, PAP...)", categorias, prox_row)
+        _adicionar_secao(
+            "🏷️ Categorias (Eventos, Optativas, PAP...)", categorias, prox_row
+        )
 
         return frame
 
@@ -301,8 +309,16 @@ class DialogoFiltroTurmas(tk.Toplevel):
         """Atualiza a contagem exibida no rodapé."""
         if not self._label_contador:
             return
-        total_com = sum(1 for ident, var, _ in self._dados_checkbox if var.get() and not ident.startswith("#"))
-        total_sem = sum(1 for ident, var, _ in self._dados_checkbox if var.get() and ident.startswith("#"))
+        total_com = sum(
+            1
+            for ident, var, _ in self._dados_checkbox
+            if var.get() and not ident.startswith("#")
+        )
+        total_sem = sum(
+            1
+            for ident, var, _ in self._dados_checkbox
+            if var.get() and ident.startswith("#")
+        )
         texto = f"📊 Selecionadas: {total_com} com reserva"
         if total_sem > 0:
             texto += f" | {total_sem} sem reserva (#)"
@@ -338,7 +354,9 @@ class DialogoFiltroTurmas(tk.Toplevel):
             )
             return
 
-        turmas_grade_norm = {t.strip().lower() for t in turmas_grade if t and str(t).strip()}
+        turmas_grade_norm = {
+            t.strip().lower() for t in turmas_grade if t and str(t).strip()
+        }
         for ident, var, _ in self._dados_checkbox:
             if not ident.startswith("#"):
                 var.set(ident.strip().lower() in turmas_grade_norm)
@@ -378,7 +396,9 @@ class DialogoFiltroTurmas(tk.Toplevel):
             grupos_ativos = detalhes_sessao.get("grupos", set())
             grupos_excluidos = {f"#{eg}" for eg in self._fachada.excecao_grupos}
             selecionados = set(grupos_ativos) | set(grupos_excluidos)
-            selecionados_norm = {s.strip().lower() for s in selecionados if s and str(s).strip()}
+            selecionados_norm = {
+                s.strip().lower() for s in selecionados if s and str(s).strip()
+            }
 
             for identificador, var, _ in self._dados_checkbox:
                 var.set(identificador.strip().lower() in selecionados_norm)

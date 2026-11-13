@@ -100,12 +100,14 @@ class DialogoNovoConsumo(ttk.Toplevel):
         frame_busca.grid(row=1, column=0, sticky=EW, pady=(0, 8))
         frame_busca.columnconfigure(1, weight=1)
 
-        ttk.Label(frame_busca, text="🔍 Buscar Aluno:", font=("Segoe UI", 10, "bold")).grid(
-            row=0, column=0, sticky=W, padx=(0, 8)
-        )
+        ttk.Label(
+            frame_busca, text="🔍 Buscar Aluno:", font=("Segoe UI", 10, "bold")
+        ).grid(row=0, column=0, sticky=W, padx=(0, 8))
         self.var_busca = tk.StringVar()
         self.var_busca.trace_add("write", lambda *_: self._ao_digitar_busca())
-        self.entry_busca = ttk.Entry(frame_busca, textvariable=self.var_busca, font=("Segoe UI", 10))
+        self.entry_busca = ttk.Entry(
+            frame_busca, textvariable=self.var_busca, font=("Segoe UI", 10)
+        )
         self.entry_busca.grid(row=0, column=1, sticky=EW)
         self.entry_busca.focus_set()
 
@@ -129,7 +131,9 @@ class DialogoNovoConsumo(ttk.Toplevel):
         self.tree_candidatos.column("turma", width=120, stretch=False)
         self.tree_candidatos.column("status_reserva", width=130, stretch=False)
 
-        sb_v = ttk.Scrollbar(frame_lista, orient=VERTICAL, command=self.tree_candidatos.yview)
+        sb_v = ttk.Scrollbar(
+            frame_lista, orient=VERTICAL, command=self.tree_candidatos.yview
+        )
         self.tree_candidatos.configure(yscrollcommand=sb_v.set)
 
         self.tree_candidatos.grid(row=0, column=0, sticky=NSEW)
@@ -138,7 +142,9 @@ class DialogoNovoConsumo(ttk.Toplevel):
         self.tree_candidatos.bind("<Double-1>", lambda _: self._confirmar_registro())
 
         # Painel com os dados do registro selecionado
-        frame_dados = ttk.LabelFrame(container, text=" Detalhes do Atendimento ", padding=12)
+        frame_dados = ttk.LabelFrame(
+            container, text=" Detalhes do Atendimento ", padding=12
+        )
         frame_dados.grid(row=3, column=0, sticky=EW, pady=(0, 12))
         frame_dados.columnconfigure(1, weight=1)
         frame_dados.columnconfigure(3, weight=1)
@@ -148,7 +154,9 @@ class DialogoNovoConsumo(ttk.Toplevel):
             row=0, column=0, sticky=W, padx=(0, 6), pady=4
         )
         self.var_prontuario = tk.StringVar()
-        self.entry_pront = ttk.Entry(frame_dados, textvariable=self.var_prontuario, font=("Segoe UI", 9))
+        self.entry_pront = ttk.Entry(
+            frame_dados, textvariable=self.var_prontuario, font=("Segoe UI", 9)
+        )
         self.entry_pront.grid(row=0, column=1, sticky=EW, padx=(0, 12), pady=4)
 
         ttk.Label(frame_dados, text="Nome:", font=("Segoe UI", 9, "bold")).grid(
@@ -156,7 +164,10 @@ class DialogoNovoConsumo(ttk.Toplevel):
         )
         self.var_nome = tk.StringVar()
         self.entry_nome = ttk.Entry(
-            frame_dados, textvariable=self.var_nome, state="readonly", font=("Segoe UI", 9)
+            frame_dados,
+            textvariable=self.var_nome,
+            state="readonly",
+            font=("Segoe UI", 9),
         )
         self.entry_nome.grid(row=0, column=3, sticky=EW, pady=4)
 
@@ -166,7 +177,10 @@ class DialogoNovoConsumo(ttk.Toplevel):
         )
         self.var_turma = tk.StringVar()
         self.entry_turma = ttk.Entry(
-            frame_dados, textvariable=self.var_turma, state="readonly", font=("Segoe UI", 9)
+            frame_dados,
+            textvariable=self.var_turma,
+            state="readonly",
+            font=("Segoe UI", 9),
         )
         self.entry_turma.grid(row=1, column=1, sticky=EW, padx=(0, 12), pady=4)
 
@@ -177,7 +191,14 @@ class DialogoNovoConsumo(ttk.Toplevel):
         self.combo_prato = ttk.Combobox(
             frame_dados,
             textvariable=self.var_prato,
-            values=["Almoço", "Padrão", "Vegetariano", "Vegano", "Lanche", "Sem Reserva"],
+            values=[
+                "Almoço",
+                "Padrão",
+                "Vegetariano",
+                "Vegano",
+                "Lanche",
+                "Sem Reserva",
+            ],
             font=("Segoe UI", 9),
         )
         self.combo_prato.grid(row=1, column=3, sticky=EW, pady=4)
@@ -187,7 +208,9 @@ class DialogoNovoConsumo(ttk.Toplevel):
             row=2, column=0, sticky=W, padx=(0, 6), pady=4
         )
         self.var_hora = tk.StringVar(value=dt.datetime.now().strftime("%H:%M:%S"))
-        self.entry_hora = ttk.Entry(frame_dados, textvariable=self.var_hora, font=("Segoe UI", 9))
+        self.entry_hora = ttk.Entry(
+            frame_dados, textvariable=self.var_hora, font=("Segoe UI", 9)
+        )
         self.entry_hora.grid(row=2, column=1, sticky=EW, padx=(0, 12), pady=4)
 
         self.var_pular_grupos = tk.BooleanVar(value=True)
@@ -300,7 +323,11 @@ class DialogoNovoConsumo(ttk.Toplevel):
             )
             autorizado = resultado.get("autorizado", resultado.get("sucesso", True))
             if not autorizado:
-                msg = resultado.get("motivo") or resultado.get("mensagem") or "Não autorizado para esta sessão."
+                msg = (
+                    resultado.get("motivo")
+                    or resultado.get("mensagem")
+                    or "Não autorizado para esta sessão."
+                )
                 Messagebox.show_warning(msg, "Não Autorizado", parent=self)
                 return
 
@@ -435,7 +462,14 @@ class DialogoEditarConsumo(ttk.Toplevel):
         combo_prato = ttk.Combobox(
             form,
             textvariable=self.var_prato,
-            values=["Almoço", "Padrão", "Vegetariano", "Vegano", "Lanche", "Sem Reserva"],
+            values=[
+                "Almoço",
+                "Padrão",
+                "Vegetariano",
+                "Vegano",
+                "Lanche",
+                "Sem Reserva",
+            ],
             font=("Segoe UI", 10),
         )
         combo_prato.grid(row=1, column=1, sticky=EW, pady=8)
@@ -465,7 +499,9 @@ class DialogoEditarConsumo(ttk.Toplevel):
         novo_prato = self.var_prato.get().strip()
 
         if not nova_hora:
-            Messagebox.show_warning("O horário não pode estar vazio.", "Horário Inválido", parent=self)
+            Messagebox.show_warning(
+                "O horário não pode estar vazio.", "Horário Inválido", parent=self
+            )
             return
 
         try:
@@ -478,10 +514,16 @@ class DialogoEditarConsumo(ttk.Toplevel):
                 self.sucesso = True
                 if self.on_sucesso:
                     self.on_sucesso({"hora_consumo": nova_hora, "prato": novo_prato})
-                Messagebox.show_info("Registro atualizado com sucesso!", "Atualizado", parent=self)
+                Messagebox.show_info(
+                    "Registro atualizado com sucesso!", "Atualizado", parent=self
+                )
                 self.destroy()
             else:
-                Messagebox.show_error("Não foi possível encontrar o registro para atualizar.", "Erro", parent=self)
+                Messagebox.show_error(
+                    "Não foi possível encontrar o registro para atualizar.",
+                    "Erro",
+                    parent=self,
+                )
         except Exception as e:
             logger.exception("Erro ao salvar atualização de consumo: %s", e)
             Messagebox.show_error(f"Falha ao salvar:\n{e}", "Erro", parent=self)

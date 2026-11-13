@@ -420,11 +420,27 @@ class FachadaRegistro:
         from registro.nucleo.services import grade_horarios_service
 
         dias_validos = {
-            "segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo",
-            "seg", "ter", "qua", "qui", "sex", "sab", "dom",
+            "segunda",
+            "terca",
+            "quarta",
+            "quinta",
+            "sexta",
+            "sabado",
+            "domingo",
+            "seg",
+            "ter",
+            "qua",
+            "qui",
+            "sex",
+            "sab",
+            "dom",
         }
         mapa_curto = {
-            "seg": "segunda", "ter": "terca", "qua": "quarta", "qui": "quinta", "sex": "sexta"
+            "seg": "segunda",
+            "ter": "terca",
+            "qua": "quarta",
+            "qui": "quinta",
+            "sex": "sexta",
         }
 
         arg1 = (refeicao or "").strip().lower()
@@ -690,7 +706,10 @@ class FachadaRegistro:
         """Sincroniza a base de dados local a partir do Google Sheets (com isolamento thread-safe)."""
         import threading
 
-        if threading.current_thread() is not threading.main_thread() and self._deve_fechar_sessao:
+        if (
+            threading.current_thread() is not threading.main_thread()
+            and self._deve_fechar_sessao
+        ):
             with FachadaRegistro() as fachada_worker:
                 return service_logic.sincronizar_do_google_sheets(
                     fachada_worker._repo_estudante,
@@ -718,7 +737,10 @@ class FachadaRegistro:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
         import threading
 
-        if threading.current_thread() is not threading.main_thread() and self._deve_fechar_sessao:
+        if (
+            threading.current_thread() is not threading.main_thread()
+            and self._deve_fechar_sessao
+        ):
             with FachadaRegistro() as fachada_worker:
                 return service_logic.sincronizar_para_google_sheets(
                     fachada_worker._repo_sessao,
@@ -733,7 +755,10 @@ class FachadaRegistro:
         """Envia os dados de consumo de todas as sessões para o Google Sheets."""
         import threading
 
-        if threading.current_thread() is not threading.main_thread() and self._deve_fechar_sessao:
+        if (
+            threading.current_thread() is not threading.main_thread()
+            and self._deve_fechar_sessao
+        ):
             with FachadaRegistro() as fachada_worker:
                 return service_logic.sincronizar_todas_sessoes_para_google_sheets(
                     fachada_worker._repo_sessao,
@@ -806,9 +831,7 @@ class FachadaRegistro:
         from registro.nucleo.importar.strategies import criar_estrategia_carregamento
 
         estrategia = criar_estrategia_carregamento(caminho, tipo=tipo)
-        return self._obter_servico_importacao().preparar_importacao(
-            estrategia, caminho
-        )
+        return self._obter_servico_importacao().preparar_importacao(estrategia, caminho)
 
     def simular_importacao(
         self,
@@ -850,9 +873,7 @@ class FachadaRegistro:
         self, nome: str, ativo: bool = True, tipo: str = "turma"
     ) -> Dict[str, Any]:
         """Cria uma nova turma ou categoria no sistema."""
-        return service_logic.criar_grupo(
-            self._repo_grupo, nome, ativo=ativo, tipo=tipo
-        )
+        return service_logic.criar_grupo(self._repo_grupo, nome, ativo=ativo, tipo=tipo)
 
     def atualizar_grupo(self, id_grupo: int, dados: Dict[str, Any]) -> bool:
         """Atualiza nome, tipo e/ou status de uma turma ou categoria."""
@@ -978,4 +999,3 @@ class FachadaRegistro:
             id_sessao=alvo_id,
             excecao_grupos=self.excecao_grupos,
         )
-

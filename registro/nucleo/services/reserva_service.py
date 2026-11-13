@@ -99,7 +99,9 @@ def criar_reserva(
     try:
         repo_reserva.obter_sessao().commit()
     except Exception as e:
-        logger.exception("Falha ao criar reserva para estudante %s: %s", prontuario_estudante, e)
+        logger.exception(
+            "Falha ao criar reserva para estudante %s: %s", prontuario_estudante, e
+        )
         rollback_seguro(repo_reserva.obter_sessao())
         raise ErroNucleoRegistro(f"Falha ao criar reserva no banco: {e}") from e
 
@@ -111,7 +113,9 @@ def criar_reserva(
         "data": nova_reserva.data,
         "almoco": bool(nova_reserva.almoco),
         "jantar": bool(nova_reserva.jantar),
-        "turnos_str": formatar_turnos_reserva(bool(nova_reserva.almoco), bool(nova_reserva.jantar)),
+        "turnos_str": formatar_turnos_reserva(
+            bool(nova_reserva.almoco), bool(nova_reserva.jantar)
+        ),
         "cancelada": nova_reserva.cancelada,
         "categorias": cats_salvas,
     }
@@ -219,18 +223,26 @@ def listar_reservas(
     if "grupos" in filtros or "grupo" in filtros:
         raw_grupos = filtros.get("grupos") or filtros.get("grupo") or []
         grupos = (
-            {raw_grupos} if raw_grupos.strip() else set()
-        ) if isinstance(raw_grupos, str) else set(raw_grupos)
+            ({raw_grupos} if raw_grupos.strip() else set())
+            if isinstance(raw_grupos, str)
+            else set(raw_grupos)
+        )
         grupos_ids = [g.id for g in repo_grupo.por_nomes(grupos)]
         reservas = repo_reserva.por_data_e_grupos(
             grupos_ids=grupos_ids, data_formatada=filtros.get("data")
         )
         if "almoco" in filtros:
-            reservas = [r for r in reservas if bool(r.almoco) == bool(filtros["almoco"])]
+            reservas = [
+                r for r in reservas if bool(r.almoco) == bool(filtros["almoco"])
+            ]
         if "jantar" in filtros:
-            reservas = [r for r in reservas if bool(r.jantar) == bool(filtros["jantar"])]
+            reservas = [
+                r for r in reservas if bool(r.jantar) == bool(filtros["jantar"])
+            ]
         if "cancelada" in filtros:
-            reservas = [r for r in reservas if bool(r.cancelada) == bool(filtros["cancelada"])]
+            reservas = [
+                r for r in reservas if bool(r.cancelada) == bool(filtros["cancelada"])
+            ]
     else:
         reservas = repo_reserva.ler_filtrado(
             opcoes_carregamento=[
@@ -271,15 +283,17 @@ def atualizar_cancelamento_reserva(
     """Marca ou desmarca uma reserva como cancelada."""
     atualizado = repo_reserva.atualizar(id_reserva, {"cancelada": cancelar})
     if not atualizado:
-        raise ErroNucleoRegistro(
-            f"Reserva com ID {id_reserva} não encontrada."
-        )
+        raise ErroNucleoRegistro(f"Reserva com ID {id_reserva} não encontrada.")
     try:
         repo_reserva.obter_sessao().commit()
     except Exception as e:
-        logger.exception("Falha ao atualizar cancelamento da reserva %s: %s", id_reserva, e)
+        logger.exception(
+            "Falha ao atualizar cancelamento da reserva %s: %s", id_reserva, e
+        )
         rollback_seguro(repo_reserva.obter_sessao())
-        raise ErroNucleoRegistro(f"Falha ao atualizar cancelamento da reserva: {e}") from e
+        raise ErroNucleoRegistro(
+            f"Falha ao atualizar cancelamento da reserva: {e}"
+        ) from e
 
 
 def persistir_ou_mesclar_reservas(
@@ -325,7 +339,9 @@ def persistir_ou_mesclar_reservas(
             prev = consolidado[chave]
             prev["almoco"] = prev["almoco"] or almoco
             prev["jantar"] = prev["jantar"] or jantar
-            if (not prev["prato"] or prev["prato"] == "Não especificado") and item.get("prato"):
+            if (not prev["prato"] or prev["prato"] == "Não especificado") and item.get(
+                "prato"
+            ):
                 prev["prato"] = item.get("prato")
             for c in cats:
                 if c not in prev["categorias"]:
@@ -355,10 +371,14 @@ def persistir_ou_mesclar_reservas(
         if res_db is not None:
             novo_alm = bool(getattr(res_db, "almoco", True)) or item["almoco"]
             novo_jan = bool(getattr(res_db, "jantar", False)) or item["jantar"]
-            mudou = (novo_alm != bool(res_db.almoco)) or (novo_jan != bool(res_db.jantar))
+            mudou = (novo_alm != bool(res_db.almoco)) or (
+                novo_jan != bool(res_db.jantar)
+            )
             res_db.almoco = novo_alm
             res_db.jantar = novo_jan
-            if (not res_db.prato or res_db.prato == "Não especificado") and item["prato"]:
+            if (not res_db.prato or res_db.prato == "Não especificado") and item[
+                "prato"
+            ]:
                 res_db.prato = item["prato"]
                 mudou = True
             if mudou:
@@ -435,7 +455,9 @@ def salvar_importacao_dados(
             )
 
         cats_linha = normalizar_lista_categorias(
-            linha.get("categorias") if linha.get("categorias") is not None else linha.get("categoria")
+            linha.get("categorias")
+            if linha.get("categorias") is not None
+            else linha.get("categoria")
         )
 
         reservas_para_criar.append(
@@ -499,7 +521,9 @@ def salvar_importacao_dados(
     except Exception as e:
         logger.exception("Falha ao salvar dados importados: %s", e)
         rollback_seguro(repo_estudante.obter_sessao())
-        raise ErroNucleoRegistro(f"Falha ao salvar importação de dados no banco: {e}") from e
+        raise ErroNucleoRegistro(
+            f"Falha ao salvar importação de dados no banco: {e}"
+        ) from e
 
     return {
         "estudantes_criados": len(unicos),

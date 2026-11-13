@@ -72,7 +72,9 @@ def test_dialogo_sem_sessao_ativa(app_root):
     app_root.update()
 
     assert dialogo.winfo_exists()
-    assert dialogo._lbl_subtitulo.cget("text") == "Nenhuma sessão em andamento no momento"
+    assert (
+        dialogo._lbl_subtitulo.cget("text") == "Nenhuma sessão em andamento no momento"
+    )
     assert len(dialogo._cards_widgets) == 0
 
     dialogo.fechar()
@@ -93,9 +95,7 @@ def test_dialogo_sem_grade_para_refeicao(app_root):
         "grupos": ["1º A"],
     }
     fachada.obter_dia_semana_atual.return_value = "segunda"
-    fachada.obter_grade_horarios.return_value = {
-        "segunda": {"jantar": []}
-    }
+    fachada.obter_grade_horarios.return_value = {"segunda": {"jantar": []}}
 
     dialogo = DialogoGradeHorariosTotem(
         parent=app_root,
@@ -114,7 +114,9 @@ def test_dialogo_sem_grade_para_refeicao(app_root):
 
 def test_dialogo_slots_status_timeline(app_root, fachada_mock_com_grade, monkeypatch):
     """Garante a categorização correta dos horários em Encerrado, Liberado Agora e Em Breve."""
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda"
+    )
 
     # Simula hora atual: 12:15 (slot 11:30 encerra às 12:05 com tolerância, 12:00-12:30 ativo, 12:30 futuro)
     dialogo = DialogoGradeHorariosTotem(
@@ -130,7 +132,9 @@ def test_dialogo_slots_status_timeline(app_root, fachada_mock_com_grade, monkeyp
     # Slot 1: 11:30 às 12:00 -> Encerrado
     c1 = dialogo._cards_widgets[0]
     assert "ENCERRADO" in c1["badge"].cget("text")
-    assert "Finalizado" in c1["substatus"].cget("text") or "finalizado" in c1["substatus"].cget("text")
+    assert "Finalizado" in c1["substatus"].cget("text") or "finalizado" in c1[
+        "substatus"
+    ].cget("text")
 
     # Slot 2: 12:00 às 12:30 -> Liberado Agora
     c2 = dialogo._cards_widgets[1]
@@ -146,7 +150,9 @@ def test_dialogo_slots_status_timeline(app_root, fachada_mock_com_grade, monkeyp
     app_root.update()
 
 
-def test_leitura_scanner_usb_fecha_dialogo_e_chama_callback(app_root, fachada_mock_com_grade):
+def test_leitura_scanner_usb_fecha_dialogo_e_chama_callback(
+    app_root, fachada_mock_com_grade
+):
     """Testa leitura rápida via leitor USB / teclado com tecla Enter."""
     mock_callback = MagicMock()
 
@@ -231,7 +237,11 @@ def test_totem_integracao_abrir_e_fechar_dialogo(app_root, fachada_mock_com_grad
             assert totem._pode_processar_leitura() is True
 
             # Processar código externo deve fechar o diálogo de horários
-            with patch.object(totem, "_registrar_entrada", return_value=(True, "OK", {"nome": "Teste"})):
+            with patch.object(
+                totem,
+                "_registrar_entrada",
+                return_value=(True, "OK", {"nome": "Teste"}),
+            ):
                 totem.processar_codigo_externo("12345")
                 app_root.update()
 
@@ -246,7 +256,9 @@ def test_totem_integracao_abrir_e_fechar_dialogo(app_root, fachada_mock_com_grad
 
 def test_dialogo_e_totem_horario_livre(app_root, fachada_mock_com_grade, monkeypatch):
     """Verifica o badge discreto no Totem e o status flexibilizado no Diálogo de Horários quando Horário Livre está ativo."""
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda"
+    )
     fachada_mock_com_grade.ignorar_horario_grade = True
     fachada_mock_com_grade.filtro_categoria_sessao = None
 
@@ -282,7 +294,9 @@ def test_dialogo_e_totem_horario_livre(app_root, fachada_mock_com_grade, monkeyp
 
 def test_dialogo_slot_apenas_categoria_nao_exibe_todas_turmas(app_root, monkeypatch):
     """Slot com turmas='*' e categorias específicas não deve exibir 'Todas as turmas'."""
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda"
+    )
 
     fachada = MagicMock()
     fachada.id_sessao_ativa = 20
@@ -332,5 +346,3 @@ def test_dialogo_slot_apenas_categoria_nao_exibe_todas_turmas(app_root, monkeypa
 
     dialogo.fechar()
     app_root.update()
-
-

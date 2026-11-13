@@ -28,7 +28,14 @@ from registro.nucleo.services import grade_horarios_service
 
 
 @pytest.fixture
-def cenario_integrado(facade: FachadaRegistro, criar_grupo, criar_estudante, criar_reserva, tmp_path, monkeypatch):
+def cenario_integrado(
+    facade: FachadaRegistro,
+    criar_grupo,
+    criar_estudante,
+    criar_reserva,
+    tmp_path,
+    monkeypatch,
+):
     """Monta o ecossistema completo para a jornada de integração."""
     # Redireciona caminhos de configuração para diretório temporário
     caminho_grade = tmp_path / "grade_horarios.json"
@@ -102,7 +109,9 @@ def cenario_integrado(facade: FachadaRegistro, criar_grupo, criar_estudante, cri
     # 3. Criação de reservas de almoço para todos no dia 10/11/2026
     data_refeicao = "10/11/2026"
     for est in [e_1a_reg, e_1a_pap, e_2a_reg, e_2a_pap]:
-        criar_reserva(estudante=est, data=data_refeicao, cancelada=False, prato="Padrão")
+        criar_reserva(
+            estudante=est, data=data_refeicao, cancelada=False, prato="Padrão"
+        )
 
     return {
         "facade": facade,
@@ -116,7 +125,9 @@ def cenario_integrado(facade: FachadaRegistro, criar_grupo, criar_estudante, cri
     }
 
 
-def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, monkeypatch):
+def test_jornada_completa_refeicao_grade_sessao_e_filtros(
+    cenario_integrado, monkeypatch
+):
     """Executa a simulação completa de ponta a ponta."""
     facade: FachadaRegistro = cenario_integrado["facade"]
     caminho_grade: Path = cenario_integrado["caminho_grade"]
@@ -126,7 +137,9 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
     e_2a_pap = cenario_integrado["e_2a_pap"]
 
     # Simula que hoje é segunda-feira
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda"
+    )
 
     # -------------------------------------------------------------------------
     # Passo 1: Iniciar Sessão Ativa de Almoço
@@ -147,10 +160,18 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
     # -------------------------------------------------------------------------
     # Passo 2: Horário 11:45 (Slot 1 ativo para 1º A)
     # -------------------------------------------------------------------------
-    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt, \
-         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_grade:
-        mock_dt.now.return_value.strftime.side_effect = lambda fmt: "11:45" if "%H:%M" in fmt else "11:45:00"
-        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: "11:45" if "%H:%M" in fmt else "11:45:00"
+    with (
+        patch("registro.nucleo.services.consumo_service.datetime") as mock_dt,
+        patch(
+            "registro.nucleo.services.grade_horarios_service.datetime"
+        ) as mock_dt_grade,
+    ):
+        mock_dt.now.return_value.strftime.side_effect = lambda fmt: (
+            "11:45" if "%H:%M" in fmt else "11:45:00"
+        )
+        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: (
+            "11:45" if "%H:%M" in fmt else "11:45:00"
+        )
         mock_dt_grade.now.return_value.weekday.return_value = 0  # segunda
 
         # 2.1 Aluno 1º A REGULAR chega no horário -> Autorizado!
@@ -165,7 +186,10 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
         # 2.3 Aluno 2º A PAP tenta passar às 11:45 (slot dele é 12:15 às 13:00 por categoria) -> Bloqueado por horário!
         res_2a_cedo = facade.registrar_consumo_com_reserva(e_2a_pap.prontuario)
         assert res_2a_cedo["autorizado"] is False
-        assert "Fora do horário da sua categoria. Seu horário: 12:15 às 13:00." in res_2a_cedo["motivo"]
+        assert (
+            "Fora do horário da sua categoria. Seu horário: 12:15 às 13:00."
+            in res_2a_cedo["motivo"]
+        )
 
         # 2.4 Operador concede exceção (override) para o aluno 2º A PAP comer mais cedo -> Autorizado!
         res_override = facade.registrar_consumo_com_reserva(
@@ -176,10 +200,18 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
     # -------------------------------------------------------------------------
     # Passo 3: Horário 12:30 (Slot 2 ativo, restrito a PAP)
     # -------------------------------------------------------------------------
-    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt, \
-         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_grade:
-        mock_dt.now.return_value.strftime.side_effect = lambda fmt: "12:30" if "%H:%M" in fmt else "12:30:00"
-        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: "12:30" if "%H:%M" in fmt else "12:30:00"
+    with (
+        patch("registro.nucleo.services.consumo_service.datetime") as mock_dt,
+        patch(
+            "registro.nucleo.services.grade_horarios_service.datetime"
+        ) as mock_dt_grade,
+    ):
+        mock_dt.now.return_value.strftime.side_effect = lambda fmt: (
+            "12:30" if "%H:%M" in fmt else "12:30:00"
+        )
+        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: (
+            "12:30" if "%H:%M" in fmt else "12:30:00"
+        )
         mock_dt_grade.now.return_value.weekday.return_value = 0
 
         # 3.1 Aluno 2º A sem PAP tenta comer no slot exclusivo para PAP -> Bloqueado por falta de autorização!
@@ -195,10 +227,18 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
     grade_atualizada["segunda"]["almoco"][1]["turmas"] = ["2º A"]
     grade_horarios_service.salvar_grade_horarios(grade_atualizada, caminho_grade)
 
-    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt, \
-         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_grade:
-        mock_dt.now.return_value.strftime.side_effect = lambda fmt: "12:35" if "%H:%M" in fmt else "12:35:00"
-        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: "12:35" if "%H:%M" in fmt else "12:35:00"
+    with (
+        patch("registro.nucleo.services.consumo_service.datetime") as mock_dt,
+        patch(
+            "registro.nucleo.services.grade_horarios_service.datetime"
+        ) as mock_dt_grade,
+    ):
+        mock_dt.now.return_value.strftime.side_effect = lambda fmt: (
+            "12:35" if "%H:%M" in fmt else "12:35:00"
+        )
+        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: (
+            "12:35" if "%H:%M" in fmt else "12:35:00"
+        )
         mock_dt_grade.now.return_value.weekday.return_value = 0
 
         # 4.1 Agora o aluno 2º A REGULAR tenta novamente -> Autorizado com sucesso!
@@ -221,10 +261,18 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
     assert desfeito is True
 
     # Aluno tenta novamente e consegue registrar novo consumo
-    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt, \
-         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_grade:
-        mock_dt.now.return_value.strftime.side_effect = lambda fmt: "11:50" if "%H:%M" in fmt else "11:50:00"
-        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: "11:50" if "%H:%M" in fmt else "11:50:00"
+    with (
+        patch("registro.nucleo.services.consumo_service.datetime") as mock_dt,
+        patch(
+            "registro.nucleo.services.grade_horarios_service.datetime"
+        ) as mock_dt_grade,
+    ):
+        mock_dt.now.return_value.strftime.side_effect = lambda fmt: (
+            "11:50" if "%H:%M" in fmt else "11:50:00"
+        )
+        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: (
+            "11:50" if "%H:%M" in fmt else "11:50:00"
+        )
         mock_dt_grade.now.return_value.weekday.return_value = 0
 
         res_reconsumo = facade.registrar_consumo_com_reserva(e_1a_reg.prontuario)
@@ -235,10 +283,18 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
     caminho_grade.unlink(missing_ok=True)
     assert not caminho_grade.exists()
 
-    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt, \
-         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_grade:
-        mock_dt.now.return_value.strftime.side_effect = lambda fmt: "23:59" if "%H:%M" in fmt else "23:59:00"
-        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: "23:59" if "%H:%M" in fmt else "23:59:00"
+    with (
+        patch("registro.nucleo.services.consumo_service.datetime") as mock_dt,
+        patch(
+            "registro.nucleo.services.grade_horarios_service.datetime"
+        ) as mock_dt_grade,
+    ):
+        mock_dt.now.return_value.strftime.side_effect = lambda fmt: (
+            "23:59" if "%H:%M" in fmt else "23:59:00"
+        )
+        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: (
+            "23:59" if "%H:%M" in fmt else "23:59:00"
+        )
 
         # Com pular_grupos=True e grade desativada, discente do 2º A consome mesmo fora do horário
         # e fora da turma da sessão ativa
@@ -248,7 +304,11 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
         est_extra = criar_estudante(prontuario="IQ9999", nome="Extra Bypass")
         criar_reserva(
             prontuario_estudante="IQ9999",
-            dados_reserva={"data": "10/11/2026", "prato": "Vegetariano", "cancelada": False},
+            dados_reserva={
+                "data": "10/11/2026",
+                "prato": "Vegetariano",
+                "cancelada": False,
+            },
         )
 
         res_bypass = facade.registrar_consumo_com_reserva(
@@ -267,7 +327,9 @@ def test_jornada_completa_refeicao_grade_sessao_e_filtros(cenario_integrado, mon
     assert facade.id_sessao_ativa is None
 
 
-def test_horario_livre_atraso_refeicao(cenario_integrado, criar_grupo, criar_estudante, criar_reserva, monkeypatch):
+def test_horario_livre_atraso_refeicao(
+    cenario_integrado, criar_grupo, criar_estudante, criar_reserva, monkeypatch
+):
     """Testa o modo Horário Livre (ignorar_horario_grade) quando o almoço atrasa 1+ hora."""
     facade: FachadaRegistro = cenario_integrado["facade"]
     e_1a_reg = cenario_integrado["e_1a_reg"]
@@ -275,28 +337,42 @@ def test_horario_livre_atraso_refeicao(cenario_integrado, criar_grupo, criar_est
     e_2a_pap = cenario_integrado["e_2a_pap"]
 
     g_3c = criar_grupo(nome="3º C", ativo=True, tipo="turma")
-    e_3c = criar_estudante(prontuario="IQ3001", nome="Eduardo 3C", ativo=True, grupos=[g_3c])
+    e_3c = criar_estudante(
+        prontuario="IQ3001", nome="Eduardo 3C", ativo=True, grupos=[g_3c]
+    )
     facade._sessao_db.commit()
     criar_reserva(estudante=e_3c, data="10/11/2026", cancelada=False, prato="Padrão")
 
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda"
+    )
 
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "tarde",
-        "data": "2026-11-10",
-        "hora": "11:30",
-        "item_servido": "Almoço Completo",
-        "grupos": ["1º A", "2º A", "3º C"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "tarde",
+            "data": "2026-11-10",
+            "hora": "11:30",
+            "item_servido": "Almoço Completo",
+            "grupos": ["1º A", "2º A", "3º C"],
+        }
+    )
     assert id_sessao is not None
     assert facade.ignorar_horario_grade is False
 
     # Almoço atrasado: são 14:15 (slots eram 11:30-12:15 e 12:15-13:00)
-    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt, \
-         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_grade:
-        mock_dt.now.return_value.strftime.side_effect = lambda fmt: "14:15" if "%H:%M" in fmt else "14:15:00"
-        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: "14:15" if "%H:%M" in fmt else "14:15:00"
+    with (
+        patch("registro.nucleo.services.consumo_service.datetime") as mock_dt,
+        patch(
+            "registro.nucleo.services.grade_horarios_service.datetime"
+        ) as mock_dt_grade,
+    ):
+        mock_dt.now.return_value.strftime.side_effect = lambda fmt: (
+            "14:15" if "%H:%M" in fmt else "14:15:00"
+        )
+        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: (
+            "14:15" if "%H:%M" in fmt else "14:15:00"
+        )
         mock_dt_grade.now.return_value.weekday.return_value = 0
 
         # Modo normal bloqueia 1º A por horário
@@ -323,5 +399,7 @@ def test_horario_livre_atraso_refeicao(cenario_integrado, criar_grupo, criar_est
         # 3º C (não prevista na grade de segunda) -> Bloqueado mesmo com reserva!
         res_3c_bloq = facade.registrar_consumo(e_3c.prontuario)
         assert res_3c_bloq["autorizado"] is False
-        assert "não permitida" in res_3c_bloq["motivo"] or "não possui autorização" in res_3c_bloq["motivo"]
-
+        assert (
+            "não permitida" in res_3c_bloq["motivo"]
+            or "não possui autorização" in res_3c_bloq["motivo"]
+        )

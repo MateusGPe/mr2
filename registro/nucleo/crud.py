@@ -135,7 +135,6 @@ class CRUD(Generic[MODELO]):
             return True
         except DBAPIError as e:
             logger.error(
-                "Erro de banco de dados durante a atualização em massa de "
-                f"{type(self._modelo)}: {e}"
+                f"Erro de banco de dados durante a atualização em massa de {type(self._modelo)}: {e}"
             )
             return False

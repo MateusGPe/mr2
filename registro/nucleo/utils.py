@@ -9,6 +9,7 @@
 Funções utilitárias para a aplicação, incluindo manipulação de arquivos,
 processamento de texto e tipos de dados customizados.
 """
+
 import csv
 import json
 import logging
@@ -135,8 +136,7 @@ def salvar_csv(dados: list, caminho_arquivo: Path) -> bool:
             escritor.writerows(dados)
         return True
     except (IOError, csv.Error) as e:
-        print(
-            f"Erro ao salvar CSV em '{caminho_arquivo}': {e}", file=sys.stderr)
+        print(f"Erro ao salvar CSV em '{caminho_arquivo}': {e}", file=sys.stderr)
         return False
 
 
@@ -232,7 +232,9 @@ def salvar_json(nome_arquivo: Union[str, Path], dados: Union[Dict, List, Any]) -
         return False
 
 
-def carregar_csv_como_dict(nome_arquivo: Union[str, Path]) -> Optional[List[Dict[str, str]]]:
+def carregar_csv_como_dict(
+    nome_arquivo: Union[str, Path],
+) -> Optional[List[Dict[str, str]]]:
     """Lê um arquivo CSV e o retorna como uma lista de dicionários."""
     logger.debug("Carregando CSV como dict de: %s", nome_arquivo)
     try:
@@ -243,7 +245,9 @@ def carregar_csv_como_dict(nome_arquivo: Union[str, Path]) -> Optional[List[Dict
         return None
 
 
-def salvar_csv_de_lista(dados: List[List[Any]], nome_arquivo: Union[str, Path], **kwargs) -> bool:
+def salvar_csv_de_lista(
+    dados: List[List[Any]], nome_arquivo: Union[str, Path], **kwargs
+) -> bool:
     """Salva uma lista de listas em um arquivo CSV."""
     logger.debug("Salvando lista para CSV: %s", nome_arquivo)
     if not dados:
@@ -336,7 +340,18 @@ def formatar_turma_e_categoria(
     return turmas_str, cats_str
 
 
-_VALORES_VERDADEIROS = {"1", "true", "sim", "s", "yes", "y", "x", "ok", "ativo", "ativa"}
+_VALORES_VERDADEIROS = {
+    "1",
+    "true",
+    "sim",
+    "s",
+    "yes",
+    "y",
+    "x",
+    "ok",
+    "ativo",
+    "ativa",
+}
 _VALORES_FALSOS = {"0", "false", "nao", "não", "n", "no", "inativo", "inativa"}
 
 
@@ -395,7 +410,15 @@ def resolver_turnos_reserva(
     turno_jan: Optional[bool] = None
     if turno_raw is not None and str(turno_raw).strip():
         t_norm = _normalizar_texto_turno(str(turno_raw))
-        if t_norm in {"ambos", "ambas", "todos", "todas", "almoco e jantar", "almoco/jantar", "almoco, jantar"}:
+        if t_norm in {
+            "ambos",
+            "ambas",
+            "todos",
+            "todas",
+            "almoco e jantar",
+            "almoco/jantar",
+            "almoco, jantar",
+        }:
             turno_alm, turno_jan = True, True
         else:
             tem_alm = "almoco" in t_norm
@@ -405,11 +428,15 @@ def resolver_turnos_reserva(
                 turno_jan = tem_jan
 
     if alm_parsed is not None or jan_parsed is not None:
-        almoco = alm_parsed if alm_parsed is not None else (
-            turno_alm if turno_alm is not None else default_almoco
+        almoco = (
+            alm_parsed
+            if alm_parsed is not None
+            else (turno_alm if turno_alm is not None else default_almoco)
         )
-        jantar = jan_parsed if jan_parsed is not None else (
-            turno_jan if turno_jan is not None else default_jantar
+        jantar = (
+            jan_parsed
+            if jan_parsed is not None
+            else (turno_jan if turno_jan is not None else default_jantar)
         )
         return bool(almoco), bool(jantar)
 
@@ -428,5 +455,3 @@ def formatar_turnos_reserva(almoco: bool, jantar: bool) -> str:
     if jantar:
         return "Jantar"
     return "-"
-
-

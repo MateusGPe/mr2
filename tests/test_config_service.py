@@ -32,7 +32,9 @@ def temp_config_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(config_service, "CAMINHO_JSON_LANCHES", lanches_file)
     monkeypatch.setattr(config_service, "CAMINHO_JSON_PRESETS_TURMAS", presets_file)
     monkeypatch.setattr(config_service, "CAMINHO_JSON_TURMAS_INTEGRADO", turmas_file)
-    monkeypatch.setattr(config_service, "CAMINHO_JSON_MAPEAMENTO_COLUNAS", mapeamento_file)
+    monkeypatch.setattr(
+        config_service, "CAMINHO_JSON_MAPEAMENTO_COLUNAS", mapeamento_file
+    )
     monkeypatch.setattr(config_service, "JSON_ID_PLANILHA", spreadsheet_file)
     monkeypatch.setattr(config_service, "CAMINHO_CREDENCIAS", credentials_file)
     monkeypatch.setattr(config_service, "CAMINHO_TOKEN", token_file)
@@ -77,14 +79,26 @@ def test_extrair_id_planilha():
     assert config_service.extrair_id_planilha(url_completa) == id_esperado
 
     # ID bruto
-    assert config_service.extrair_id_planilha("1x78c5OyyzvwQB-El0PjnfOwLYKa4M-MlJVNEWaG_3YQ") == id_esperado
-    assert config_service.extrair_id_planilha("  1x78c5OyyzvwQB-El0PjnfOwLYKa4M-MlJVNEWaG_3YQ  ") == id_esperado
+    assert (
+        config_service.extrair_id_planilha(
+            "1x78c5OyyzvwQB-El0PjnfOwLYKa4M-MlJVNEWaG_3YQ"
+        )
+        == id_esperado
+    )
+    assert (
+        config_service.extrair_id_planilha(
+            "  1x78c5OyyzvwQB-El0PjnfOwLYKa4M-MlJVNEWaG_3YQ  "
+        )
+        == id_esperado
+    )
 
 
 def test_salvar_e_obter_id_planilha(temp_config_dir):
     assert config_service.obter_id_planilha() is None
 
-    config_service.salvar_id_planilha("https://docs.google.com/spreadsheets/d/PLANILHA_TESTE_123/edit")
+    config_service.salvar_id_planilha(
+        "https://docs.google.com/spreadsheets/d/PLANILHA_TESTE_123/edit"
+    )
     assert config_service.obter_id_planilha() == "PLANILHA_TESTE_123"
 
 
@@ -104,7 +118,9 @@ def test_salvar_arquivo_credenciais(temp_config_dir, tmp_path):
 
     assert config_service.salvar_arquivo_credenciais(origem) is True
     assert config_service.CAMINHO_CREDENCIAS.exists()
-    assert "service_account" in config_service.CAMINHO_CREDENCIAS.read_text(encoding="utf-8")
+    assert "service_account" in config_service.CAMINHO_CREDENCIAS.read_text(
+        encoding="utf-8"
+    )
 
 
 def test_limpar_token(temp_config_dir):
@@ -157,11 +173,13 @@ def test_inicializar_estrutura_planilha(temp_config_dir):
         assert detalhes["criadas"] == ["Almoço"]
 
     # Com exceção durante a chamada
-    with patch("registro.nucleo.google_api_service.GoogleSheetsService", side_effect=RuntimeError("Erro simulado")):
+    with patch(
+        "registro.nucleo.google_api_service.GoogleSheetsService",
+        side_effect=RuntimeError("Erro simulado"),
+    ):
         sucesso, msg, detalhes = config_service.inicializar_estrutura_planilha()
         assert sucesso is False
         assert "Erro simulado" in msg
-
 
 
 def test_obter_status_sistema_com_contagem_sql(temp_config_dir, monkeypatch):

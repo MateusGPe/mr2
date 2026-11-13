@@ -40,6 +40,7 @@ def test_obter_caminho_documentos_windows_fallback(monkeypatch):
     monkeypatch.setattr(platform, "system", lambda: "Windows")
     # Mocking ctypes to raise AttributeError
     import ctypes
+
     monkeypatch.setattr(ctypes, "windll", None, raising=False)
     caminho = obter_caminho_documentos()
     assert caminho == Path.home() / "Documents"

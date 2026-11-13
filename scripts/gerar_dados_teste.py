@@ -67,20 +67,98 @@ logger = logging.getLogger("gerador_dados_teste")
 # -----------------------------------------------------------------------------
 
 NOMES_PRIMEIROS = [
-    "Ana", "Beatriz", "Camila", "Daniela", "Eduarda", "Fernanda", "Gabriela", "Helena",
-    "Isabela", "Juliana", "Larissa", "Mariana", "Natalia", "Patricia", "Rafaela", "Sofia",
-    "Arthur", "Bernardo", "Caio", "Davi", "Eduardo", "Felipe", "Gabriel", "Heitor",
-    "Igor", "Joao", "Lucas", "Mateus", "Nicolas", "Pedro", "Rafael", "Thiago", "Vinicius",
-    "Alice", "Clara", "Leticia", "Luiza", "Manuela", "Valentina", "Enzo", "Gustavo",
-    "Leonardo", "Matheus", "Samuel", "Guilherme", "Vitor", "Renan", "Murilo", "Diego"
+    "Ana",
+    "Beatriz",
+    "Camila",
+    "Daniela",
+    "Eduarda",
+    "Fernanda",
+    "Gabriela",
+    "Helena",
+    "Isabela",
+    "Juliana",
+    "Larissa",
+    "Mariana",
+    "Natalia",
+    "Patricia",
+    "Rafaela",
+    "Sofia",
+    "Arthur",
+    "Bernardo",
+    "Caio",
+    "Davi",
+    "Eduardo",
+    "Felipe",
+    "Gabriel",
+    "Heitor",
+    "Igor",
+    "Joao",
+    "Lucas",
+    "Mateus",
+    "Nicolas",
+    "Pedro",
+    "Rafael",
+    "Thiago",
+    "Vinicius",
+    "Alice",
+    "Clara",
+    "Leticia",
+    "Luiza",
+    "Manuela",
+    "Valentina",
+    "Enzo",
+    "Gustavo",
+    "Leonardo",
+    "Matheus",
+    "Samuel",
+    "Guilherme",
+    "Vitor",
+    "Renan",
+    "Murilo",
+    "Diego",
 ]
 
 SOBRENOMES = [
-    "Silva", "Santos", "Oliveira", "Souza", "Rodrigues", "Ferreira", "Alves", "Pereira",
-    "Lima", "Gomes", "Costa", "Ribeiro", "Martins", "Carvalho", "Almeida", "Lopes",
-    "Soares", "Fernandes", "Vieira", "Barbosa", "Rocha", "Dias", "Nascimento", "Andrade",
-    "Moreira", "Nunes", "Marques", "Machado", "Mendes", "Freitas", "Cardoso", "Ramos",
-    "Goncalves", "Santana", "Teixeira", "Moraes", "Borges", "Pinheiro", "Pinto", "Campos"
+    "Silva",
+    "Santos",
+    "Oliveira",
+    "Souza",
+    "Rodrigues",
+    "Ferreira",
+    "Alves",
+    "Pereira",
+    "Lima",
+    "Gomes",
+    "Costa",
+    "Ribeiro",
+    "Martins",
+    "Carvalho",
+    "Almeida",
+    "Lopes",
+    "Soares",
+    "Fernandes",
+    "Vieira",
+    "Barbosa",
+    "Rocha",
+    "Dias",
+    "Nascimento",
+    "Andrade",
+    "Moreira",
+    "Nunes",
+    "Marques",
+    "Machado",
+    "Mendes",
+    "Freitas",
+    "Cardoso",
+    "Ramos",
+    "Goncalves",
+    "Santana",
+    "Teixeira",
+    "Moraes",
+    "Borges",
+    "Pinheiro",
+    "Pinto",
+    "Campos",
 ]
 
 TURMAS_PADRAO = [
@@ -114,8 +192,22 @@ MODELO_CONFIGURACAO_SEMANAL: List[Tuple[str, str, str, str, Any, Any]] = [
     ("Segunda", "Almoço", "12:50", "13:30", TURMAS_3_ANO, "*"),
     ("Segunda", "Lanche", "15:15", "15:40", TURMAS_MAC, ["PAP"]),
     ("Segunda", "Lanche", "15:40", "16:10", TURMAS_MEC, "TODAS"),
-    ("Segunda", "Jantar", "17:45", "18:30", TURMAS_1_ANO + ["2º A - MAC"], ["PAP", "LIB0"]),
-    ("Segunda", "Jantar", "18:30", "19:15", ["2º A - MEC", "2º B - MEC"] + TURMAS_3_ANO, ["PAP", "ESP1"]),
+    (
+        "Segunda",
+        "Jantar",
+        "17:45",
+        "18:30",
+        TURMAS_1_ANO + ["2º A - MAC"],
+        ["PAP", "LIB0"],
+    ),
+    (
+        "Segunda",
+        "Jantar",
+        "18:30",
+        "19:15",
+        ["2º A - MEC", "2º B - MEC"] + TURMAS_3_ANO,
+        ["PAP", "ESP1"],
+    ),
     # --- Terça-feira: Escalonamento invertido + visitas técnicas e eventos ---
     ("Terça", "Lanche", "09:20", "09:45", TURMAS_3_ANO, ["VISITA_TECNICA"]),
     ("Terça", "Lanche", "09:45", "10:15", TURMAS_1_ANO + TURMAS_2_ANO, "TODAS"),
@@ -129,18 +221,60 @@ MODELO_CONFIGURACAO_SEMANAL: List[Tuple[str, str, str, str, Any, Any]] = [
     # --- Quarta-feira: Segmentação por eixo tecnológico (MAC vs MEC) e categorias ---
     ("Quarta", "Lanche", "09:30", "10:00", "TODAS", "TODAS"),
     ("Quarta", "Almoço", "11:25", "12:05", TURMAS_MAC, ["PAP"]),
-    ("Quarta", "Almoço", "12:05", "12:45", ["1º A - MEC", "1º B - MEC", "2º A - MEC"], ["ESP1"]),
-    ("Quarta", "Almoço", "12:45", "13:25", ["2º B - MEC", "3º A - MEC", "3º B - MEC"], ["LIB0"]),
+    (
+        "Quarta",
+        "Almoço",
+        "12:05",
+        "12:45",
+        ["1º A - MEC", "1º B - MEC", "2º A - MEC"],
+        ["ESP1"],
+    ),
+    (
+        "Quarta",
+        "Almoço",
+        "12:45",
+        "13:25",
+        ["2º B - MEC", "3º A - MEC", "3º B - MEC"],
+        ["LIB0"],
+    ),
     ("Quarta", "Almoço", "13:25", "13:45", "*", ["EVENTO_ESPORTIVO", "PAP"]),
     ("Quarta", "Lanche", "15:15", "15:45", "TODAS", ["EVENTO_ESPORTIVO", "ESP1"]),
     ("Quarta", "Lanche", "15:45", "16:15", TURMAS_2_ANO + TURMAS_3_ANO, "*"),
     ("Quarta", "Jantar", "17:50", "18:35", TURMAS_MAC, ["PAP", "ESP1"]),
     ("Quarta", "Jantar", "18:35", "19:20", TURMAS_MEC, ["LIB0"]),
     # --- Quinta-feira: Sobreposição parcial + janela estendida para categorias ---
-    ("Quinta", "Lanche", "09:15", "09:40", ["1º A - MAC", "1º B - MEC", "2º B - MEC"], ["PAP"]),
-    ("Quinta", "Lanche", "09:40", "10:05", ["1º A - MEC", "2º A - MAC", "2º A - MEC"] + TURMAS_3_ANO, ["ESP1", "LIB0"]),
-    ("Quinta", "Almoço", "11:30", "12:00", ["1º A - MAC", "2º A - MAC"], ["PAP", "VISITA_TECNICA"]),
-    ("Quinta", "Almoço", "12:00", "12:35", ["1º A - MEC", "1º B - MEC", "2º A - MEC", "2º B - MEC"], "TODAS"),
+    (
+        "Quinta",
+        "Lanche",
+        "09:15",
+        "09:40",
+        ["1º A - MAC", "1º B - MEC", "2º B - MEC"],
+        ["PAP"],
+    ),
+    (
+        "Quinta",
+        "Lanche",
+        "09:40",
+        "10:05",
+        ["1º A - MEC", "2º A - MAC", "2º A - MEC"] + TURMAS_3_ANO,
+        ["ESP1", "LIB0"],
+    ),
+    (
+        "Quinta",
+        "Almoço",
+        "11:30",
+        "12:00",
+        ["1º A - MAC", "2º A - MAC"],
+        ["PAP", "VISITA_TECNICA"],
+    ),
+    (
+        "Quinta",
+        "Almoço",
+        "12:00",
+        "12:35",
+        ["1º A - MEC", "1º B - MEC", "2º A - MEC", "2º B - MEC"],
+        "TODAS",
+    ),
     ("Quinta", "Almoço", "12:35", "13:10", TURMAS_3_ANO, "TODAS"),
     ("Quinta", "Almoço", "13:10", "13:35", "*", ["PAP", "ESP1", "LIB0"]),
     ("Quinta", "Lanche", "15:30", "16:00", "TODAS", "TODAS"),
@@ -148,15 +282,36 @@ MODELO_CONFIGURACAO_SEMANAL: List[Tuple[str, str, str, str, Any, Any]] = [
     ("Quinta", "Jantar", "18:20", "19:15", "TODAS", "TODAS"),
     # --- Sexta-feira: Grade reduzida no jantar (apenas categorias beneficiárias) ---
     ("Sexta", "Lanche", "09:20", "09:50", TURMAS_1_ANO + ["2º A - MAC"], ["PAP"]),
-    ("Sexta", "Lanche", "09:50", "10:15", ["2º A - MEC", "2º B - MEC"] + TURMAS_3_ANO, ["LIB0"]),
+    (
+        "Sexta",
+        "Lanche",
+        "09:50",
+        "10:15",
+        ["2º A - MEC", "2º B - MEC"] + TURMAS_3_ANO,
+        ["LIB0"],
+    ),
     ("Sexta", "Almoço", "11:30", "12:15", TURMAS_1_ANO, ["PAP", "ESP1"]),
     ("Sexta", "Almoço", "12:15", "13:00", TURMAS_2_ANO + TURMAS_3_ANO, "TODAS"),
     ("Sexta", "Lanche", "15:15", "15:50", TURMAS_MAC, ["PAP", "LIB0"]),
     ("Sexta", "Jantar", "17:45", "18:45", "TODAS", ["PAP", "ESP1", "LIB0"]),
     # --- Sábado: Atividades letivas, eventos esportivos e visitas ---
-    ("Sábado", "Lanche", "09:15", "09:50", ["1º A - MEC", "2º A - MEC", "3º A - MEC"], ["PAP", "EVENTO_ESPORTIVO"]),
+    (
+        "Sábado",
+        "Lanche",
+        "09:15",
+        "09:50",
+        ["1º A - MEC", "2º A - MEC", "3º A - MEC"],
+        ["PAP", "EVENTO_ESPORTIVO"],
+    ),
     ("Sábado", "Lanche", "09:50", "10:20", TURMAS_MAC, ["VISITA_TECNICA"]),
-    ("Sábado", "Almoço", "11:30", "12:15", ["1º A - MEC", "2º A - MEC", "3º A - MEC"], ["EVENTO_ESPORTIVO", "PAP"]),
+    (
+        "Sábado",
+        "Almoço",
+        "11:30",
+        "12:15",
+        ["1º A - MEC", "2º A - MEC", "3º A - MEC"],
+        ["EVENTO_ESPORTIVO", "PAP"],
+    ),
     ("Sábado", "Almoço", "12:15", "13:00", TURMAS_MAC, ["ESP1", "LIB0"]),
 ]
 
@@ -237,12 +392,18 @@ MOTIVOS_CANCELAMENTO = [
     "Passagem acidental com crachá em teste",
 ]
 
-OPERADORES_CANCELAMENTO = ["Operador 01", "Operador 02", "Totem Autoatendimento", "Administrador"]
+OPERADORES_CANCELAMENTO = [
+    "Operador 01",
+    "Operador 02",
+    "Totem Autoatendimento",
+    "Administrador",
+]
 
 
 # -----------------------------------------------------------------------------
 # Classes e Geradores de Dados
 # -----------------------------------------------------------------------------
+
 
 class GeradorDadosTeste:
     """Gera um conjunto completo, consistente e realista de dados para o sistema."""
@@ -251,7 +412,9 @@ class GeradorDadosTeste:
         self.qtd_alunos = qtd_alunos
         self.rng = random.Random(seed)
         self.estudantes: List[Dict[str, str]] = []
-        self._grade_configuracao: Optional[Dict[str, Dict[str, List[Dict[str, Any]]]]] = None
+        self._grade_configuracao: Optional[
+            Dict[str, Dict[str, List[Dict[str, Any]]]]
+        ] = None
 
     def gerar_estudantes(self) -> List[List[str]]:
         """Gera discentes com matrícula, nome, turma real e categorias/tags permanentes."""
@@ -315,7 +478,9 @@ class GeradorDadosTeste:
         """Gera as opções disponíveis de lanche para a aba 'Lanches'."""
         return [[item] for item in ITENS_LANCHE]
 
-    def _obter_dias_uteis(self, data_ref: date, dias_passados: int = 3, dias_futuros: int = 2) -> List[date]:
+    def _obter_dias_uteis(
+        self, data_ref: date, dias_passados: int = 3, dias_futuros: int = 2
+    ) -> List[date]:
         """Calcula uma lista ordenada de dias úteis em torno da data de referência."""
         dias: List[date] = []
         # Passados
@@ -370,19 +535,23 @@ class GeradorDadosTeste:
                 cat_reserva = ""
                 if self.rng.random() < 0.20:
                     qtd_tags = 1 if self.rng.random() < 0.80 else 2
-                    tags = sorted(self.rng.sample(CATEGORIAS_PONTUAIS_RESERVA, qtd_tags))
+                    tags = sorted(
+                        self.rng.sample(CATEGORIAS_PONTUAIS_RESERVA, qtd_tags)
+                    )
                     cat_reserva = ", ".join(tags)
-                linhas.append([
-                    data_str,
-                    aluno["matricula"],
-                    aluno["nome"],
-                    aluno["turma"],
-                    prato,
-                    dia_semana_str,
-                    cat_reserva,
-                    "Sim" if tem_almoco else "Não",
-                    "Sim" if tem_jantar else "Não",
-                ])
+                linhas.append(
+                    [
+                        data_str,
+                        aluno["matricula"],
+                        aluno["nome"],
+                        aluno["turma"],
+                        prato,
+                        dia_semana_str,
+                        cat_reserva,
+                        "Sim" if tem_almoco else "Não",
+                        "Sim" if tem_jantar else "Não",
+                    ]
+                )
 
         return linhas
 
@@ -404,7 +573,9 @@ class GeradorDadosTeste:
         cats_reserva_por_data_matr: Dict[Tuple[str, str], List[str]],
     ) -> str:
         """Combina categorias permanentes do aluno com categorias pontuais da reserva na data."""
-        cats = self._categorias_efetivas_set(aluno, data_str, cats_reserva_por_data_matr)
+        cats = self._categorias_efetivas_set(
+            aluno, data_str, cats_reserva_por_data_matr
+        )
         return ", ".join(sorted(cats)) if cats else "-"
 
     def _sortear_horario_na_grade(
@@ -497,8 +668,10 @@ class GeradorDadosTeste:
 
             # 1. Almoço (entre 80% e 95% dos que tinham reserva de almoço comparecem)
             alunos_com_almoco = [
-                a for a in self.estudantes
-                if (info := _info_reserva(data_str, a["matricula"])) and info.get("almoco")
+                a
+                for a in self.estudantes
+                if (info := _info_reserva(data_str, a["matricula"]))
+                and info.get("almoco")
             ]
             qtd_comp_alm = int(len(alunos_com_almoco) * self.rng.uniform(0.80, 0.95))
             for aluno in self.rng.sample(alunos_com_almoco, qtd_comp_alm):
@@ -509,38 +682,48 @@ class GeradorDadosTeste:
                 info = _info_reserva(data_str, aluno["matricula"]) or {}
                 prato = info.get("prato", "Padrão")
                 cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
-                consumos_almoco.append([
-                    aluno["matricula"],
-                    data_str,
-                    aluno["nome"],
-                    aluno["turma"],
-                    prato,
-                    hora,
-                    cat_efetiva,
-                ])
-
-            # Exceções: alunos sem reserva de almoço que almoçaram (3 a 6 alunos)
-            alunos_sem_almoco = [
-                a for a in self.estudantes
-                if not ((info := _info_reserva(data_str, a["matricula"])) and info.get("almoco"))
-            ]
-            if alunos_sem_almoco:
-                qtd_excecao = min(len(alunos_sem_almoco), self.rng.randint(3, 6))
-                for aluno in self.rng.sample(alunos_sem_almoco, qtd_excecao):
-                    cats_set = self._categorias_efetivas_set(aluno, data_str, cats_res_mapa)
-                    hora = self._sortear_horario_na_grade(
-                        d, "Almoço", aluno, cats_set, (12, 10), (13, 15)
-                    )
-                    cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
-                    consumos_almoco.append([
+                consumos_almoco.append(
+                    [
                         aluno["matricula"],
                         data_str,
                         aluno["nome"],
                         aluno["turma"],
-                        "Sem Reserva (Exceção)",
+                        prato,
                         hora,
                         cat_efetiva,
-                    ])
+                    ]
+                )
+
+            # Exceções: alunos sem reserva de almoço que almoçaram (3 a 6 alunos)
+            alunos_sem_almoco = [
+                a
+                for a in self.estudantes
+                if not (
+                    (info := _info_reserva(data_str, a["matricula"]))
+                    and info.get("almoco")
+                )
+            ]
+            if alunos_sem_almoco:
+                qtd_excecao = min(len(alunos_sem_almoco), self.rng.randint(3, 6))
+                for aluno in self.rng.sample(alunos_sem_almoco, qtd_excecao):
+                    cats_set = self._categorias_efetivas_set(
+                        aluno, data_str, cats_res_mapa
+                    )
+                    hora = self._sortear_horario_na_grade(
+                        d, "Almoço", aluno, cats_set, (12, 10), (13, 15)
+                    )
+                    cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
+                    consumos_almoco.append(
+                        [
+                            aluno["matricula"],
+                            data_str,
+                            aluno["nome"],
+                            aluno["turma"],
+                            "Sem Reserva (Exceção)",
+                            hora,
+                            cat_efetiva,
+                        ]
+                    )
 
             # 2. Lanche (Manhã e Tarde)
             # 40% a 60% dos estudantes tomam lanche
@@ -562,20 +745,24 @@ class GeradorDadosTeste:
                 )
 
                 cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
-                consumos_lanche.append([
-                    aluno["matricula"],
-                    data_str,
-                    aluno["nome"],
-                    aluno["turma"],
-                    item,
-                    hora,
-                    cat_efetiva,
-                ])
+                consumos_lanche.append(
+                    [
+                        aluno["matricula"],
+                        data_str,
+                        aluno["nome"],
+                        aluno["turma"],
+                        item,
+                        hora,
+                        cat_efetiva,
+                    ]
+                )
 
             # 3. Jantar (entre 80% e 95% dos que tinham reserva de jantar comparecem + 1 a 3 exceções)
             alunos_com_jantar = [
-                a for a in self.estudantes
-                if (info := _info_reserva(data_str, a["matricula"])) and info.get("jantar")
+                a
+                for a in self.estudantes
+                if (info := _info_reserva(data_str, a["matricula"]))
+                and info.get("jantar")
             ]
             qtd_comp_jan = int(len(alunos_com_jantar) * self.rng.uniform(0.80, 0.95))
             for aluno in self.rng.sample(alunos_com_jantar, qtd_comp_jan):
@@ -586,37 +773,47 @@ class GeradorDadosTeste:
                 info = _info_reserva(data_str, aluno["matricula"]) or {}
                 prato = info.get("prato") or self.rng.choice(PRATOS_JANTAR)
                 cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
-                consumos_jantar.append([
-                    aluno["matricula"],
-                    data_str,
-                    aluno["nome"],
-                    aluno["turma"],
-                    prato,
-                    hora,
-                    cat_efetiva,
-                ])
-
-            alunos_sem_jantar = [
-                a for a in self.estudantes
-                if not ((info := _info_reserva(data_str, a["matricula"])) and info.get("jantar"))
-            ]
-            if alunos_sem_jantar:
-                qtd_excecao_jan = min(len(alunos_sem_jantar), self.rng.randint(1, 3))
-                for aluno in self.rng.sample(alunos_sem_jantar, qtd_excecao_jan):
-                    cats_set = self._categorias_efetivas_set(aluno, data_str, cats_res_mapa)
-                    hora = self._sortear_horario_na_grade(
-                        d, "Jantar", aluno, cats_set, (18, 20), (19, 5)
-                    )
-                    cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
-                    consumos_jantar.append([
+                consumos_jantar.append(
+                    [
                         aluno["matricula"],
                         data_str,
                         aluno["nome"],
                         aluno["turma"],
-                        "Sem Reserva (Exceção)",
+                        prato,
                         hora,
                         cat_efetiva,
-                    ])
+                    ]
+                )
+
+            alunos_sem_jantar = [
+                a
+                for a in self.estudantes
+                if not (
+                    (info := _info_reserva(data_str, a["matricula"]))
+                    and info.get("jantar")
+                )
+            ]
+            if alunos_sem_jantar:
+                qtd_excecao_jan = min(len(alunos_sem_jantar), self.rng.randint(1, 3))
+                for aluno in self.rng.sample(alunos_sem_jantar, qtd_excecao_jan):
+                    cats_set = self._categorias_efetivas_set(
+                        aluno, data_str, cats_res_mapa
+                    )
+                    hora = self._sortear_horario_na_grade(
+                        d, "Jantar", aluno, cats_set, (18, 20), (19, 5)
+                    )
+                    cat_efetiva = ", ".join(sorted(cats_set)) if cats_set else "-"
+                    consumos_jantar.append(
+                        [
+                            aluno["matricula"],
+                            data_str,
+                            aluno["nome"],
+                            aluno["turma"],
+                            "Sem Reserva (Exceção)",
+                            hora,
+                            cat_efetiva,
+                        ]
+                    )
 
         # Ordenar cada refeição cronologicamente por (Data, Hora)
         for lista in (consumos_almoco, consumos_jantar, consumos_lanche):
@@ -653,23 +850,27 @@ class GeradorDadosTeste:
             cancelado_por = self.rng.choice(OPERADORES_CANCELAMENTO)
             motivo = self.rng.choice(MOTIVOS_CANCELAMENTO)
 
-            linhas.append([
-                data_str,
-                hora_orig,
-                hora_canc,
-                matricula,
-                nome,
-                turma,
-                categoria,
-                refeicao,
-                cancelado_por,
-                motivo,
-            ])
+            linhas.append(
+                [
+                    data_str,
+                    hora_orig,
+                    hora_canc,
+                    matricula,
+                    nome,
+                    turma,
+                    categoria,
+                    refeicao,
+                    cancelado_por,
+                    motivo,
+                ]
+            )
 
         linhas.sort(key=lambda x: (x[0], x[2]))
         return linhas
 
-    def _gerar_horario_aleatorio(self, h_ini: int, m_ini: int, h_fim: int, m_fim: int) -> str:
+    def _gerar_horario_aleatorio(
+        self, h_ini: int, m_ini: int, h_fim: int, m_fim: int
+    ) -> str:
         """Gera um horário aleatório formatado HH:MM:SS dentro de um intervalo."""
         minuto_total_ini = h_ini * 60 + m_ini
         minuto_total_fim = h_fim * 60 + m_fim
@@ -733,6 +934,7 @@ class GeradorDadosTeste:
 # -----------------------------------------------------------------------------
 # Upload e Persistência
 # -----------------------------------------------------------------------------
+
 
 def fazer_upload_para_google_sheets(
     dados_massa: Dict[str, Tuple[List[str], List[List[str]]]],
@@ -803,6 +1005,7 @@ def salvar_amostra_local(
 # Interface de Linha de Comando (CLI)
 # -----------------------------------------------------------------------------
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Gera massa complexa de dados de teste e realiza upload para o Google Sheets."
@@ -859,8 +1062,13 @@ def main() -> None:
     sobrescrever = not args.anexar
 
     logger.info("Iniciando geração de dados de teste...")
-    logger.info("Configuração: %d alunos, %d dias passados, %d dias futuros, seed=%d",
-                args.qtd_alunos, args.dias_passados, args.dias_futuros, args.seed)
+    logger.info(
+        "Configuração: %d alunos, %d dias passados, %d dias futuros, seed=%d",
+        args.qtd_alunos,
+        args.dias_passados,
+        args.dias_futuros,
+        args.seed,
+    )
 
     gerador = GeradorDadosTeste(qtd_alunos=args.qtd_alunos, seed=args.seed)
     dados = gerador.gerar_massa_completa(
@@ -888,4 +1096,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

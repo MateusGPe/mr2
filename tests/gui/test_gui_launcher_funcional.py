@@ -39,10 +39,13 @@ def _executar_com_janela_capturada(app_root, acao_ao_abrir):
 
 def test_launcher_menu_inicial_selecionar_registrar(app_root):
     """Cenário Provável: Usuário clica no botão 'Registrar' no menu gráfico."""
+
     def clicar_registrar(root):
         for child in root.winfo_children():
             for subchild in child.winfo_children():
-                if hasattr(subchild, "cget") and "Registrar Refeições" in subchild.cget("text"):
+                if hasattr(subchild, "cget") and "Registrar Refeições" in subchild.cget(
+                    "text"
+                ):
                     subchild.invoke()
                     return
         root.destroy()
@@ -53,10 +56,13 @@ def test_launcher_menu_inicial_selecionar_registrar(app_root):
 
 def test_launcher_menu_inicial_selecionar_autoatendimento(app_root):
     """Cenário Provável: Usuário clica no botão 'Totem de Autoatendimento' no menu gráfico."""
+
     def clicar_auto(root):
         for child in root.winfo_children():
             for subchild in child.winfo_children():
-                if hasattr(subchild, "cget") and "Totem de Autoatendimento" in subchild.cget("text"):
+                if hasattr(
+                    subchild, "cget"
+                ) and "Totem de Autoatendimento" in subchild.cget("text"):
                     subchild.invoke()
                     return
         root.destroy()
@@ -67,6 +73,7 @@ def test_launcher_menu_inicial_selecionar_autoatendimento(app_root):
 
 def test_launcher_menu_inicial_fechar_sem_selecao(app_root):
     """Cenário Improvável: Usuário fecha a janela sem clicar em nenhum botão."""
+
     def fechar_janela(root):
         root.destroy()
 

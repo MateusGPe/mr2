@@ -87,12 +87,18 @@ def mock_messagebox():
         return spy.yesno_response
 
     def fake_question(message="", title="", **kwargs):
-        spy.question_calls.append({"message": message, "title": title, "kwargs": kwargs})
+        spy.question_calls.append(
+            {"message": message, "title": title, "kwargs": kwargs}
+        )
         return spy.question_response
 
-    with patch("ttkbootstrap.dialogs.Messagebox.show_info", side_effect=fake_info), \
-         patch("ttkbootstrap.dialogs.Messagebox.show_warning", side_effect=fake_warning), \
-         patch("ttkbootstrap.dialogs.Messagebox.show_error", side_effect=fake_error), \
-         patch("ttkbootstrap.dialogs.Messagebox.yesno", side_effect=fake_yesno), \
-         patch("ttkbootstrap.dialogs.Messagebox.show_question", side_effect=fake_question):
+    with (
+        patch("ttkbootstrap.dialogs.Messagebox.show_info", side_effect=fake_info),
+        patch("ttkbootstrap.dialogs.Messagebox.show_warning", side_effect=fake_warning),
+        patch("ttkbootstrap.dialogs.Messagebox.show_error", side_effect=fake_error),
+        patch("ttkbootstrap.dialogs.Messagebox.yesno", side_effect=fake_yesno),
+        patch(
+            "ttkbootstrap.dialogs.Messagebox.show_question", side_effect=fake_question
+        ),
+    ):
         yield spy

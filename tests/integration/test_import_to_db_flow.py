@@ -30,7 +30,9 @@ def test_fluxo_completo_importacao_sessao_e_consumo(
 
     # 2. Execução do serviço de importação
     servico = ServicoImportacao(facade)
-    resultado_prep = servico.preparar_importacao(CarregarCSVComCabecalho(), str(arquivo_csv))
+    resultado_prep = servico.preparar_importacao(
+        CarregarCSVComCabecalho(), str(arquivo_csv)
+    )
 
     itens_revisao = resultado_prep["itens_revisao"]
     for item in itens_revisao:
@@ -59,14 +61,16 @@ def test_fluxo_completo_importacao_sessao_e_consumo(
     facade.repo_estudante.obter_sessao().commit()
 
     # 3. Abertura de sessão de lanche para a turma 1º A - MAC
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Tarde",
-        "data": "2026-10-21",
-        "hora": "16:00",
-        "item_servido": "Vitamina de Morango",
-        "grupos": ["1º A - MAC"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Tarde",
+            "data": "2026-10-21",
+            "hora": "16:00",
+            "item_servido": "Vitamina de Morango",
+            "grupos": ["1º A - MAC"],
+        }
+    )
     assert id_sessao is not None
     assert facade.id_sessao_ativa == id_sessao
 

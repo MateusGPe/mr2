@@ -119,7 +119,9 @@ def test_analisador_fuzzy_nome_match_automatico_e_ajuste_score(
     score_com_bonus = analisador._calcular_score_ajustado(70, "IQ3001004", "IQ3001004")
     assert score_com_bonus >= analisador.SCORE_BONUS_PRONTUARIO
 
-    score_com_penalidade = analisador._calcular_score_ajustado(70, "IQ3001004", "XYZ999999")
+    score_com_penalidade = analisador._calcular_score_ajustado(
+        70, "IQ3001004", "XYZ999999"
+    )
     assert score_com_penalidade < 70
 
 
@@ -137,4 +139,3 @@ def test_analisador_somente_prontuario_com_candidatos(
     assert len(revisao) == 1
     assert revisao[0]["dados_csv"]["nome"] == analisador.NOME_DECONHECIDO
     assert revisao[0]["resolucao_escolhida"] == "IGNORAR"
-

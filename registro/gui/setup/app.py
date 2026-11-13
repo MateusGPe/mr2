@@ -79,9 +79,7 @@ class AppSetup(ttk.Window):
         frame_topo = ttk.Frame(self, padding=(20, 15, 20, 10))
         frame_topo.pack(fill=X)
 
-        lbl_icone = ttk.Label(
-            frame_topo, text="⚙️", font=("Segoe UI", 24)
-        )
+        lbl_icone = ttk.Label(frame_topo, text="⚙️", font=("Segoe UI", 24))
         lbl_icone.pack(side=LEFT, padx=(0, 12))
 
         frame_titulos = ttk.Frame(frame_topo)
@@ -230,7 +228,9 @@ class AppSetup(ttk.Window):
     def _construir_aba_google(self):
         # Passo a Passo com links
         lf_guia = ttk.Labelframe(
-            self.aba_google, text=" 📖 Guia de Configuração no Google Cloud ", padding=12
+            self.aba_google,
+            text=" 📖 Guia de Configuração no Google Cloud ",
+            padding=12,
         )
         lf_guia.pack(fill=X, pady=(0, 15))
 
@@ -275,7 +275,9 @@ class AppSetup(ttk.Window):
 
         # Arquivo de Credenciais
         lf_cred = ttk.Labelframe(
-            self.aba_google, text=" 📂 Arquivo de Credenciais (credentials.json) ", padding=12
+            self.aba_google,
+            text=" 📂 Arquivo de Credenciais (credentials.json) ",
+            padding=12,
         )
         lf_cred.pack(fill=X, pady=(0, 15))
 
@@ -382,7 +384,9 @@ class AppSetup(ttk.Window):
                 self._carregar_dados_iniciais()
             else:
                 Messagebox.show_error(
-                    "Não foi possível copiar o arquivo selecionado.", "Erro", parent=self
+                    "Não foi possível copiar o arquivo selecionado.",
+                    "Erro",
+                    parent=self,
                 )
 
     def _limpar_token(self):
@@ -408,7 +412,9 @@ class AppSetup(ttk.Window):
         valor = self.var_planilha_input.get().strip()
         if not valor:
             Messagebox.show_warning(
-                "Por favor, digite ou cole o ID ou link da planilha.", "Atenção", parent=self
+                "Por favor, digite ou cole o ID ou link da planilha.",
+                "Atenção",
+                parent=self,
             )
             return
 
@@ -441,11 +447,10 @@ class AppSetup(ttk.Window):
             self.lbl_teste_resultado.config(text="✅ " + msg, bootstyle="success")
         else:
             self.lbl_teste_resultado.config(
-                text="❌ Falha na conexão. Clique para ver detalhes.", bootstyle="danger"
+                text="❌ Falha na conexão. Clique para ver detalhes.",
+                bootstyle="danger",
             )
-            Messagebox.show_error(
-                msg, "Diagnóstico de Conexão", parent=self
-            )
+            Messagebox.show_error(msg, "Diagnóstico de Conexão", parent=self)
 
     def _criar_abas_em_thread(self):
         self.btn_criar_abas.config(state=DISABLED)
@@ -456,9 +461,7 @@ class AppSetup(ttk.Window):
 
         def _rodar():
             sucesso, msg, detalhes = config_service.inicializar_estrutura_planilha()
-            self.after(
-                0, lambda: self._finalizar_criacao_abas(sucesso, msg, detalhes)
-            )
+            self.after(0, lambda: self._finalizar_criacao_abas(sucesso, msg, detalhes))
 
         threading.Thread(target=_rodar, daemon=True).start()
 
@@ -480,9 +483,7 @@ class AppSetup(ttk.Window):
             self.lbl_teste_resultado.config(
                 text="❌ Falha ao criar abas na planilha.", bootstyle="danger"
             )
-            Messagebox.show_error(
-                msg, "Erro ao Criar Abas", parent=self
-            )
+            Messagebox.show_error(msg, "Erro ao Criar Abas", parent=self)
 
     # ------------------------------------------------------------------------
     # ABA 3: Totem & Segurança (PIN)
@@ -557,7 +558,9 @@ class AppSetup(ttk.Window):
 
         # Grupo de Preferências do Totem
         lf_pref = ttk.Labelframe(
-            self.aba_totem, text=" ⚙️ Preferências do Totem de Autoatendimento ", padding=12
+            self.aba_totem,
+            text=" ⚙️ Preferências do Totem de Autoatendimento ",
+            padding=12,
         )
         lf_pref.pack(fill=X, pady=(0, 10))
 
@@ -637,7 +640,9 @@ class AppSetup(ttk.Window):
 
         if novo != confirma:
             Messagebox.show_error(
-                "Os valores digitados nos dois campos de PIN não coincidem.", "Divergência", parent=self
+                "Os valores digitados nos dois campos de PIN não coincidem.",
+                "Divergência",
+                parent=self,
             )
             return
 
@@ -652,7 +657,9 @@ class AppSetup(ttk.Window):
         config_service.definir_pin(novo)
         self.var_novo_pin.set("")
         self.var_confirma_pin.set("")
-        Messagebox.show_info("Novo PIN configurado com sucesso!", "Sucesso", parent=self)
+        Messagebox.show_info(
+            "Novo PIN configurado com sucesso!", "Sucesso", parent=self
+        )
         self._carregar_dados_iniciais()
 
     def _remover_pin(self):
@@ -742,7 +749,9 @@ class AppSetup(ttk.Window):
         )
         self.cbo_grade_dia.set("Segunda-feira")
         self.cbo_grade_dia.pack(side=LEFT, padx=(0, 15))
-        self.cbo_grade_dia.bind("<<ComboboxSelected>>", lambda *_: self._carregar_regras_grade())
+        self.cbo_grade_dia.bind(
+            "<<ComboboxSelected>>", lambda *_: self._carregar_regras_grade()
+        )
 
         ttk.Label(frame_filtros, text="Refeição:").pack(side=LEFT, padx=(0, 5))
         self.refeicoes_grade_map = {
@@ -758,7 +767,9 @@ class AppSetup(ttk.Window):
         )
         self.cbo_grade_refeicao.set("Almoço")
         self.cbo_grade_refeicao.pack(side=LEFT, padx=(0, 15))
-        self.cbo_grade_refeicao.bind("<<ComboboxSelected>>", lambda *_: self._carregar_regras_grade())
+        self.cbo_grade_refeicao.bind(
+            "<<ComboboxSelected>>", lambda *_: self._carregar_regras_grade()
+        )
 
         # Tabela de Regras de Horário
         frame_tabela = ttk.Frame(self.aba_grade)
@@ -792,22 +803,30 @@ class AppSetup(ttk.Window):
         f_inputs = ttk.Frame(lf_add)
         f_inputs.pack(fill=X, pady=(0, 5))
 
-        ttk.Label(f_inputs, text="Início (HH:MM):").grid(row=0, column=0, sticky="w", padx=5)
+        ttk.Label(f_inputs, text="Início (HH:MM):").grid(
+            row=0, column=0, sticky="w", padx=5
+        )
         self.entry_grade_inicio = ttk.Entry(f_inputs, width=10)
         self.entry_grade_inicio.insert(0, "11:30")
         self.entry_grade_inicio.grid(row=1, column=0, sticky="ew", padx=5)
 
-        ttk.Label(f_inputs, text="Fim (HH:MM):").grid(row=0, column=1, sticky="w", padx=5)
+        ttk.Label(f_inputs, text="Fim (HH:MM):").grid(
+            row=0, column=1, sticky="w", padx=5
+        )
         self.entry_grade_fim = ttk.Entry(f_inputs, width=10)
         self.entry_grade_fim.insert(0, "12:15")
         self.entry_grade_fim.grid(row=1, column=1, sticky="ew", padx=5)
 
-        ttk.Label(f_inputs, text="Turmas (ex.: 1º A, 1º B ou *):").grid(row=0, column=2, sticky="w", padx=5)
+        ttk.Label(f_inputs, text="Turmas (ex.: 1º A, 1º B ou *):").grid(
+            row=0, column=2, sticky="w", padx=5
+        )
         self.entry_grade_turmas = ttk.Entry(f_inputs, width=28)
         self.entry_grade_turmas.insert(0, "*")
         self.entry_grade_turmas.grid(row=1, column=2, sticky="ew", padx=5)
 
-        ttk.Label(f_inputs, text="Categorias (*, Eventos, Optativas, PAP...):").grid(row=0, column=3, sticky="w", padx=5)
+        ttk.Label(f_inputs, text="Categorias (*, Eventos, Optativas, PAP...):").grid(
+            row=0, column=3, sticky="w", padx=5
+        )
         self.entry_grade_cats = ttk.Entry(f_inputs, width=22)
         self.entry_grade_cats.insert(0, "*")
         self.entry_grade_cats.grid(row=1, column=3, sticky="ew", padx=5)
@@ -884,7 +903,9 @@ class AppSetup(ttk.Window):
             fim = regra.get("fim", "")
             turmas = ", ".join(regra.get("turmas", [])) or "*"
             cats = ", ".join(regra.get("categorias", [])) or "*"
-            self.tree_grade.insert("", "end", iid=str(idx), values=(ini, fim, turmas, cats))
+            self.tree_grade.insert(
+                "", "end", iid=str(idx), values=(ini, fim, turmas, cats)
+            )
 
     def _adicionar_regra_grade(self):
         """Adiciona um novo intervalo de horário ao dia e refeição selecionados."""
@@ -894,14 +915,18 @@ class AppSetup(ttk.Window):
         cats_str = self.entry_grade_cats.get().strip()
 
         if not ini or not fim:
-            Messagebox.show_warning("Horários de início e fim são obrigatórios.", "Validação", parent=self)
+            Messagebox.show_warning(
+                "Horários de início e fim são obrigatórios.", "Validação", parent=self
+            )
             return
 
         try:
             grade_horarios_service._hora_para_minutos(ini)
             grade_horarios_service._hora_para_minutos(fim)
         except Exception as e:
-            Messagebox.show_error(f"Formato de horário inválido: {e}", "Erro de Formatação", parent=self)
+            Messagebox.show_error(
+                f"Formato de horário inválido: {e}", "Erro de Formatação", parent=self
+            )
             return
 
         coringas = {"*", "TODAS"}
@@ -935,7 +960,9 @@ class AppSetup(ttk.Window):
         """Remove o intervalo selecionado no Treeview."""
         selecionados = self.tree_grade.selection()
         if not selecionados:
-            Messagebox.show_warning("Selecione um intervalo para remover.", "Aviso", parent=self)
+            Messagebox.show_warning(
+                "Selecione um intervalo para remover.", "Aviso", parent=self
+            )
             return
 
         dia_chave, ref_chave = self._obter_chaves_dia_refeicao()
@@ -950,9 +977,15 @@ class AppSetup(ttk.Window):
         """Persiste a grade semanal no arquivo JSON."""
         sucesso = grade_horarios_service.salvar_grade_horarios(self._grade_atual)
         if sucesso:
-            Messagebox.show_info("Grade horária semanal salva com sucesso!", "Grade Salva", parent=self)
+            Messagebox.show_info(
+                "Grade horária semanal salva com sucesso!", "Grade Salva", parent=self
+            )
         else:
-            Messagebox.show_error("Não foi possível salvar o arquivo grade_horarios.json.", "Erro ao Salvar", parent=self)
+            Messagebox.show_error(
+                "Não foi possível salvar o arquivo grade_horarios.json.",
+                "Erro ao Salvar",
+                parent=self,
+            )
 
     def _restaurar_grade_padrao(self):
         """Restaura a grade horária semanal para a matriz padrão."""
@@ -969,7 +1002,9 @@ class AppSetup(ttk.Window):
             self._grade_atual = copy.deepcopy(grade_horarios_service.GRADE_PADRAO)
             grade_horarios_service.salvar_grade_horarios(self._grade_atual)
             self._carregar_regras_grade()
-            Messagebox.show_info("Grade horária padrão restaurada!", "Restaurado", parent=self)
+            Messagebox.show_info(
+                "Grade horária padrão restaurada!", "Restaurado", parent=self
+            )
 
     # ------------------------------------------------------------------------
     # ABA 4: Backups & Restauração
@@ -1213,7 +1248,9 @@ class AppSetup(ttk.Window):
 
         # Gestão de Itens de Refeição (Lanches)
         lf_lanches = ttk.Labelframe(
-            self.aba_geral, text=" 🥪 Gestão de Itens de Refeição (lanches.json) ", padding=12
+            self.aba_geral,
+            text=" 🥪 Gestão de Itens de Refeição (lanches.json) ",
+            padding=12,
         )
         lf_lanches.pack(fill=BOTH, expand=True, pady=(0, 15))
 
@@ -1227,7 +1264,9 @@ class AppSetup(ttk.Window):
             height=6,
         )
         scroll_lanches = ttk.Scrollbar(
-            frame_conteudo_lanches, orient="vertical", command=self.listbox_lanches.yview
+            frame_conteudo_lanches,
+            orient="vertical",
+            command=self.listbox_lanches.yview,
         )
         self.listbox_lanches.configure(yscrollcommand=scroll_lanches.set)
 
@@ -1302,7 +1341,9 @@ class AppSetup(ttk.Window):
 
         lanches = config_service.obter_lanches()
         if item in lanches:
-            Messagebox.show_warning("Este item já está cadastrado.", "Item Existente", parent=self)
+            Messagebox.show_warning(
+                "Este item já está cadastrado.", "Item Existente", parent=self
+            )
             return
 
         lanches.append(item)
@@ -1342,13 +1383,21 @@ class AppSetup(ttk.Window):
                 atalho_painel = f'@echo off\nstart "" "{exe_path}" --painel\n'
             else:
                 dir_proj = DIRETORIO_APP.resolve()
-                atalho_totem = f'@echo off\ncd /d "{dir_proj}"\ncall uv run autoatendimento\n'
+                atalho_totem = (
+                    f'@echo off\ncd /d "{dir_proj}"\ncall uv run autoatendimento\n'
+                )
                 atalho_reg = f'@echo off\ncd /d "{dir_proj}"\ncall uv run registrar\n'
                 atalho_painel = f'@echo off\ncd /d "{dir_proj}"\ncall uv run painel\n'
 
-            (desktop / "Totem Autoatendimento.bat").write_text(atalho_totem, encoding="utf-8")
-            (desktop / "Registro de Refeicoes.bat").write_text(atalho_reg, encoding="utf-8")
-            (desktop / "Painel Administrativo.bat").write_text(atalho_painel, encoding="utf-8")
+            (desktop / "Totem Autoatendimento.bat").write_text(
+                atalho_totem, encoding="utf-8"
+            )
+            (desktop / "Registro de Refeicoes.bat").write_text(
+                atalho_reg, encoding="utf-8"
+            )
+            (desktop / "Painel Administrativo.bat").write_text(
+                atalho_painel, encoding="utf-8"
+            )
 
             Messagebox.show_info(
                 "Atalhos gerados com sucesso na sua Área de Trabalho!",
@@ -1370,13 +1419,14 @@ class AppSetup(ttk.Window):
                 return
 
         confirma = Messagebox.show_question(
-            "ATENÇÃO: Todos os dados serão limpos e o banco recriado.\n"
-            "Deseja realmente continuar?",
+            "ATENÇÃO: Todos os dados serão limpos e o banco recriado.\nDeseja realmente continuar?",
             "Confirmação Extrema",
             parent=self,
         )
         if confirma == "Yes" or confirma is True:
-            sucesso, msg = backup_service.redefinir_banco_dados(criar_backup_previo=True)
+            sucesso, msg = backup_service.redefinir_banco_dados(
+                criar_backup_previo=True
+            )
             if sucesso:
                 Messagebox.show_info(msg, "Concluído", parent=self)
                 self._carregar_dados_iniciais()

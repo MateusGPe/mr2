@@ -18,7 +18,9 @@ def test_reserva_com_categorias_pontuais_sem_vincular_estudante(
     caminho_grade = tmp_path / "grade.json"
     monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
     monkeypatch.setattr(constants, "CAMINHO_GRADE_HORARIOS", caminho_grade)
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda"
+    )
 
     grade = {
         "segunda": {
@@ -37,7 +39,9 @@ def test_reserva_com_categorias_pontuais_sem_vincular_estudante(
     grade_horarios_service.salvar_grade_horarios(grade, caminho_grade)
 
     turma_2a = criar_grupo(nome="2º A - MAC", tipo="turma")
-    est = criar_estudante(prontuario="IQ3050001", nome="João Optativa", grupos=[turma_2a])
+    est = criar_estudante(
+        prontuario="IQ3050001", nome="João Optativa", grupos=[turma_2a]
+    )
 
     data_evento = "10/11/2026"
     res_criada = facade.criar_reserva(
@@ -76,13 +80,17 @@ def test_reserva_com_categorias_pontuais_sem_vincular_estudante(
     )
     assert id_almoco is not None
 
-    with patch("registro.nucleo.services.consumo_service.datetime") as mock_dt, \
-         patch("registro.nucleo.services.grade_horarios_service.datetime") as mock_dt_grade:
-        mock_dt.now.return_value.strftime.side_effect = (
-            lambda fmt: "12:15" if "%H:%M" in fmt else "12:15:00"
+    with (
+        patch("registro.nucleo.services.consumo_service.datetime") as mock_dt,
+        patch(
+            "registro.nucleo.services.grade_horarios_service.datetime"
+        ) as mock_dt_grade,
+    ):
+        mock_dt.now.return_value.strftime.side_effect = lambda fmt: (
+            "12:15" if "%H:%M" in fmt else "12:15:00"
         )
-        mock_dt_grade.now.return_value.strftime.side_effect = (
-            lambda fmt: "12:15" if "%H:%M" in fmt else "12:15:00"
+        mock_dt_grade.now.return_value.strftime.side_effect = lambda fmt: (
+            "12:15" if "%H:%M" in fmt else "12:15:00"
         )
         mock_dt_grade.now.return_value.weekday.return_value = 0
 
@@ -184,13 +192,15 @@ def test_importar_reservas_csv_vincula_categorias_somente_na_reserva(
 
     csv_reservas = tmp_path / "reservas.csv"
     csv_reservas.write_text(
-        "DATA,MATRÍCULA,REFEIÇÃO,Categoria\n"
-        "13/11/2026,IQ3050003,Tradicional,\"ESP1, PAP\"\n",
+        'DATA,MATRÍCULA,REFEIÇÃO,Categoria\n13/11/2026,IQ3050003,Tradicional,"ESP1, PAP"\n',
         encoding="utf-8",
     )
 
     qtd = importers_service.importar_reservas_csv(
-        facade.repo_estudante, facade.repo_reserva, csv_reservas, repo_grupo=facade.repo_grupo
+        facade.repo_estudante,
+        facade.repo_reserva,
+        csv_reservas,
+        repo_grupo=facade.repo_grupo,
     )
     assert qtd == 1
 
@@ -209,46 +219,110 @@ def test_grade_horarios_regra_ou_com_coringa(tmp_path: Path):
         "segunda": {
             "almoco": [
                 # Caso 1: apenas turma específica, categoria '*' -> só 1º A
-                {"inicio": "11:30", "fim": "12:00", "turmas": ["1º A"], "categorias": ["*"]},
+                {
+                    "inicio": "11:30",
+                    "fim": "12:00",
+                    "turmas": ["1º A"],
+                    "categorias": ["*"],
+                },
                 # Caso 2: turma específica E categoria específica -> regra OU (1º B OU ESP1)
-                {"inicio": "12:00", "fim": "12:30", "turmas": ["1º B"], "categorias": ["ESP1"]},
+                {
+                    "inicio": "12:00",
+                    "fim": "12:30",
+                    "turmas": ["1º B"],
+                    "categorias": ["ESP1"],
+                },
                 # Caso 3: turma '*', categoria específica -> só quem tem LIB0
-                {"inicio": "12:30", "fim": "13:00", "turmas": ["*"], "categorias": ["LIB0"]},
+                {
+                    "inicio": "12:30",
+                    "fim": "13:00",
+                    "turmas": ["*"],
+                    "categorias": ["LIB0"],
+                },
             ]
         }
     }
     grade_horarios_service.salvar_grade_horarios(grade, caminho)
 
     # Caso 1: 1º A passa, 2º A bloqueia
-    assert grade_horarios_service.validar_janela_horario(
-        ["1º A"], "almoço", hora_atual="11:45", dia_semana="segunda",
-        categorias_estudante=[], caminho_grade=caminho,
-    )[0] is True
-    assert grade_horarios_service.validar_janela_horario(
-        ["2º A"], "almoço", hora_atual="11:45", dia_semana="segunda",
-        categorias_estudante=["ESP1"], caminho_grade=caminho,
-    )[0] is False
+    assert (
+        grade_horarios_service.validar_janela_horario(
+            ["1º A"],
+            "almoço",
+            hora_atual="11:45",
+            dia_semana="segunda",
+            categorias_estudante=[],
+            caminho_grade=caminho,
+        )[0]
+        is True
+    )
+    assert (
+        grade_horarios_service.validar_janela_horario(
+            ["2º A"],
+            "almoço",
+            hora_atual="11:45",
+            dia_semana="segunda",
+            categorias_estudante=["ESP1"],
+            caminho_grade=caminho,
+        )[0]
+        is False
+    )
 
     # Caso 2 (OU): 1º B sem categoria passa; 2º A com ESP1 passa; 2º A sem categoria bloqueia
-    assert grade_horarios_service.validar_janela_horario(
-        ["1º B"], "almoço", hora_atual="12:15", dia_semana="segunda",
-        categorias_estudante=[], caminho_grade=caminho,
-    )[0] is True
-    assert grade_horarios_service.validar_janela_horario(
-        ["2º A"], "almoço", hora_atual="12:15", dia_semana="segunda",
-        categorias_estudante=["ESP1"], caminho_grade=caminho,
-    )[0] is True
-    assert grade_horarios_service.validar_janela_horario(
-        ["2º A"], "almoço", hora_atual="12:15", dia_semana="segunda",
-        categorias_estudante=[], caminho_grade=caminho,
-    )[0] is False
+    assert (
+        grade_horarios_service.validar_janela_horario(
+            ["1º B"],
+            "almoço",
+            hora_atual="12:15",
+            dia_semana="segunda",
+            categorias_estudante=[],
+            caminho_grade=caminho,
+        )[0]
+        is True
+    )
+    assert (
+        grade_horarios_service.validar_janela_horario(
+            ["2º A"],
+            "almoço",
+            hora_atual="12:15",
+            dia_semana="segunda",
+            categorias_estudante=["ESP1"],
+            caminho_grade=caminho,
+        )[0]
+        is True
+    )
+    assert (
+        grade_horarios_service.validar_janela_horario(
+            ["2º A"],
+            "almoço",
+            hora_atual="12:15",
+            dia_semana="segunda",
+            categorias_estudante=[],
+            caminho_grade=caminho,
+        )[0]
+        is False
+    )
 
     # Caso 3: qualquer turma com LIB0 passa, sem LIB0 bloqueia
-    assert grade_horarios_service.validar_janela_horario(
-        ["3º C"], "almoço", hora_atual="12:45", dia_semana="segunda",
-        categorias_estudante=["LIB0"], caminho_grade=caminho,
-    )[0] is True
-    assert grade_horarios_service.validar_janela_horario(
-        ["1º A"], "almoço", hora_atual="12:45", dia_semana="segunda",
-        categorias_estudante=[], caminho_grade=caminho,
-    )[0] is False
+    assert (
+        grade_horarios_service.validar_janela_horario(
+            ["3º C"],
+            "almoço",
+            hora_atual="12:45",
+            dia_semana="segunda",
+            categorias_estudante=["LIB0"],
+            caminho_grade=caminho,
+        )[0]
+        is True
+    )
+    assert (
+        grade_horarios_service.validar_janela_horario(
+            ["1º A"],
+            "almoço",
+            hora_atual="12:45",
+            dia_semana="segunda",
+            categorias_estudante=[],
+            caminho_grade=caminho,
+        )[0]
+        is False
+    )

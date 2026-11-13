@@ -13,9 +13,7 @@ from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 
 
-def test_facade_iniciar_e_definir_sessao_ativa(
-    facade: FachadaRegistro, criar_grupo
-):
+def test_facade_iniciar_e_definir_sessao_ativa(facade: FachadaRegistro, criar_grupo):
     """Verifica início de sessão e definição da sessão ativa na fachada."""
     criar_grupo(nome="1º A - MEC")
     dados_sessao = {
@@ -48,14 +46,16 @@ def test_facade_fluxo_consumo_completo(
         prontuario="IQ3008001", nome="Estudante Fachada", grupos=[grupo]
     )
 
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Tarde",
-        "data": "2026-10-21",
-        "hora": "15:00",
-        "item_servido": "Iogurte",
-        "grupos": ["2º A - MEC"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Tarde",
+            "data": "2026-10-21",
+            "hora": "15:00",
+            "item_servido": "Iogurte",
+            "grupos": ["2º A - MEC"],
+        }
+    )
     assert id_sessao is not None
 
     # Registrar consumo
@@ -83,14 +83,16 @@ def test_facade_busca_fuzzy_estudante(facade: FachadaRegistro, criar_estudante):
 def test_facade_gerenciamento_sessao_ativa(facade: FachadaRegistro, criar_grupo):
     """Verifica obter detalhes, atualizar e deletar sessão ativa pela fachada."""
     criar_grupo(nome="Grupo Sessao Ativa")
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Manhã",
-        "data": "2026-10-21",
-        "hora": "08:00",
-        "item_servido": "Maçã",
-        "grupos": ["Grupo Sessao Ativa"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Manhã",
+            "data": "2026-10-21",
+            "hora": "08:00",
+            "item_servido": "Maçã",
+            "grupos": ["Grupo Sessao Ativa"],
+        }
+    )
 
     detalhes = facade.obter_detalhes_sessao_ativa()
     assert detalhes["id"] == id_sessao
@@ -152,7 +154,9 @@ def test_facade_erros_quando_sem_sessao_ativa(facade: FachadaRegistro):
 def test_facade_crud_estudantes(facade: FachadaRegistro):
     """Testa criação, atualização e listagens de estudantes via Fachada."""
     # Criação com turmas
-    res_e = facade.criar_estudante("IQ3007001", "Aluno Novo", grupos=["Turma Alpha", "Turma Beta"])
+    res_e = facade.criar_estudante(
+        "IQ3007001", "Aluno Novo", grupos=["Turma Alpha", "Turma Beta"]
+    )
     assert res_e["prontuario"] == "IQ3007001"
     assert res_e["nome"] == "Aluno Novo"
 
@@ -161,7 +165,9 @@ def test_facade_crud_estudantes(facade: FachadaRegistro):
         facade.criar_estudante("IQ3007001", "Outro Nome")
 
     # Atualizar estudante
-    atualizado = facade.atualizar_estudante(res_e["id"], {"nome": "Aluno Renomeado", "ativo": False})
+    atualizado = facade.atualizar_estudante(
+        res_e["id"], {"nome": "Aluno Renomeado", "ativo": False}
+    )
     assert atualizado is True
 
     # Listar todos os estudantes
@@ -184,7 +190,9 @@ def test_facade_crud_reservas(facade: FachadaRegistro):
     est = facade.criar_estudante("IQ3007101", "Aluno Reserva", grupos=["1º A - MEC"])
 
     # Cria reserva
-    reserva = facade.criar_reserva("IQ3007101", {"data": "21/10/2026", "prato": "Feijoada"})
+    reserva = facade.criar_reserva(
+        "IQ3007101", {"data": "21/10/2026", "prato": "Feijoada"}
+    )
     assert reserva["prato"] == "Feijoada"
     assert reserva["cancelada"] is False
 
@@ -201,7 +209,9 @@ def test_facade_crud_reservas(facade: FachadaRegistro):
     assert len(reservas_todas) >= 1
 
     # Listar reservas com filtro de grupos
-    reservas_grupo = facade.listar_reservas({"grupos": ["1º A - MEC"], "data": "21/10/2026"})
+    reservas_grupo = facade.listar_reservas(
+        {"grupos": ["1º A - MEC"], "data": "21/10/2026"}
+    )
     assert len(reservas_grupo) >= 1
 
     # Atualizar reserva
@@ -225,14 +235,16 @@ def test_facade_operacoes_sessao_e_delegacoes(facade: FachadaRegistro, tmp_path)
     """Testa deleções específicas de sessão, sincronizações e autocomplete."""
     from unittest.mock import patch
 
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Manhã",
-        "data": "2026-10-21",
-        "hora": "09:00",
-        "item_servido": "Biscoito",
-        "grupos": ["1º A - MEC"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Manhã",
+            "data": "2026-10-21",
+            "hora": "09:00",
+            "item_servido": "Biscoito",
+            "grupos": ["1º A - MEC"],
+        }
+    )
     facade.definir_sessao_ativa(id_sessao)
     assert facade.id_sessao_ativa == id_sessao
 
@@ -258,10 +270,17 @@ def test_facade_operacoes_sessao_e_delegacoes(facade: FachadaRegistro, tmp_path)
     assert facade.id_sessao_ativa is None
 
     # Mocks de sincronização Google Sheets
-    with patch("registro.nucleo.service_logic.sincronizar_do_google_sheets") as m_sync_do, \
-         patch("registro.nucleo.service_logic.sincronizar_para_google_sheets") as m_sync_para, \
-         patch("registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets") as m_sync_todas:
-
+    with (
+        patch(
+            "registro.nucleo.service_logic.sincronizar_do_google_sheets"
+        ) as m_sync_do,
+        patch(
+            "registro.nucleo.service_logic.sincronizar_para_google_sheets"
+        ) as m_sync_para,
+        patch(
+            "registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets"
+        ) as m_sync_todas,
+    ):
         facade.sincronizar_do_google_sheets()
         m_sync_do.assert_called_once()
 
@@ -269,10 +288,15 @@ def test_facade_operacoes_sessao_e_delegacoes(facade: FachadaRegistro, tmp_path)
         m_sync_todas.assert_called_once()
 
         # Ativar nova sessão para sincronizar para google sheets
-        nova_sessao = facade.iniciar_nova_sessao({
-            "refeicao": "lanche", "periodo": "Manhã", "data": "2026-10-21",
-            "hora": "09:00", "grupos": [],
-        })
+        nova_sessao = facade.iniciar_nova_sessao(
+            {
+                "refeicao": "lanche",
+                "periodo": "Manhã",
+                "data": "2026-10-21",
+                "hora": "09:00",
+                "grupos": [],
+            }
+        )
         facade.sincronizar_para_google_sheets()
         m_sync_para.assert_called_once()
 
@@ -283,8 +307,10 @@ def test_facade_deve_fechar_sessao_flag(db_session: Session):
     assert hasattr(facade_injetada, "_deve_fechar_sessao")
     assert facade_injetada._deve_fechar_sessao is False
 
-    with patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"), \
-         patch("registro.nucleo.facade.SessaoLocal") as mock_sessao_local:
+    with (
+        patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"),
+        patch("registro.nucleo.facade.SessaoLocal") as mock_sessao_local,
+    ):
         mock_sessao = mock_sessao_local.return_value
         facade_padrao = FachadaRegistro()
         assert hasattr(facade_padrao, "_deve_fechar_sessao")
@@ -297,19 +323,31 @@ def test_facade_sincronizacao_em_worker_thread(facade: FachadaRegistro):
     """Garante que a sincronização executada em worker thread não lança erro por falta de _deve_fechar_sessao."""
     import threading
 
-    facade.iniciar_nova_sessao({
-        "refeicao": "lanche", "periodo": "Manhã", "data": "2026-10-21",
-        "hora": "09:00", "grupos": [],
-    })
+    facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Manhã",
+            "data": "2026-10-21",
+            "hora": "09:00",
+            "grupos": [],
+        }
+    )
 
     erros = []
 
     def executar_sync_em_thread():
         try:
-            with patch("registro.nucleo.service_logic.sincronizar_do_google_sheets") as m_sync_do, \
-                 patch("registro.nucleo.service_logic.sincronizar_para_google_sheets") as m_sync_para, \
-                 patch("registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets") as m_sync_todas:
-
+            with (
+                patch(
+                    "registro.nucleo.service_logic.sincronizar_do_google_sheets"
+                ) as m_sync_do,
+                patch(
+                    "registro.nucleo.service_logic.sincronizar_para_google_sheets"
+                ) as m_sync_para,
+                patch(
+                    "registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets"
+                ) as m_sync_todas,
+            ):
                 facade.sincronizar_do_google_sheets()
                 m_sync_do.assert_called_once()
 
@@ -325,15 +363,19 @@ def test_facade_sincronizacao_em_worker_thread(facade: FachadaRegistro):
     thread.start()
     thread.join()
 
-    assert not erros, f"Exceção levantada durante sincronização em worker thread: {erros[0]}"
+    assert not erros, (
+        f"Exceção levantada durante sincronização em worker thread: {erros[0]}"
+    )
 
 
 def test_facade_sincronizacao_em_worker_thread_com_nova_fachada():
     """Garante isolamento de sessão em worker thread quando _deve_fechar_sessao é True."""
     import threading
 
-    with patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"), \
-         patch("registro.nucleo.facade.SessaoLocal"):
+    with (
+        patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"),
+        patch("registro.nucleo.facade.SessaoLocal"),
+    ):
         facade = FachadaRegistro()
         facade.id_sessao_ativa = 42
 
@@ -341,12 +383,19 @@ def test_facade_sincronizacao_em_worker_thread_com_nova_fachada():
 
     def executar_sync():
         try:
-            with patch("registro.nucleo.service_logic.sincronizar_do_google_sheets") as m_sync_do, \
-                 patch("registro.nucleo.service_logic.sincronizar_para_google_sheets") as m_sync_para, \
-                 patch("registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets") as m_sync_todas, \
-                 patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"), \
-                 patch("registro.nucleo.facade.SessaoLocal"):
-
+            with (
+                patch(
+                    "registro.nucleo.service_logic.sincronizar_do_google_sheets"
+                ) as m_sync_do,
+                patch(
+                    "registro.nucleo.service_logic.sincronizar_para_google_sheets"
+                ) as m_sync_para,
+                patch(
+                    "registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets"
+                ) as m_sync_todas,
+                patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"),
+                patch("registro.nucleo.facade.SessaoLocal"),
+            ):
                 facade.sincronizar_do_google_sheets()
                 assert m_sync_do.called
 
@@ -387,8 +436,7 @@ def test_facade_importacao_unificada(facade: FachadaRegistro, tmp_path):
     """Testa o fluxo unificado de importação diretamente pela FachadaRegistro."""
     csv_file = tmp_path / "alunos_import.csv"
     csv_file.write_text(
-        "prontuario,nome,prato,data\n"
-        "IQ3009999,Novo Importado,Almoço,2026-10-25\n",
+        "prontuario,nome,prato,data\nIQ3009999,Novo Importado,Almoço,2026-10-25\n",
         encoding="utf-8",
     )
 
@@ -435,14 +483,16 @@ def test_facade_parametros_grafia_excecao(
     grupo = criar_grupo(nome="Grupo Grafia")
     criar_estudante(prontuario="IQ3007777", nome="Aluno Grafia", grupos=[grupo])
 
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Manhã",
-        "data": "2026-10-21",
-        "hora": "09:00",
-        "item_servido": "Fruta",
-        "grupos": ["Grupo Grafia"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Manhã",
+            "data": "2026-10-21",
+            "hora": "09:00",
+            "item_servido": "Fruta",
+            "grupos": ["Grupo Grafia"],
+        }
+    )
 
     # Atualizar usando o parâmetro corrigido excecao_grupos
     facade.atualizar_grupos_sessao(["Grupo Grafia"], excecao_grupos=["Grupo Outro"])
@@ -453,7 +503,9 @@ def test_facade_parametros_grafia_excecao(
     assert res["autorizado"] is True
 
 
-def test_facade_registrar_log_sincronizacao(facade: FachadaRegistro, db_session: Session):
+def test_facade_registrar_log_sincronizacao(
+    facade: FachadaRegistro, db_session: Session
+):
     """Testa o registro de eventos de sincronização via FachadaRegistro."""
     from registro.nucleo.models import SyncLog
 
@@ -477,19 +529,26 @@ def test_facade_session_persistence(facade: FachadaRegistro, tmp_path, monkeypat
     """Testa salvar, carregar e limpar o estado da sessão via fachada."""
     session_file = tmp_path / "session.json"
     import registro.nucleo.constants as constants
+
     monkeypatch.setattr(constants, "CAMINHO_SESSAO", session_file)
 
     # Iniciar sessão
-    estudante = facade.criar_estudante("IQ3009999", "Aluno Sessao", grupos=["Grupo Teste"])
-    facade.criar_reserva(estudante["prontuario"], {"data": "2026-10-21", "prato": "Geral"})
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Integral",
-        "data": "2026-10-21",
-        "hora": "09:00",
-        "item_servido": "Bolo",
-        "grupos": ["Grupo Teste"],
-    })
+    estudante = facade.criar_estudante(
+        "IQ3009999", "Aluno Sessao", grupos=["Grupo Teste"]
+    )
+    facade.criar_reserva(
+        estudante["prontuario"], {"data": "2026-10-21", "prato": "Geral"}
+    )
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Integral",
+            "data": "2026-10-21",
+            "hora": "09:00",
+            "item_servido": "Bolo",
+            "grupos": ["Grupo Teste"],
+        }
+    )
 
     # Salvar estado
     assert facade.salvar_estado_sessao(id_sessao) is True
@@ -508,12 +567,18 @@ def test_facade_session_persistence(facade: FachadaRegistro, tmp_path, monkeypat
     assert facade.id_sessao_ativa is None
 
 
-def test_facade_exportar_estudantes_e_reservas_para_csv(facade: FachadaRegistro, tmp_path):
+def test_facade_exportar_estudantes_e_reservas_para_csv(
+    facade: FachadaRegistro, tmp_path
+):
     """Testa exportação de estudantes e reservas para CSV através da fachada."""
     e1 = facade.criar_estudante("IQ3001111", "Estudante Export 1", grupos=["Turma A"])
     e2 = facade.criar_estudante("IQ3002222", "Estudante Export 2", grupos=["Turma B"])
-    facade.criar_reserva(e1["prontuario"], {"data": "2026-10-21", "prato": "Tradicional"})
-    facade.criar_reserva(e2["prontuario"], {"data": "2026-10-22", "prato": "Vegetariano"})
+    facade.criar_reserva(
+        e1["prontuario"], {"data": "2026-10-21", "prato": "Tradicional"}
+    )
+    facade.criar_reserva(
+        e2["prontuario"], {"data": "2026-10-22", "prato": "Vegetariano"}
+    )
 
     csv_alunos = tmp_path / "alunos.csv"
     res_alunos = facade.exportar_estudantes_para_csv(csv_alunos)
@@ -532,7 +597,9 @@ def test_facade_exportar_estudantes_e_reservas_para_csv(facade: FachadaRegistro,
 
 def test_facade_obter_estatisticas_dashboard(facade: FachadaRegistro):
     """Testa obtenção de estatísticas para o dashboard."""
-    estudante = facade.criar_estudante("IQ3003333", "Estudante Dash", grupos=["Turma Dash"])
+    estudante = facade.criar_estudante(
+        "IQ3003333", "Estudante Dash", grupos=["Turma Dash"]
+    )
     hoje_iso = dt.date.today().isoformat()
     facade.criar_reserva(estudante["prontuario"], {"data": hoje_iso, "prato": "Geral"})
 
@@ -578,14 +645,16 @@ def test_facade_importacao_excel_e_exportacao_por_id_sessao(
     assert res["resumo"]["total_linhas"] == 1
 
     facade.criar_estudante("IQ3005556", "Aluno Sessao Export", grupos=["1º A - MEC"])
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Manhã",
-        "data": "2026-10-28",
-        "hora": "09:30",
-        "item_servido": "Fruta",
-        "grupos": ["1º A - MEC"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Manhã",
+            "data": "2026-10-28",
+            "hora": "09:30",
+            "item_servido": "Fruta",
+            "grupos": ["1º A - MEC"],
+        }
+    )
     facade.atualizar_grupos_sessao_ativa(["1º A - MEC"], excecao_grupos=["2º B - MEC"])
     assert "2º B - MEC" in facade.excecao_grupos
 

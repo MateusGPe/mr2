@@ -57,7 +57,7 @@ class RowItemRevisao(ttk.Frame):
         self._clr_acao = {
             "CRIAR_NOVO": cores.get("CRIAR_NOVO", "brown"),
             "VINCULAR": cores.get("VINCULAR", "black"),
-            "IGNORAR": cores.get("IGNORAR", 'red'),
+            "IGNORAR": cores.get("IGNORAR", "red"),
         }
 
         detalhe_txt = item["tipo_conflito"].replace("_", " ").title()
@@ -217,8 +217,7 @@ class AbaImportacao(ttk.Frame):
     def _criar_passo_1(self, parent):
         frame = ttk.Frame(parent)
 
-        lbl = ttk.Label(frame, text="1. Configuração da Fonte",
-                        font="-weight bold")
+        lbl = ttk.Label(frame, text="1. Configuração da Fonte", font="-weight bold")
         lbl.pack(anchor=W, pady=(0, 10))
 
         opts_frame = ttk.Labelframe(frame, text="Tipo de Arquivo", padding=10)
@@ -377,8 +376,7 @@ class AbaImportacao(ttk.Frame):
             width=18,
         ).pack(side=LEFT, padx=5)
 
-        list_container = ttk.Labelframe(
-            frame, text="Revisão de Conflitos", padding=0)
+        list_container = ttk.Labelframe(frame, text="Revisão de Conflitos", padding=0)
         list_container.grid(row=2, column=0, sticky=NSEW)
 
         self.lista_revisao_frame = ScrolledFrame(list_container, auto_hide=True)
@@ -427,8 +425,12 @@ class AbaImportacao(ttk.Frame):
                 font="-size 12",
             ).pack(pady=20)
         else:
-            self.itens_revisao.sort(key=lambda item: item["dados_csv"].get(
-                "nome", "") or item["dados_csv"].get("prontuario", ""))
+            self.itens_revisao.sort(
+                key=lambda item: (
+                    item["dados_csv"].get("nome", "")
+                    or item["dados_csv"].get("prontuario", "")
+                )
+            )
             cores = ttk.Style().colors
             clr_acao = {
                 "CRIAR_NOVO": cores.get("info"),
@@ -580,8 +582,7 @@ class AbaImportacao(ttk.Frame):
             )
 
             self._mostrar_sucesso_final(resultado)
-            self._navegar(self.step3_frame, self.step4_frame,
-                          "✅ Importação Concluída")
+            self._navegar(self.step3_frame, self.step4_frame, "✅ Importação Concluída")
 
         except Exception as e:  # pylint: disable=broad-exception-caught
             traceback.print_exc()
@@ -590,8 +591,7 @@ class AbaImportacao(ttk.Frame):
     def _criar_passo_4_sucesso(self, parent):
         frame = ttk.Frame(parent)
 
-        self.lbl_msg_sucesso = ttk.Label(
-            frame, text="", font="-size 12", justify=LEFT)
+        self.lbl_msg_sucesso = ttk.Label(frame, text="", font="-size 12", justify=LEFT)
         self.lbl_msg_sucesso.pack(pady=20)
 
         RoundedButton(
@@ -614,8 +614,7 @@ class AbaImportacao(ttk.Frame):
     def _resetar_tudo(self):
         self.file_path_var.set("")
 
-        self._navegar(self.step4_frame, self.step1_frame,
-                      "📥 Importação - Passo 1")
+        self._navegar(self.step4_frame, self.step1_frame, "📥 Importação - Passo 1")
 
     def _criar_painel_exportacao(self, parent):
         container = ttk.Frame(parent, padding=10, bootstyle="light")
@@ -633,8 +632,12 @@ class AbaImportacao(ttk.Frame):
             container, text="Alunos ▾", bootstyle="secondary-outline"
         )
         m_al = tk.Menu(btn_exp_alunos, tearoff=0)
-        m_al.add_command(label="Excel (.xlsx)", command=lambda: self._exportar_dados("alunos_xlsx"))
-        m_al.add_command(label="CSV (.csv)", command=lambda: self._exportar_dados("alunos_csv"))
+        m_al.add_command(
+            label="Excel (.xlsx)", command=lambda: self._exportar_dados("alunos_xlsx")
+        )
+        m_al.add_command(
+            label="CSV (.csv)", command=lambda: self._exportar_dados("alunos_csv")
+        )
         btn_exp_alunos["menu"] = m_al
         btn_exp_alunos.grid(row=1, column=0, sticky=EW, padx=3)
 
@@ -643,8 +646,12 @@ class AbaImportacao(ttk.Frame):
             container, text="Turmas ▾", bootstyle="secondary-outline"
         )
         m_tu = tk.Menu(btn_exp_turmas, tearoff=0)
-        m_tu.add_command(label="Excel (.xlsx)", command=lambda: self._exportar_dados("turmas_xlsx"))
-        m_tu.add_command(label="CSV (.csv)", command=lambda: self._exportar_dados("turmas_csv"))
+        m_tu.add_command(
+            label="Excel (.xlsx)", command=lambda: self._exportar_dados("turmas_xlsx")
+        )
+        m_tu.add_command(
+            label="CSV (.csv)", command=lambda: self._exportar_dados("turmas_csv")
+        )
         btn_exp_turmas["menu"] = m_tu
         btn_exp_turmas.grid(row=1, column=1, sticky=EW, padx=3)
 
@@ -653,8 +660,12 @@ class AbaImportacao(ttk.Frame):
             container, text="Reservas ▾", bootstyle="secondary-outline"
         )
         m_res = tk.Menu(btn_exp_res, tearoff=0)
-        m_res.add_command(label="Excel (.xlsx)", command=lambda: self._exportar_dados("reservas_xlsx"))
-        m_res.add_command(label="CSV (.csv)", command=lambda: self._exportar_dados("reservas_csv"))
+        m_res.add_command(
+            label="Excel (.xlsx)", command=lambda: self._exportar_dados("reservas_xlsx")
+        )
+        m_res.add_command(
+            label="CSV (.csv)", command=lambda: self._exportar_dados("reservas_csv")
+        )
         btn_exp_res["menu"] = m_res
         btn_exp_res.grid(row=1, column=2, sticky=EW, padx=3)
 
@@ -700,11 +711,15 @@ class AbaImportacao(ttk.Frame):
             elif tipo == "reservas_csv":
                 self.fachada_nucleo.exportar_reservas_para_csv(p)
 
-            Messagebox.show_info(f"Dados exportados com sucesso em:\n{filepath}", "Sucesso")
+            Messagebox.show_info(
+                f"Dados exportados com sucesso em:\n{filepath}", "Sucesso"
+            )
 
         except ValueError as ve:
             Messagebox.show_warning(str(ve), "Aviso")
         except ErroSessaoNaoAtiva:
-            Messagebox.show_warning("Nenhuma sessão ativa para exportar consumo.", "Aviso")
+            Messagebox.show_warning(
+                "Nenhuma sessão ativa para exportar consumo.", "Aviso"
+            )
         except Exception as e:
             Messagebox.show_error(f"Falha na exportação: {e}", "Erro")

@@ -8,19 +8,23 @@ import registro.nucleo.constants as constants
 from registro.nucleo.facade import FachadaRegistro
 
 
-def test_salvar_e_carregar_estado_sessao_com_filtros(facade: FachadaRegistro, tmp_path: Path, monkeypatch):
+def test_salvar_e_carregar_estado_sessao_com_filtros(
+    facade: FachadaRegistro, tmp_path: Path, monkeypatch
+):
     """Garante que session.json salva e restaura excecao_grupos e ignorar_horario_grade."""
     arquivo_sessao = tmp_path / "session.json"
     monkeypatch.setattr(constants, "CAMINHO_SESSAO", arquivo_sessao)
 
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Tarde",
-        "data": "2026-11-09",
-        "hora": "15:00",
-        "item_servido": "Bolo",
-        "grupos": ["1INFO"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Tarde",
+            "data": "2026-11-09",
+            "hora": "15:00",
+            "item_servido": "Bolo",
+            "grupos": ["1INFO"],
+        }
+    )
 
     # Define filtros
     facade.definir_excecao_grupos({"2MEC", "3ELT"})
@@ -45,14 +49,16 @@ def test_salvar_e_carregar_estado_sessao_com_filtros(facade: FachadaRegistro, tm
     assert "3ELT" in facade.excecao_grupos
 
     # Ao iniciar nova sessão ou limpar estado, ignorar_horario_grade deve voltar a False
-    id_sessao_2 = facade.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Noite",
-        "data": "2026-11-10",
-        "hora": "19:00",
-        "item_servido": "Chá",
-        "grupos": ["1INFO"],
-    })
+    id_sessao_2 = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Noite",
+            "data": "2026-11-10",
+            "hora": "19:00",
+            "item_servido": "Chá",
+            "grupos": ["1INFO"],
+        }
+    )
     assert id_sessao_2 != id_sessao
     assert facade.ignorar_horario_grade is False
 
@@ -61,5 +67,3 @@ def test_salvar_e_carregar_estado_sessao_com_filtros(facade: FachadaRegistro, tm
     assert facade.ignorar_horario_grade is True
     facade.limpar_estado_sessao()
     assert facade.ignorar_horario_grade is False
-
-

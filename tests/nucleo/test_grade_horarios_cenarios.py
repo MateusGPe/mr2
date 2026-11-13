@@ -72,10 +72,21 @@ def test_converter_linhas_configuracao_linhas_vazias_e_malformadas():
         ["segunda", "almoco", "invalido", "12:30", "1º INFO"],  # Hora inválida
         ["segunda", "almoco", "12:00", "25:99", "1º INFO"],  # Minutos inválidos
         ["dia da semana", "tipo", "hora 1", "hora 2"],  # Cabeçalho alternativo
-        ["segunda", "refeicao_desconhecida", "12:00", "12:30", "1º INFO"],  # Refeição inválida
+        [
+            "segunda",
+            "refeicao_desconhecida",
+            "12:00",
+            "12:30",
+            "1º INFO",
+        ],  # Refeição inválida
         ["dia_alienigena", "almoco", "12:00", "12:30", "1º INFO"],  # Dia inválido
         ["segunda", "almoco"],  # Sem início e fim
-        ["segunda", "almoco", "12:00", "12:30"],  # Sem turmas nem categorias (deve aceitar vazio)
+        [
+            "segunda",
+            "almoco",
+            "12:00",
+            "12:30",
+        ],  # Sem turmas nem categorias (deve aceitar vazio)
     ]
 
     grade = grade_horarios_service.converter_linhas_configuracao_para_grade(linhas)
@@ -151,7 +162,14 @@ def test_validar_janela_horario_fronteiras_exatas(tmp_path: Path):
     caminho = tmp_path / "grade.json"
     grade = {
         "segunda": {
-            "almoco": [{"inicio": "12:00", "fim": "12:30", "turmas": ["1º A"], "categorias": ["REGULAR"]}]
+            "almoco": [
+                {
+                    "inicio": "12:00",
+                    "fim": "12:30",
+                    "turmas": ["1º A"],
+                    "categorias": ["REGULAR"],
+                }
+            ]
         }
     }
     grade_horarios_service.salvar_grade_horarios(grade, caminho)
@@ -166,7 +184,9 @@ def test_validar_janela_horario_fronteiras_exatas(tmp_path: Path):
     }
 
     # 11:54 -> Fora
-    ok, motivo = grade_horarios_service.validar_janela_horario(**params, hora_atual="11:54")
+    ok, motivo = grade_horarios_service.validar_janela_horario(
+        **params, hora_atual="11:54"
+    )
     assert ok is False
     assert "Fora do horário" in motivo
 
@@ -191,7 +211,9 @@ def test_validar_janela_horario_fronteiras_exatas(tmp_path: Path):
     assert ok is True
 
     # 12:36 -> Fora
-    ok, motivo = grade_horarios_service.validar_janela_horario(**params, hora_atual="12:36")
+    ok, motivo = grade_horarios_service.validar_janela_horario(
+        **params, hora_atual="12:36"
+    )
     assert ok is False
 
 
@@ -199,9 +221,7 @@ def test_validar_janela_horario_tolerancia_zero(tmp_path: Path):
     """Com tolerância 0, 11:59 e 12:31 devem ser bloqueados para slot 12:00 - 12:30."""
     caminho = tmp_path / "grade.json"
     grade = {
-        "segunda": {
-            "almoco": [{"inicio": "12:00", "fim": "12:30", "turmas": ["1º A"]}]
-        }
+        "segunda": {"almoco": [{"inicio": "12:00", "fim": "12:30", "turmas": ["1º A"]}]}
     }
     grade_horarios_service.salvar_grade_horarios(grade, caminho)
 
@@ -334,9 +354,7 @@ def test_validar_janela_horario_hora_invalida_fallback_livre(tmp_path: Path):
     """Cenário improvável: se uma string de hora inválida for fornecida, faz fallback para permitir."""
     caminho = tmp_path / "grade.json"
     grade = {
-        "segunda": {
-            "almoco": [{"inicio": "12:00", "fim": "12:30", "turmas": ["1º A"]}]
-        }
+        "segunda": {"almoco": [{"inicio": "12:00", "fim": "12:30", "turmas": ["1º A"]}]}
     }
     grade_horarios_service.salvar_grade_horarios(grade, caminho)
 
@@ -384,7 +402,10 @@ def test_validar_janela_horario_turma_nao_prevista_em_nenhum_slot(tmp_path: Path
         caminho_grade=caminho,
     )
     assert ok is False
-    assert "Horário de refeição encerrado ou não iniciado para sua turma ou categoria." in motivo
+    assert (
+        "Horário de refeição encerrado ou não iniciado para sua turma ou categoria."
+        in motivo
+    )
 
 
 def test_obter_turmas_previstas_deduplicacao_e_curingas(tmp_path: Path):
@@ -393,8 +414,16 @@ def test_obter_turmas_previstas_deduplicacao_e_curingas(tmp_path: Path):
     grade = {
         "segunda": {
             "almoco": [
-                {"inicio": "12:00", "fim": "12:30", "turmas": ["2º BEM", "1º BEM", "*"]},
-                {"inicio": "12:30", "fim": "13:00", "turmas": ["1º BEM", "TODAS", "3º BEM"]},
+                {
+                    "inicio": "12:00",
+                    "fim": "12:30",
+                    "turmas": ["2º BEM", "1º BEM", "*"],
+                },
+                {
+                    "inicio": "12:30",
+                    "fim": "13:00",
+                    "turmas": ["1º BEM", "TODAS", "3º BEM"],
+                },
             ]
         }
     }
@@ -406,4 +435,3 @@ def test_obter_turmas_previstas_deduplicacao_e_curingas(tmp_path: Path):
         caminho_grade=caminho,
     )
     assert turmas == ["1º BEM", "2º BEM", "3º BEM"]
-

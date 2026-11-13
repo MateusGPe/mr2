@@ -41,7 +41,11 @@ _OPCOES_XLSX_SEGURO = {"strings_to_formulas": False, "strings_to_urls": False}
 
 def _sanitizar_celula_planilha(valor: Any) -> Any:
     """Previne CSV/Formula Injection (OWASP) escapando células iniciadas por operadores de fórmula."""
-    if isinstance(valor, str) and valor.startswith(_PREFIXOS_FORMULA_PERIGOSOS) and valor != "-":
+    if (
+        isinstance(valor, str)
+        and valor.startswith(_PREFIXOS_FORMULA_PERIGOSOS)
+        and valor != "-"
+    ):
         return f"'{valor}"
     return valor
 
@@ -49,8 +53,7 @@ def _sanitizar_celula_planilha(valor: Any) -> Any:
 def _sanitizar_linhas_csv(dados: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     """Aplica sanitização contra Formula Injection em dicionários de exportação CSV."""
     return [
-        {k: _sanitizar_celula_planilha(v) for k, v in linha.items()}
-        for linha in dados
+        {k: _sanitizar_celula_planilha(v) for k, v in linha.items()} for linha in dados
     ]
 
 
@@ -377,7 +380,16 @@ def exportar_reservas_para_csv(
     keys = (
         list(dados[0].keys())
         if dados
-        else ["id", "data", "prontuario", "nome", "turnos", "prato", "categorias", "cancelada"]
+        else [
+            "id",
+            "data",
+            "prontuario",
+            "nome",
+            "turnos",
+            "prato",
+            "categorias",
+            "cancelada",
+        ]
     )
     with open(caminho, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=keys)
@@ -416,7 +428,16 @@ def exportar_reservas_para_xlsx(
 
     with xlsxwriter.Workbook(str(caminho), _OPCOES_XLSX_SEGURO) as workbook:
         ws = workbook.add_worksheet("Reservas")
-        cabecalho = ["ID", "Data", "Prontuário", "Nome Aluno", "Turnos", "Prato", "Categorias", "Cancelada"]
+        cabecalho = [
+            "ID",
+            "Data",
+            "Prontuário",
+            "Nome Aluno",
+            "Turnos",
+            "Prato",
+            "Categorias",
+            "Cancelada",
+        ]
         ws.write_row(0, 0, cabecalho)
         for i, row in enumerate(dados):
             ws.write_row(
@@ -427,9 +448,13 @@ def exportar_reservas_para_xlsx(
                     _sanitizar_celula_planilha(row.get("data", "")),
                     _sanitizar_celula_planilha(row.get("prontuario", "")),
                     _sanitizar_celula_planilha(row.get("nome", "")),
-                    _sanitizar_celula_planilha(row.get("turnos", row.get("turnos_str", "Almoço"))),
+                    _sanitizar_celula_planilha(
+                        row.get("turnos", row.get("turnos_str", "Almoço"))
+                    ),
                     _sanitizar_celula_planilha(row.get("prato", "")),
-                    _sanitizar_celula_planilha(row.get("categorias", row.get("categorias_str", "-"))),
+                    _sanitizar_celula_planilha(
+                        row.get("categorias", row.get("categorias_str", "-"))
+                    ),
                     row.get("cancelada", "Não"),
                 ],
             )
@@ -502,7 +527,9 @@ def exportar_turmas_para_xlsx(
         ws.write_row(0, 0, cabecalho)
         for i, row in enumerate(dados):
             tipo_val = row.get("tipo", TIPO_GRUPO_TURMA)
-            tipo_label = "Categoria" if str(tipo_val).lower() == "categoria" else "Turma"
+            tipo_label = (
+                "Categoria" if str(tipo_val).lower() == "categoria" else "Turma"
+            )
             ws.write_row(
                 i + 1,
                 0,

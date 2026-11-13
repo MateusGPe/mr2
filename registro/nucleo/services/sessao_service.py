@@ -103,7 +103,8 @@ def listar_todos_os_grupos(repo_grupo: RepositorioGrupo) -> List[Dict[str, Any]]
         {
             "id": g.id,
             "nome": g.nome,
-            "tipo": getattr(g, "tipo", constants.TIPO_GRUPO_TURMA) or constants.TIPO_GRUPO_TURMA,
+            "tipo": getattr(g, "tipo", constants.TIPO_GRUPO_TURMA)
+            or constants.TIPO_GRUPO_TURMA,
         }
         for g in grupos
     ]
@@ -140,9 +141,7 @@ def obter_estudantes_para_sessao(
     EstudanteGrupo = models.associacao_estudante_grupo
 
     ids_grupos_sessao = {g.id for g in sessao.grupos}
-    ids_excecao_grupos = {
-        g.id for g in repo_grupo.por_nomes(excecao_grupos or set())
-    }
+    ids_excecao_grupos = {g.id for g in repo_grupo.por_nomes(excecao_grupos or set())}
 
     q1 = select(EstudanteGrupo.c.estudante_id).where(
         EstudanteGrupo.c.grupo_id.in_(ids_grupos_sessao)
@@ -219,22 +218,19 @@ def obter_estudantes_para_sessao(
         if sessao.refeicao in ("almoço", "jantar"):
             reserva_ref_valida = reserva is not None and (
                 (sessao.refeicao == "almoço" and bool(getattr(reserva, "almoco", True)))
-                or (sessao.refeicao == "jantar" and bool(getattr(reserva, "jantar", False)))
+                or (
+                    sessao.refeicao == "jantar"
+                    and bool(getattr(reserva, "jantar", False))
+                )
             )
             if reserva_ref_valida:
                 autorizado = True
                 motivo = "Reserva"
                 prato = reserva.prato
-            elif (
-                ids_excecao_grupos.intersection(ids_grupos_estudante)
-                or pular_grupos
-            ):
+            elif ids_excecao_grupos.intersection(ids_grupos_estudante) or pular_grupos:
                 autorizado = True
                 motivo = "Exceção (Grupo)"
-        elif (
-            ids_grupos_sessao.intersection(ids_grupos_estudante)
-            or pular_grupos
-        ):
+        elif ids_grupos_sessao.intersection(ids_grupos_estudante) or pular_grupos:
             autorizado = True
             motivo = "Autorizado (Grupo)"
             prato = sessao.item_servido or "Lanche"
@@ -273,9 +269,7 @@ def obter_estudantes_para_sessao(
                 "prato": prato,
                 "consumido": bool(info_consumo),
                 "id_consumo": info_consumo.id if info_consumo else None,
-                "hora_consumo": info_consumo.hora_consumo
-                if info_consumo
-                else "",
+                "hora_consumo": info_consumo.hora_consumo if info_consumo else "",
                 "status": motivo,
                 **para_codigo(est.prontuario),
             }
@@ -287,9 +281,7 @@ def obter_estudantes_para_sessao(
 def deletar_sessao(repo_sessao: RepositorioSessao, id_sessao: int):
     """Deleta uma sessão e seus consumos associados (via cascade do DB)."""
     if not repo_sessao.deletar(id_sessao):
-        raise ErroSessao(
-            f"Sessão com ID {id_sessao} não encontrada para exclusão."
-        )
+        raise ErroSessao(f"Sessão com ID {id_sessao} não encontrada para exclusão.")
     try:
         repo_sessao.obter_sessao().commit()
     except Exception as e:
@@ -305,9 +297,7 @@ def atualizar_sessao(
     dados.pop("grupos", None)
     sessao_atualizada = repo_sessao.atualizar(id_sessao, dados)
     if not sessao_atualizada:
-        raise ErroSessao(
-            f"Sessão com ID {id_sessao} não encontrada para atualização."
-        )
+        raise ErroSessao(f"Sessão com ID {id_sessao} não encontrada para atualização.")
     try:
         repo_sessao.obter_sessao().commit()
         return sessao_atualizada
@@ -332,7 +322,9 @@ def atualizar_grupos_sessao(
     except Exception as e:
         logger.exception("Falha ao atualizar grupos da sessão %s: %s", id_sessao, e)
         rollback_seguro(repo_sessao.obter_sessao())
-        raise ErroSessao(f"Falha ao atualizar grupos da sessão no banco de dados: {e}") from e
+        raise ErroSessao(
+            f"Falha ao atualizar grupos da sessão no banco de dados: {e}"
+        ) from e
 
 
 def carregar_estado_sessao(fachada: Any) -> Optional[Dict[str, Any]]:
@@ -346,15 +338,15 @@ def carregar_estado_sessao(fachada: Any) -> Optional[Dict[str, Any]]:
     try:
         with open(constants.CAMINHO_SESSAO, "r", encoding="utf-8") as f:
             dados = json.load(f)
-        logger.info(
-            "Estado da sessão carregado: %s", constants.CAMINHO_SESSAO
-        )
+        logger.info("Estado da sessão carregado: %s", constants.CAMINHO_SESSAO)
         if "id_sessao" in dados:
             fachada.definir_sessao_ativa(dados["id_sessao"])
         if "excecao_grupos" in dados and hasattr(fachada, "excecao_grupos"):
             fachada.excecao_grupos = set(dados.get("excecao_grupos") or [])
         if hasattr(fachada, "ignorar_horario_grade"):
-            fachada.ignorar_horario_grade = bool(dados.get("ignorar_horario_grade", False))
+            fachada.ignorar_horario_grade = bool(
+                dados.get("ignorar_horario_grade", False)
+            )
         return dados
     except (OSError, json.JSONDecodeError, ValueError, ErroSessao) as e:
         logger.error(
@@ -365,9 +357,7 @@ def carregar_estado_sessao(fachada: Any) -> Optional[Dict[str, Any]]:
         return None
 
 
-def salvar_estado_sessao(
-    fachada: Any, id_sessao: Optional[int] = None
-) -> bool:
+def salvar_estado_sessao(fachada: Any, id_sessao: Optional[int] = None) -> bool:
     """Salva o estado da sessão ativa no arquivo session.json."""
     sid = (
         id_sessao
@@ -389,9 +379,7 @@ def salvar_estado_sessao(
             json.dumps(payload, indent=2, ensure_ascii=False),
             encoding="utf-8",
         )
-        logger.info(
-            "Estado da sessão salvo em %s.", constants.CAMINHO_SESSAO
-        )
+        logger.info("Estado da sessão salvo em %s.", constants.CAMINHO_SESSAO)
         return True
     except (OSError, TypeError, ValueError) as e:
         logger.error(
@@ -414,4 +402,3 @@ def limpar_estado_sessao(fachada: Any) -> bool:
     except OSError as e:
         logger.error("Erro ao limpar estado da sessão: %s", e)
         return False
-

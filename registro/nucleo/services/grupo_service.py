@@ -59,7 +59,12 @@ def criar_grupo(
         logger.exception("Falha ao criar grupo %s: %s", nome_limpo, e)
         rollback_seguro(repo_grupo.obter_sessao())
         raise ErroNucleoRegistro(f"Falha ao criar grupo no banco: {e}") from e
-    return {"id": grupo.id, "nome": grupo.nome, "ativo": grupo.ativo, "tipo": grupo.tipo}
+    return {
+        "id": grupo.id,
+        "nome": grupo.nome,
+        "ativo": grupo.ativo,
+        "tipo": grupo.tipo,
+    }
 
 
 def atualizar_grupo(
@@ -137,7 +142,10 @@ def deletar_grupo(
     sessao.delete(grupo)
     try:
         sessao.commit()
-        return {"status": "deleted", "mensagem": f"Turma '{grupo.nome}' excluída com sucesso."}
+        return {
+            "status": "deleted",
+            "mensagem": f"Turma '{grupo.nome}' excluída com sucesso.",
+        }
     except Exception as e:
         logger.exception("Falha ao excluir turma %s: %s", id_grupo, e)
         rollback_seguro(sessao)
@@ -222,7 +230,9 @@ def vincular_aluno_turma(
         try:
             sessao.commit()
         except Exception as e:
-            logger.exception("Falha ao vincular aluno %s à turma %s: %s", id_estudante, id_grupo, e)
+            logger.exception(
+                "Falha ao vincular aluno %s à turma %s: %s", id_estudante, id_grupo, e
+            )
             rollback_seguro(sessao)
             raise ErroNucleoRegistro(f"Falha ao vincular aluno à turma: {e}") from e
     return True
@@ -253,7 +263,12 @@ def desvincular_aluno_turma(
             sessao.commit()
             return True
         except Exception as e:
-            logger.exception("Falha ao desvincular aluno %s da turma %s: %s", id_estudante, id_grupo, e)
+            logger.exception(
+                "Falha ao desvincular aluno %s da turma %s: %s",
+                id_estudante,
+                id_grupo,
+                e,
+            )
             rollback_seguro(sessao)
             raise ErroNucleoRegistro(f"Falha ao desvincular aluno da turma: {e}") from e
     return False

@@ -40,13 +40,15 @@ def test_constraints_fk_restrict_e_unique_sqlite_ativo(
     est = criar_estudante(prontuario="IQ3080001", nome="Aluno FK", grupos=[turma])
     res = criar_reserva(estudante=est, data="10/11/2026", almoco=True)
 
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "Tarde",
-        "data": "2026-11-10",
-        "hora": "12:00",
-        "grupos": ["1º TESTE"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": "2026-11-10",
+            "hora": "12:00",
+            "grupos": ["1º TESTE"],
+        }
+    )
     assert id_sessao is not None
     assert facade.registrar_consumo(est.prontuario)["autorizado"] is True
 
@@ -58,7 +60,9 @@ def test_constraints_fk_restrict_e_unique_sqlite_ativo(
     assert db_session.query(Reserva).filter_by(id=res.id).one() is not None
 
     # Tentativa de inserir Consumo apontando para estudante inexistente -> IntegrityError (FK ON)
-    consumo_orfao = Consumo(estudante_id=999999, sessao_id=id_sessao, hora_consumo="12:05:00", ativo=True)
+    consumo_orfao = Consumo(
+        estudante_id=999999, sessao_id=id_sessao, hora_consumo="12:05:00", ativo=True
+    )
     db_session.add(consumo_orfao)
     with pytest.raises(IntegrityError):
         db_session.commit()
@@ -99,28 +103,34 @@ def test_recuperacao_transacional_mesma_fachada_apos_falha_commit(
             facade.criar_reserva(est.prontuario, {"data": "10/11/2026", "almoco": True})
 
         # 2. Operação imediatamente posterior na MESMA fachada funciona normalmente
-        res_ok = facade.criar_reserva(est.prontuario, {"data": "10/11/2026", "almoco": True})
+        res_ok = facade.criar_reserva(
+            est.prontuario, {"data": "10/11/2026", "almoco": True}
+        )
         assert res_ok["id"] is not None
 
         # 3. Falha ao iniciar sessão -> ErroSessao com rollback
         falhar_uma_vez["ativo"] = True
         with pytest.raises(ErroSessao):
-            facade.iniciar_nova_sessao({
+            facade.iniciar_nova_sessao(
+                {
+                    "refeicao": "almoço",
+                    "periodo": "Tarde",
+                    "data": "2026-11-10",
+                    "hora": "12:00",
+                    "grupos": ["2º ROBUSTO"],
+                }
+            )
+
+        # 4. Próxima tentativa de iniciar sessão funciona normalmente
+        id_sessao = facade.iniciar_nova_sessao(
+            {
                 "refeicao": "almoço",
                 "periodo": "Tarde",
                 "data": "2026-11-10",
                 "hora": "12:00",
                 "grupos": ["2º ROBUSTO"],
-            })
-
-        # 4. Próxima tentativa de iniciar sessão funciona normalmente
-        id_sessao = facade.iniciar_nova_sessao({
-            "refeicao": "almoço",
-            "periodo": "Tarde",
-            "data": "2026-11-10",
-            "hora": "12:00",
-            "grupos": ["2º ROBUSTO"],
-        })
+            }
+        )
         assert id_sessao is not None
 
         # 5. Falha ao registrar consumo -> retorna autorizado=False e faz rollback sem travar sessão
@@ -132,7 +142,10 @@ def test_recuperacao_transacional_mesma_fachada_apos_falha_commit(
         # 6. Tentativa imediata seguinte grava consumo normalmente
         r_sucesso = facade.registrar_consumo(est.prontuario)
         assert r_sucesso["autorizado"] is True
-        assert db_session.query(Consumo).filter_by(sessao_id=id_sessao, ativo=True).count() == 1
+        assert (
+            db_session.query(Consumo).filter_by(sessao_id=id_sessao, ativo=True).count()
+            == 1
+        )
     finally:
         db_session.commit = commit_original
 
@@ -157,14 +170,16 @@ def test_persistencia_e_restauracao_estado_sessao_entre_instancias_fachada(
     criar_estudante(prontuario="IQ3091001", nome="Aluno Monitor", grupos=[g_exc])
 
     fachada_1 = FachadaRegistro(sessao_db=db_session)
-    id_sessao = fachada_1.iniciar_nova_sessao({
-        "refeicao": "lanche",
-        "periodo": "Tarde",
-        "data": "2026-11-10",
-        "hora": "15:00",
-        "item_servido": "Bolo",
-        "grupos": [g_1a.nome],
-    })
+    id_sessao = fachada_1.iniciar_nova_sessao(
+        {
+            "refeicao": "lanche",
+            "periodo": "Tarde",
+            "data": "2026-11-10",
+            "hora": "15:00",
+            "item_servido": "Bolo",
+            "grupos": [g_1a.nome],
+        }
+    )
     assert id_sessao is not None
     fachada_1.definir_excecao_grupos({g_exc.nome})
     fachada_1.definir_ignorar_horario_grade(True)
@@ -198,22 +213,36 @@ def test_estatisticas_dashboard_e_sessao_sob_mutacoes_e_soft_delete(
     t_1a = criar_grupo(nome="1º A", tipo="turma")
     c_pap = criar_grupo(nome="PAP", tipo="categoria")
 
-    e1 = criar_estudante(prontuario="IQ3095001", nome="Est 1", ativo=True, grupos=[t_1a, c_pap])
-    e2 = criar_estudante(prontuario="IQ3095002", nome="Est 2", ativo=True, grupos=[t_1a])
-    e3 = criar_estudante(prontuario="IQ3095003", nome="Est 3 Inativo", ativo=False, grupos=[t_1a])
+    e1 = criar_estudante(
+        prontuario="IQ3095001", nome="Est 1", ativo=True, grupos=[t_1a, c_pap]
+    )
+    e2 = criar_estudante(
+        prontuario="IQ3095002", nome="Est 2", ativo=True, grupos=[t_1a]
+    )
+    e3 = criar_estudante(
+        prontuario="IQ3095003", nome="Est 3 Inativo", ativo=False, grupos=[t_1a]
+    )
 
-    r1 = facade.criar_reserva(e1.prontuario, {"data": hoje_br, "prato": "Frango", "almoco": True})
-    r2 = facade.criar_reserva(e2.prontuario, {"data": hoje_br, "prato": "Peixe", "almoco": True})
+    r1 = facade.criar_reserva(
+        e1.prontuario, {"data": hoje_br, "prato": "Frango", "almoco": True}
+    )
+    r2 = facade.criar_reserva(
+        e2.prontuario, {"data": hoje_br, "prato": "Peixe", "almoco": True}
+    )
     # Reserva para aluno inativo não deve contar como pendente elegível na sessão
-    facade.criar_reserva(e3.prontuario, {"data": hoje_br, "prato": "Peixe", "almoco": True})
+    facade.criar_reserva(
+        e3.prontuario, {"data": hoje_br, "prato": "Peixe", "almoco": True}
+    )
 
-    id_sessao = facade.iniciar_nova_sessao({
-        "refeicao": "almoço",
-        "periodo": "Tarde",
-        "data": hoje_iso,
-        "hora": "12:00",
-        "grupos": ["1º A"],
-    })
+    id_sessao = facade.iniciar_nova_sessao(
+        {
+            "refeicao": "almoço",
+            "periodo": "Tarde",
+            "data": hoje_iso,
+            "hora": "12:00",
+            "grupos": ["1º A"],
+        }
+    )
     assert id_sessao is not None
 
     # Ambos ativos consomem

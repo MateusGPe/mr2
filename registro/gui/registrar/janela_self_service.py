@@ -32,12 +32,13 @@ try:
 
     import cv2
     import numpy as np
+
     if sys.platform == "win32":
         import pyzbar
+
         # Adiciona o diretório do pacote (onde estão as DLLs) à busca
         # Atribuímos a uma variável para evitar que o Garbage Collector remova o caminho
-        _pyzbar_dll_path = os.add_dll_directory(
-            os.path.dirname(pyzbar.__file__))
+        _pyzbar_dll_path = os.add_dll_directory(os.path.dirname(pyzbar.__file__))
 
     from pyzbar.pyzbar import ZBarSymbol, decode
 
@@ -73,8 +74,8 @@ class JanelaSelfService(tk.Toplevel):
         # Cores e Estilos (Design Moderno e Feedback Visual)
         self.COR_FUNDO_PADRAO = "#111827"  # Gray 900
         self.COR_FUNDO_SUCESSO = "#065F46"  # Emerald 800
-        self.COR_FUNDO_ERRO = "#991B1B"    # Red 800
-        self.COR_TEXTO = "#FFFFFF"         # White
+        self.COR_FUNDO_ERRO = "#991B1B"  # Red 800
+        self.COR_TEXTO = "#FFFFFF"  # White
 
         self._lbl_video: Optional[ttk.Label] = None
         self._lbl_status: Optional[tk.Label] = None
@@ -132,8 +133,7 @@ class JanelaSelfService(tk.Toplevel):
         ).pack(fill=X, pady=(0, 10))
 
         # Separador visual
-        tk.Frame(self._frame_info, height=2, bg="#374151").pack(
-            fill=X, pady=(0, 20))
+        tk.Frame(self._frame_info, height=2, bg="#374151").pack(fill=X, pady=(0, 20))
 
         # Status
         self._lbl_status = tk.Label(
@@ -190,9 +190,10 @@ class JanelaSelfService(tk.Toplevel):
             bg=self.COR_FUNDO_PADRAO,
             fg=self.COR_TEXTO,
             font=("Segoe UI", 10),
-            padx=10, pady=10,
+            padx=10,
+            pady=10,
             relief="flat",
-            bd=1
+            bd=1,
         )
         frame_manual.pack(fill=X, side="bottom", pady=20, padx=20)
         frame_manual.columnconfigure(0, weight=1)
@@ -204,8 +205,7 @@ class JanelaSelfService(tk.Toplevel):
         )
         self._entrada_manual.grid(row=0, column=0, sticky="ew", padx=(0, 5))
         self._entrada_manual.bind("<Return>", self._ao_submeter_manual)
-        self._var_entrada_manual.trace_add(
-            "write", self._na_mudanca_entrada_manual)
+        self._var_entrada_manual.trace_add("write", self._na_mudanca_entrada_manual)
 
         ttk.Button(
             frame_manual,
@@ -260,8 +260,7 @@ class JanelaSelfService(tk.Toplevel):
                 self._cooldown_frames -= 1
                 # Indicador visual de sucesso/processamento (borda verde)
                 cv2.rectangle(
-                    frame, (0, 0), (frame.shape[1],
-                                    frame.shape[0]), (0, 255, 0), 10
+                    frame, (0, 0), (frame.shape[1], frame.shape[0]), (0, 255, 0), 10
                 )
                 if self._cooldown_frames == 0:
                     self._definir_feedback_visual("padrao")
@@ -330,8 +329,7 @@ class JanelaSelfService(tk.Toplevel):
                 self._lbl_sugestao_manual.config(text="")
             return
 
-        self._id_after_busca_manual = self.after(
-            300, self._atualizar_sugestao_manual)
+        self._id_after_busca_manual = self.after(300, self._atualizar_sugestao_manual)
 
     def _atualizar_sugestao_manual(self):
         """Executa a busca por sugestão e atualiza o label."""
@@ -345,8 +343,7 @@ class JanelaSelfService(tk.Toplevel):
         if melhor_match:
             nome = melhor_match.get("nome", "Desconhecido")
             turma = melhor_match.get("turma", "N/A")
-            self._lbl_sugestao_manual.config(
-                text=f"Sugestão: {nome} ({turma})")
+            self._lbl_sugestao_manual.config(text=f"Sugestão: {nome} ({turma})")
         else:
             self._lbl_sugestao_manual.config(text="")
 
@@ -355,8 +352,9 @@ class JanelaSelfService(tk.Toplevel):
         if not manual and self._cooldown_frames > 0:
             return
 
-        logger.info("Processando código (%s): %s",
-                    "Manual" if manual else "Cam", codigo)
+        logger.info(
+            "Processando código (%s): %s", "Manual" if manual else "Cam", codigo
+        )
         # Cooldown inicial preventivo
         self._cooldown_frames = 30
 
@@ -387,8 +385,10 @@ class JanelaSelfService(tk.Toplevel):
             self._cooldown_frames = 45
 
         if not self._running:
-            self.after(self._cooldown_frames * 100,
-                       lambda: self._definir_feedback_visual("padrao"))
+            self.after(
+                self._cooldown_frames * 100,
+                lambda: self._definir_feedback_visual("padrao"),
+            )
             self._cooldown_frames = 0
 
     @staticmethod
@@ -398,11 +398,13 @@ class JanelaSelfService(tk.Toplevel):
         aceitando 'X' como dígito válido.
         """
         texto = str(valor).upper()
-        limpo = re.sub(r'[^0-9X]', '', texto)
+        limpo = re.sub(r"[^0-9X]", "", texto)
         sufixo = limpo[-5:].zfill(5)
         return f"IQ30{sufixo}"
 
-    def _registrar_entrada(self, texto_entrada: str) -> Tuple[bool, str, Dict[str, Any]]:
+    def _registrar_entrada(
+        self, texto_entrada: str
+    ) -> Tuple[bool, str, Dict[str, Any]]:
         """Processa a entrada e tenta registrar o consumo usando a lógica estrita."""
         try:
             prontuario = JanelaSelfService.formatar_matricula(texto_entrada)
@@ -443,7 +445,11 @@ class JanelaSelfService(tk.Toplevel):
                 correspondencias.append(estudante)
 
         if not correspondencias:
-            return False, "Aluno não encontrado", {"nome": nome_busca, "turma": "Não Encontrado"}
+            return (
+                False,
+                "Aluno não encontrado",
+                {"nome": nome_busca, "turma": "Não Encontrado"},
+            )
 
         correspondencias.sort(key=lambda x: -x["score"])
         melhor_match = correspondencias[0]
@@ -462,7 +468,11 @@ class JanelaSelfService(tk.Toplevel):
         if resultado_registro.get("autorizado"):
             return True, "Sucesso", resultado_registro
 
-        return False, resultado_registro.get("motivo", "Não autorizado"), resultado_registro
+        return (
+            False,
+            resultado_registro.get("motivo", "Não autorizado"),
+            resultado_registro,
+        )
 
     def _buscar_melhor_match_por_nome(
         self, nome_busca: str

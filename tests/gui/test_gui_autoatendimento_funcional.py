@@ -126,10 +126,14 @@ def test_totem_duplo_consumo_rejeitado(totem_setup, app_root):
     assert "já registrado" in msg or "já consumiu" in msg
 
 
-def test_totem_almoco_com_reserva_vegetariana(app_root, facade, criar_grupo, criar_estudante, criar_sessao, criar_reserva):
+def test_totem_almoco_com_reserva_vegetariana(
+    app_root, facade, criar_grupo, criar_estudante, criar_sessao, criar_reserva
+):
     """Cenário Provável: Refeição de almoço com reserva específica ('Vegetariano') exibe o prato corretamente."""
     grupo = criar_grupo(nome="2INFO")
-    estudante = criar_estudante(prontuario="IQ3000002", nome="Beatriz Souza", grupos=[grupo])
+    estudante = criar_estudante(
+        prontuario="IQ3000002", nome="Beatriz Souza", grupos=[grupo]
+    )
     sessao_almoco = criar_sessao(
         refeicao="almoço",
         data="21/10/2026",
@@ -140,7 +144,9 @@ def test_totem_almoco_com_reserva_vegetariana(app_root, facade, criar_grupo, cri
     facade.definir_sessao_ativa(sessao_almoco.id)
 
     with patch.object(FrameSelfService, "_iniciar_camera"):
-        totem = FrameSelfService(master=app_root, fachada=facade, notification_callback=MagicMock())
+        totem = FrameSelfService(
+            master=app_root, fachada=facade, notification_callback=MagicMock()
+        )
         totem.pack()
         app_root.update()
 
@@ -153,7 +159,9 @@ def test_totem_almoco_com_reserva_vegetariana(app_root, facade, criar_grupo, cri
         totem.destroy()
 
 
-def test_totem_almoco_sem_reserva_rejeitado(app_root, facade, criar_grupo, criar_estudante, criar_sessao):
+def test_totem_almoco_sem_reserva_rejeitado(
+    app_root, facade, criar_grupo, criar_estudante, criar_sessao
+):
     """Cenário Provável: Refeição de almoço sem reserva é rejeitada com mensagem correspondente."""
     grupo = criar_grupo(nome="3INFO")
     criar_estudante(prontuario="IQ3000003", nome="Carlos Lima", grupos=[grupo])
@@ -166,7 +174,9 @@ def test_totem_almoco_sem_reserva_rejeitado(app_root, facade, criar_grupo, criar
     facade.definir_sessao_ativa(sessao_almoco.id)
 
     with patch.object(FrameSelfService, "_iniciar_camera"):
-        totem = FrameSelfService(master=app_root, fachada=facade, notification_callback=MagicMock())
+        totem = FrameSelfService(
+            master=app_root, fachada=facade, notification_callback=MagicMock()
+        )
         totem.pack()
         app_root.update()
 
@@ -187,7 +197,9 @@ def test_totem_leitura_sem_sessao_ativa_improvavel(app_root, facade):
     facade.id_sessao_ativa = None
 
     with patch.object(FrameSelfService, "_iniciar_camera"):
-        totem = FrameSelfService(master=app_root, fachada=facade, notification_callback=MagicMock())
+        totem = FrameSelfService(
+            master=app_root, fachada=facade, notification_callback=MagicMock()
+        )
         totem.pack()
         app_root.update()
 
@@ -233,7 +245,9 @@ def test_totem_bloqueio_durante_dialogo_modal(totem_setup, app_root):
     app_root.withdraw()
 
 
-def test_totem_busca_fuzzy_por_nome(app_root, facade, criar_grupo, criar_estudante, criar_sessao):
+def test_totem_busca_fuzzy_por_nome(
+    app_root, facade, criar_grupo, criar_estudante, criar_sessao
+):
     """Cenários Prováveis e Improváveis de Busca Fuzzy: match único, ambíguo e não encontrado."""
     grupo = criar_grupo(nome="ADM")
     criar_estudante(prontuario="IQ3000010", nome="Mariana Albuquerque", grupos=[grupo])
@@ -244,7 +258,9 @@ def test_totem_busca_fuzzy_por_nome(app_root, facade, criar_grupo, criar_estudan
     facade.definir_sessao_ativa(sessao.id)
 
     with patch.object(FrameSelfService, "_iniciar_camera"):
-        totem = FrameSelfService(master=app_root, fachada=facade, notification_callback=MagicMock())
+        totem = FrameSelfService(
+            master=app_root, fachada=facade, notification_callback=MagicMock()
+        )
         totem.pack()
         app_root.update()
 
@@ -259,7 +275,9 @@ def test_totem_busca_fuzzy_por_nome(app_root, facade, criar_grupo, criar_estudan
         assert "Múltiplos resultados" in msg_amb
 
         # 3. Aluno não encontrado
-        sucesso_inex, msg_inex, _ = totem._buscar_por_nome_e_registrar("Nome Inexistente Total")
+        sucesso_inex, msg_inex, _ = totem._buscar_por_nome_e_registrar(
+            "Nome Inexistente Total"
+        )
         assert sucesso_inex is False
         assert "não encontrado" in msg_inex.lower()
 
@@ -267,10 +285,14 @@ def test_totem_busca_fuzzy_por_nome(app_root, facade, criar_grupo, criar_estudan
         totem.destroy()
 
 
-def test_autoatendimento_integracao_aba_consumos_e_dashboard(app_root, facade, criar_grupo, criar_estudante, criar_sessao):
+def test_autoatendimento_integracao_aba_consumos_e_dashboard(
+    app_root, facade, criar_grupo, criar_estudante, criar_sessao
+):
     """Testa sincronização em tempo real das abas de Consumos e Dashboard com registros reais."""
     grupo = criar_grupo(nome="INFO")
-    estudante = criar_estudante(prontuario="IQ3000050", nome="Fernando Dias", grupos=[grupo])
+    estudante = criar_estudante(
+        prontuario="IQ3000050", nome="Fernando Dias", grupos=[grupo]
+    )
     sessao = criar_sessao(refeicao="lanche", data="21/10/2026", grupos=[grupo])
     facade.definir_sessao_ativa(sessao.id)
 
@@ -288,13 +310,15 @@ def test_autoatendimento_integracao_aba_consumos_e_dashboard(app_root, facade, c
     facade.registrar_consumo(estudante.prontuario)
 
     # Simula recebimento de notificação na AbaConsumos
-    consumos.adicionar_consumo((
-        estudante.prontuario,
-        estudante.nome,
-        "INFO",
-        "09:35",
-        "Lanche",
-    ))
+    consumos.adicionar_consumo(
+        (
+            estudante.prontuario,
+            estudante.nome,
+            "INFO",
+            "09:35",
+            "Lanche",
+        )
+    )
     assert len(consumos._consumos_raw) == 1
 
     # Testa busca na AbaConsumos
@@ -312,8 +336,13 @@ def test_autoatendimento_integracao_aba_consumos_e_dashboard(app_root, facade, c
 
 def test_app_self_service_inicializacao_com_facade(app_root, facade, mock_messagebox):
     """Garante que a janela AppSelfService inicializa com fachada injetada sem erros."""
-    with patch("ttkbootstrap.window._require_single_root"), \
-         patch("registro.gui.autoatendimento.app.obter_config_totem", return_value={"fullscreen": False}):
+    with (
+        patch("ttkbootstrap.window._require_single_root"),
+        patch(
+            "registro.gui.autoatendimento.app.obter_config_totem",
+            return_value={"fullscreen": False},
+        ),
+    ):
         app = AppSelfService(fachada_nucleo=facade)
         app.withdraw()
         app.update()
@@ -334,12 +363,19 @@ def test_totem_busca_por_nome_nao_bypassa_regras(
     caminho_grade = tmp_path / "grade_totem.json"
     monkeypatch.setattr(grade_horarios_service, "CAMINHO_GRADE_HORARIOS", caminho_grade)
     monkeypatch.setattr(constants, "CAMINHO_GRADE_HORARIOS", caminho_grade)
-    monkeypatch.setattr(grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda")
+    monkeypatch.setattr(
+        grade_horarios_service, "obter_dia_semana_atual", lambda: "segunda"
+    )
     grade_horarios_service.salvar_grade_horarios(
         {
             "segunda": {
                 "lanche": [
-                    {"inicio": "09:00", "fim": "09:30", "turmas": ["1º A"], "categorias": ["*"]},
+                    {
+                        "inicio": "09:00",
+                        "fim": "09:30",
+                        "turmas": ["1º A"],
+                        "categorias": ["*"],
+                    },
                 ],
                 "almoco": [],
                 "jantar": [],
@@ -374,7 +410,9 @@ def test_totem_busca_por_nome_nao_bypassa_regras(
         # 2. Estudante de turma autorizada fora do horário digitando o nome é bloqueado
         with patch.object(grade_horarios_service, "datetime") as mock_dt:
             mock_dt.now.return_value.strftime.return_value = "10:30"
-            sucesso_fora, motivo_fora, _ = totem._registrar_entrada("Beatriz Autorizada")
+            sucesso_fora, motivo_fora, _ = totem._registrar_entrada(
+                "Beatriz Autorizada"
+            )
             assert sucesso_fora is False
             assert "09:00 às 09:30" in motivo_fora
 
@@ -416,9 +454,11 @@ def test_totem_borda_vermelha_em_erro_camera(totem_setup):
     totem._cap = MagicMock()
     totem._cap.read.return_value = (True, frame_fake)
 
-    with patch("registro.gui.autoatendimento.totem.cv2.rectangle") as mock_rect, \
-         patch.object(totem, "_exibir_frame_no_label"), \
-         patch.object(totem, "after"):
+    with (
+        patch("registro.gui.autoatendimento.totem.cv2.rectangle") as mock_rect,
+        patch.object(totem, "_exibir_frame_no_label"),
+        patch.object(totem, "after"),
+    ):
         totem._atualizar_frame()
         mock_rect.assert_called_once()
         assert mock_rect.call_args[0][3] == (0, 0, 255)

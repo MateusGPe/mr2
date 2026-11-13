@@ -90,7 +90,9 @@ def test_sincronizacao_mestre_sucesso(dummy_app, mock_fachada):
         dummy_thread.success = True
         dummy_thread.records_affected = 15
 
-        dummy_app._monitorar_thread_sinc(dummy_thread, "Sincronização de Cadastros", automatico=True)
+        dummy_app._monitorar_thread_sinc(
+            dummy_thread, "Sincronização de Cadastros", automatico=True
+        )
 
         mock_fachada.registrar_log_sincronizacao.assert_called_with(
             direction="download",
@@ -104,7 +106,9 @@ def test_sincronizacao_mestre_sucesso(dummy_app, mock_fachada):
 
 def test_sincronizacao_offline_resiliente(dummy_app, mock_fachada):
     """Testa comportamento resiliente quando offline (sem travar nem disparar exceção para o usuário)."""
-    erro_conexao = ConnectionError("Não foi possível conectar ao Google Sheets (Offline)")
+    erro_conexao = ConnectionError(
+        "Não foi possível conectar ao Google Sheets (Offline)"
+    )
     mock_fachada.sincronizar_do_google_sheets.side_effect = erro_conexao
 
     dummy_thread = MagicMock()
@@ -114,7 +118,9 @@ def test_sincronizacao_offline_resiliente(dummy_app, mock_fachada):
     dummy_thread.records_affected = 0
 
     with patch("ttkbootstrap.dialogs.Messagebox.show_error") as mock_box:
-        dummy_app._monitorar_thread_sinc(dummy_thread, "Sincronização de Cadastros", automatico=True)
+        dummy_app._monitorar_thread_sinc(
+            dummy_thread, "Sincronização de Cadastros", automatico=True
+        )
         # Em modo automático, não deve exibir pop-up de erro ao usuário
         mock_box.assert_not_called()
 
@@ -129,8 +135,10 @@ def test_sincronizacao_offline_resiliente(dummy_app, mock_fachada):
 
 def test_on_closing_executa_sincronizacao_upload(dummy_app, mock_fachada):
     """Verifica se o fechamento tenta sincronizar os registros antes de sair."""
-    with patch.object(dummy_app, "_executar_sinc_bloqueante") as mock_sinc_bloq, \
-         patch.object(dummy_app, "destroy") as mock_destroy:
+    with (
+        patch.object(dummy_app, "_executar_sinc_bloqueante") as mock_sinc_bloq,
+        patch.object(dummy_app, "destroy") as mock_destroy,
+    ):
         dummy_app._on_closing()
         mock_sinc_bloq.assert_called_once_with(
             mock_fachada.sincronizar_todas_sessoes_para_google_sheets,
@@ -146,7 +154,9 @@ def test_configurar_grade_sessao_retroativa_no_totem(dummy_app, mock_fachada):
     """Sessão de data anterior ativa automaticamente Horário Livre e dia da semana da sessão."""
     mock_fachada.ignorar_horario_grade = False
     mock_fachada.dia_semana_grade = None
-    mock_fachada.obter_detalhes_sessao_ativa.return_value = {"data": "09/11/2026"}  # segunda
+    mock_fachada.obter_detalhes_sessao_ativa.return_value = {
+        "data": "09/11/2026"
+    }  # segunda
 
     dummy_app._configurar_grade_sessao_ativa()
 
@@ -175,9 +185,13 @@ def test_executar_sinc_bloqueante_usa_thread_daemon(dummy_app):
         def join(self, _timeout=None):
             pass
 
-    with patch("registro.gui.autoatendimento.app.Thread", FakeThread), \
-         patch.object(dummy_app, "_monitorar_thread_sinc"):
-        dummy_app._executar_sinc_bloqueante(lambda: 0, "Sincronização de Servidos", timeout=0.1)
+    with (
+        patch("registro.gui.autoatendimento.app.Thread", FakeThread),
+        patch.object(dummy_app, "_monitorar_thread_sinc"),
+    ):
+        dummy_app._executar_sinc_bloqueante(
+            lambda: 0, "Sincronização de Servidos", timeout=0.1
+        )
 
     assert len(criadas) == 1
     assert criadas[0].daemon is True

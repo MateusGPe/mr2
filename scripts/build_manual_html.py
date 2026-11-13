@@ -154,7 +154,11 @@ class ManualConverter:
             label_raw = m.group(1)
             href = self._resolve_href(m.group(2).strip(), current_file)
             label_html = self._format_emphasis(escape(label_raw))
-            target_attr = ' target="_blank" rel="noopener"' if href.startswith(("http://", "https://")) else ""
+            target_attr = (
+                ' target="_blank" rel="noopener"'
+                if href.startswith(("http://", "https://"))
+                else ""
+            )
             return _stash(f'<a href="{escape(href)}"{target_attr}>{label_html}</a>')
 
         text = re.sub(r"!\[([^\]]*)\]\(([^)]+)\)", _img_repl, text)
@@ -175,7 +179,9 @@ class ManualConverter:
     def _format_emphasis(text: str) -> str:
         text = re.sub(r"\*\*([^*]+)\*\*", r"<strong>\1</strong>", text)
         text = re.sub(r"__([^_]+)__", r"<strong>\1</strong>", text)
-        text = re.sub(r"(?<!\w)\*([^\s*][^*]*?[^\s*]|[^\s*])\*(?!\w)", r"<em>\1</em>", text)
+        text = re.sub(
+            r"(?<!\w)\*([^\s*][^*]*?[^\s*]|[^\s*])\*(?!\w)", r"<em>\1</em>", text
+        )
         return text
 
     def convert_markdown(self, md_text: str, section: DocSection) -> str:
@@ -207,7 +213,9 @@ class ManualConverter:
                     out.append(self._render_sheets_mockup(code_lines))
                     continue
                 lang_cls = f' class="language-{escape(lang)}"' if lang else ""
-                out.append(f"<pre><code{lang_cls}>{escape(chr(10).join(code_lines))}</code></pre>")
+                out.append(
+                    f"<pre><code{lang_cls}>{escape(chr(10).join(code_lines))}</code></pre>"
+                )
                 continue
 
             # Linha horizontal
@@ -221,7 +229,11 @@ class ManualConverter:
             if m_head:
                 level = len(m_head.group(1))
                 title_raw = m_head.group(2).strip()
-                hid = f"{section.anchor_id}-{_slugify(title_raw)}" if level > 1 else section.anchor_id
+                hid = (
+                    f"{section.anchor_id}-{_slugify(title_raw)}"
+                    if level > 1
+                    else section.anchor_id
+                )
                 out.append(
                     f'<h{level} id="{escape(hid)}">{self.render_inline(title_raw, current_file)}</h{level}>'
                 )
@@ -251,7 +263,11 @@ class ManualConverter:
                 continue
 
             # Tabelas Markdown
-            if stripped.startswith("|") and i + 1 < n and RE_TABLE_SEP.match(lines[i + 1].strip()):
+            if (
+                stripped.startswith("|")
+                and i + 1 < n
+                and RE_TABLE_SEP.match(lines[i + 1].strip())
+            ):
                 headers = _split_table_row(lines[i])
                 aligns = _parse_alignments(lines[i + 1])
                 i += 2
@@ -270,8 +286,13 @@ class ManualConverter:
                     if RE_OL_ITEM.match(cur) or RE_UL_ITEM.match(cur):
                         list_lines.append(cur)
                         i += 1
-                    elif cur.strip() == "" and i + 1 < n and (
-                        RE_OL_ITEM.match(lines[i + 1]) or RE_UL_ITEM.match(lines[i + 1])
+                    elif (
+                        cur.strip() == ""
+                        and i + 1 < n
+                        and (
+                            RE_OL_ITEM.match(lines[i + 1])
+                            or RE_UL_ITEM.match(lines[i + 1])
+                        )
                     ):
                         i += 1
                     else:
@@ -293,7 +314,11 @@ class ManualConverter:
                     or RE_IMAGE_LINE.match(cs)
                     or RE_OL_ITEM.match(cur)
                     or RE_UL_ITEM.match(cur)
-                    or (cs.startswith("|") and i + 1 < n and RE_TABLE_SEP.match(lines[i + 1].strip()))
+                    or (
+                        cs.startswith("|")
+                        and i + 1 < n
+                        and RE_TABLE_SEP.match(lines[i + 1].strip())
+                    )
                 ):
                     break
                 para_lines.append(cur)
@@ -340,7 +365,11 @@ class ManualConverter:
             return self._render_list(items, current_file)
         parts: List[str] = []
         for idx, ln in enumerate(items):
-            br = "<br>" if (ln.endswith("  ") and idx < len(items) - 1) else (" " if idx < len(items) - 1 else "")
+            br = (
+                "<br>"
+                if (ln.endswith("  ") and idx < len(items) - 1)
+                else (" " if idx < len(items) - 1 else "")
+            )
             parts.append(self.render_inline(ln.strip(), current_file) + br)
         return f"<p>{''.join(parts)}</p>"
 
@@ -354,7 +383,9 @@ class ManualConverter:
         th_cells = []
         for idx, h in enumerate(headers):
             al = aligns[idx] if idx < len(aligns) else "left"
-            th_cells.append(f'<th style="text-align:{al}">{self.render_inline(h, current_file)}</th>')
+            th_cells.append(
+                f'<th style="text-align:{al}">{self.render_inline(h, current_file)}</th>'
+            )
 
         body_rows = []
         for row in rows:
@@ -362,7 +393,9 @@ class ManualConverter:
             for idx in range(len(headers)):
                 val = row[idx] if idx < len(row) else ""
                 al = aligns[idx] if idx < len(aligns) else "left"
-                tds.append(f'<td style="text-align:{al}">{self.render_inline(val, current_file)}</td>')
+                tds.append(
+                    f'<td style="text-align:{al}">{self.render_inline(val, current_file)}</td>'
+                )
             body_rows.append(f"<tr>{''.join(tds)}</tr>")
 
         return (
@@ -471,7 +504,11 @@ class ManualConverter:
         fx_val = meta.get("fx", "")
         caption = meta.get("caption", "")
         tabs_raw = meta.get("tabs", "")
-        tabs = [t.strip() for t in tabs_raw.split(",") if t.strip()] if tabs_raw else default_tabs
+        tabs = (
+            [t.strip() for t in tabs_raw.split(",") if t.strip()]
+            if tabs_raw
+            else default_tabs
+        )
 
         num_cols = max((len(r) for r in rows), default=1)
         col_headers = "".join(
@@ -521,41 +558,47 @@ class ManualConverter:
             f'<div class="sheets-tab{" active" if t == active_tab else ""}">{escape(t)}</div>'
             for t in tabs
         )
-        caption_html = f'<div class="caption-note">{escape(caption)}</div>' if caption else ""
-        fx_display = escape(fx_val) if fx_val else (escape(rows[0][0]) if rows and rows[0] else "")
+        caption_html = (
+            f'<div class="caption-note">{escape(caption)}</div>' if caption else ""
+        )
+        fx_display = (
+            escape(fx_val)
+            if fx_val
+            else (escape(rows[0][0]) if rows and rows[0] else "")
+        )
 
         sheets_svg = (
             '<svg class="sheets-svg-icon" viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">'
             '<path fill="#0F9D58" d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8l-6-6z"/>'
             '<path fill="#87CEAC" d="M14 2v6h6l-6-6z"/>'
             '<path fill="#FFFFFF" d="M7 11h10v1.5H7zm0 3h10v1.5H7zm0 3h10v1.5H7zM11 11h1.5v7.5H11z"/>'
-            '</svg>'
+            "</svg>"
         )
 
         return (
             '<div class="sheets-screenshot-container">'
             '<div class="sheets-top-chrome">'
             '<div class="sheets-title-group">'
-            f'{sheets_svg}'
+            f"{sheets_svg}"
             f'<span class="sheets-doc-name">{escape(title)}</span>'
             f'<span class="sheets-badge-ro">{escape(badge)}</span>'
-            '</div>'
+            "</div>"
             f'<span class="sheets-tab-indicator">Aba: <strong>{escape(active_tab)}</strong></span>'
-            '</div>'
+            "</div>"
             '<div class="sheets-formula-bar">'
             f'<span class="sheets-name-box">{escape(active_cell)}</span>'
             '<span class="sheets-fx">fx</span>'
             f'<span class="sheets-fx-val">{fx_display}</span>'
-            '</div>'
+            "</div>"
             '<div class="sheets-grid-wrap">'
             '<table class="sheets-grid">'
             f'<thead><tr><th class="col-corner"></th>{col_headers}</tr></thead>'
-            f'<tbody>{"".join(body_rows_html)}</tbody>'
-            '</table>'
-            '</div>'
+            f"<tbody>{''.join(body_rows_html)}</tbody>"
+            "</table>"
+            "</div>"
             f'<div class="sheets-tabs-bar">{tabs_html}</div>'
-            f'{caption_html}'
-            '</div>'
+            f"{caption_html}"
+            "</div>"
         )
 
 
@@ -979,9 +1022,13 @@ def build_manual_html(output_path: Path, embed_images: bool = False) -> Path:
         md_text = sec.source_path.read_text(encoding="utf-8")
         rendered = converter.convert_markdown(md_text, sec)
         if idx == 0:
-            body_blocks.append(f'<section id="{sec.anchor_id}" class="intro-block">\n{rendered}\n</section>')
+            body_blocks.append(
+                f'<section id="{sec.anchor_id}" class="intro-block">\n{rendered}\n</section>'
+            )
         else:
-            body_blocks.append(f'<section id="{sec.anchor_id}" class="chapter-block">\n{rendered}\n</section>')
+            body_blocks.append(
+                f'<section id="{sec.anchor_id}" class="chapter-block">\n{rendered}\n</section>'
+            )
 
     full_html = _render_html_document(
         title="Manual Completo do Usuário — Sistema de Refeitório (v1.3.0)",
@@ -1000,7 +1047,9 @@ def build_quick_guide_html(output_path: Path, embed_images: bool = False) -> Pat
         source_path=QUICK_GUIDE_MD.resolve(),
         chapter_num=None,
     )
-    converter = ManualConverter(chapter_map={sec.source_path: sec.anchor_id}, embed_images=embed_images)
+    converter = ManualConverter(
+        chapter_map={sec.source_path: sec.anchor_id}, embed_images=embed_images
+    )
     md_text = sec.source_path.read_text(encoding="utf-8")
     rendered = converter.convert_markdown(md_text, sec)
     full_html = _render_html_document(
@@ -1049,4 +1098,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

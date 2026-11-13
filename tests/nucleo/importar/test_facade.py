@@ -53,8 +53,12 @@ def test_fachada_importacao_simular_e_confirmar():
 
     # Simular
     fachada_imp.simular_importacao(itens, valores_padrao)
-    fachada_imp._servico.simular_importacao.assert_called_once_with(itens, valores_padrao)
+    fachada_imp._servico.simular_importacao.assert_called_once_with(
+        itens, valores_padrao
+    )
 
     # Confirmar
     fachada_imp.confirmar_importacao(itens, valores_padrao)
-    fachada_imp._servico.finalizar_importacao.assert_called_once_with(itens, valores_padrao)
+    fachada_imp._servico.finalizar_importacao.assert_called_once_with(
+        itens, valores_padrao
+    )

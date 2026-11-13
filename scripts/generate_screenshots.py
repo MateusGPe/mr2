@@ -175,7 +175,15 @@ def setup_demo_environment():
     hoje_dia = MAPA_DIAS_SEMANA.get(dt.date.today().weekday(), "segunda")
     grade_demo = {
         dia: {"almoco": [], "jantar": [], "lanche": []}
-        for dia in ("segunda", "terca", "quarta", "quinta", "sexta", "sabado", "domingo")
+        for dia in (
+            "segunda",
+            "terca",
+            "quarta",
+            "quinta",
+            "sexta",
+            "sabado",
+            "domingo",
+        )
     }
     slots_almoco_demo = [
         {
@@ -737,11 +745,31 @@ def run_group_cards():
     cards_app = CardsApp()
     cards_app.geometry("1000x700")
     cards_app.students_raw = [
-        {"register": "SP301001", "name": "Ana Beatriz Silva", "turma": "1º Ano A - Informática"},
-        {"register": "SP301002", "name": "Carlos Eduardo Santos", "turma": "1º Ano A - Informática"},
-        {"register": "SP301003", "name": "Fernanda Lima Oliveira", "turma": "2º Ano B - Mecatrônica"},
-        {"register": "SP301004", "name": "Gabriel Rodrigues Costa", "turma": "2º Ano B - Mecatrônica"},
-        {"register": "SP301005", "name": "Juliana Mendes Pereira", "turma": "3º Ano C - Edificações"},
+        {
+            "register": "SP301001",
+            "name": "Ana Beatriz Silva",
+            "turma": "1º Ano A - Informática",
+        },
+        {
+            "register": "SP301002",
+            "name": "Carlos Eduardo Santos",
+            "turma": "1º Ano A - Informática",
+        },
+        {
+            "register": "SP301003",
+            "name": "Fernanda Lima Oliveira",
+            "turma": "2º Ano B - Mecatrônica",
+        },
+        {
+            "register": "SP301004",
+            "name": "Gabriel Rodrigues Costa",
+            "turma": "2º Ano B - Mecatrônica",
+        },
+        {
+            "register": "SP301005",
+            "name": "Juliana Mendes Pereira",
+            "turma": "3º Ano C - Edificações",
+        },
     ]
     cards_app.todas_turmas = [
         "1º Ano A - Informática",

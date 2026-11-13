@@ -27,7 +27,9 @@ def temp_backup_env(tmp_path, monkeypatch):
 
     monkeypatch.setattr(backup_service, "DIRETORIO_CONFIG", cfg_dir)
     monkeypatch.setattr(backup_service, "DIRETORIO_BACKUPS", bkp_dir)
-    monkeypatch.setattr(backup_service, "URL_BANCO_DADOS", f"sqlite:///{cfg_dir}/registro.db")
+    monkeypatch.setattr(
+        backup_service, "URL_BANCO_DADOS", f"sqlite:///{cfg_dir}/registro.db"
+    )
 
     return cfg_dir, bkp_dir
 
@@ -69,7 +71,9 @@ def test_restaurar_backup(temp_backup_env):
 
     # Modifica os dados locais
     (cfg_dir / "registro.db").write_text("CONTEUDO_ALTERADO", encoding="utf-8")
-    (cfg_dir / "settings.json").write_text('{"pin_hash": "modificado"}', encoding="utf-8")
+    (cfg_dir / "settings.json").write_text(
+        '{"pin_hash": "modificado"}', encoding="utf-8"
+    )
 
     # Restaura o backup
     sucesso, msg = backup_service.restaurar_backup(zip_path, criar_salvaguarda=True)
@@ -77,8 +81,12 @@ def test_restaurar_backup(temp_backup_env):
     assert "sucesso" in msg.lower()
 
     # Verifica se os arquivos voltaram ao estado do backup
-    assert (cfg_dir / "registro.db").read_text(encoding="utf-8") == "DADOS_DO_BANCO_SQLITE"
-    assert (cfg_dir / "settings.json").read_text(encoding="utf-8") == '{"pin_hash": "teste"}'
+    assert (cfg_dir / "registro.db").read_text(
+        encoding="utf-8"
+    ) == "DADOS_DO_BANCO_SQLITE"
+    assert (cfg_dir / "settings.json").read_text(
+        encoding="utf-8"
+    ) == '{"pin_hash": "teste"}'
 
     # Verifica se uma salvaguarda prévia foi gerada
     salvaguardas = list(bkp_dir.glob("backup_pre_restauracao_*.zip"))
@@ -140,12 +148,18 @@ def test_restaurar_backup_protege_contra_zip_slip(temp_backup_env, tmp_path):
     sucesso, _ = backup_service.restaurar_backup(zip_malicioso, criar_salvaguarda=False)
     assert sucesso is True
     assert not (tmp_path / "fora.txt").exists()
-    assert (cfg_dir / "fora.txt").read_text(encoding="utf-8") == "conteudo_seguro_nome_limpo"
+    assert (cfg_dir / "fora.txt").read_text(
+        encoding="utf-8"
+    ) == "conteudo_seguro_nome_limpo"
 
 
 def test_excluir_backup_erro_oserror(temp_backup_env, monkeypatch):
     zip_path = backup_service.criar_backup()
-    monkeypatch.setattr(type(zip_path), "unlink", lambda _self: (_ for _ in ()).throw(OSError("permissão negada")))
+    monkeypatch.setattr(
+        type(zip_path),
+        "unlink",
+        lambda _self: (_ for _ in ()).throw(OSError("permissão negada")),
+    )
     assert backup_service.excluir_backup(zip_path) is False
 
 

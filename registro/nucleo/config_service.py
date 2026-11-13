@@ -342,7 +342,9 @@ def inicializar_estrutura_planilha() -> Tuple[bool, str, Dict[str, List[str]]]:
         if mantidas:
             partes.append(f"Abas existentes mantidas: {', '.join(mantidas)}")
 
-        mensagem = "\n".join(partes) if partes else "Nenhuma alteração necessária nas abas."
+        mensagem = (
+            "\n".join(partes) if partes else "Nenhuma alteração necessária nas abas."
+        )
         return (True, mensagem, detalhes)
     except Exception as e:  # noqa: BLE001 - retorna tupla (False, msg, detalhes) para a UI de diagnóstico
         return (
@@ -350,7 +352,6 @@ def inicializar_estrutura_planilha() -> Tuple[bool, str, Dict[str, List[str]]]:
             f"Falha ao criar/estruturar abas no Google Sheets:\n{e}",
             {"criadas": [], "atualizadas_vazias": [], "mantidas": []},
         )
-
 
 
 # ----------------------------------------------------------------------------
@@ -406,12 +407,8 @@ def obter_status_sistema() -> Dict[str, Any]:
             from registro.nucleo.models import Consumo, Estudante, SessaoLocal
 
             with SessaoLocal() as sessao:
-                total_alunos = int(
-                    sessao.query(func.count(Estudante.id)).scalar() or 0
-                )
-                total_consumos = int(
-                    sessao.query(func.count(Consumo.id)).scalar() or 0
-                )
+                total_alunos = int(sessao.query(func.count(Estudante.id)).scalar() or 0)
+                total_consumos = int(sessao.query(func.count(Consumo.id)).scalar() or 0)
         except (SQLAlchemyError, OSError) as e:
             logger.debug("Falha ao consultar contagens de diagnóstico do BD: %s", e)
 
@@ -422,7 +419,11 @@ def obter_status_sistema() -> Dict[str, Any]:
     totem_cfg = obter_config_totem()
 
     # Backups
-    backups = list(DIRETORIO_BACKUPS.glob("backup_*.zip")) if DIRETORIO_BACKUPS.exists() else []
+    backups = (
+        list(DIRETORIO_BACKUPS.glob("backup_*.zip"))
+        if DIRETORIO_BACKUPS.exists()
+        else []
+    )
     ultimo_backup_str = None
     if backups:
         backups.sort(key=lambda p: p.stat().st_mtime, reverse=True)

@@ -25,7 +25,9 @@ class FakeRepoConsumo:
         return list(self._consumos_por_sessao.get(sessao_id, []))
 
 
-def test_sincronizar_todas_sessoes_para_google_sheets_processa_todas_as_sessoes(monkeypatch):
+def test_sincronizar_todas_sessoes_para_google_sheets_processa_todas_as_sessoes(
+    monkeypatch,
+):
     """Verifica que a rotina de sincronização itera e envia cada sessão com o título formatado."""
     sessao1 = SimpleNamespace(
         id=1,
@@ -73,15 +75,21 @@ def test_sincronizar_todas_sessoes_para_google_sheets_processa_todas_as_sessoes(
         chamadas.append((nome_aba, linhas))
         return len(linhas)
 
-    monkeypatch.setattr(service_logic, "obter_detalhes_sessao", fake_obter_detalhes_sessao)
-    monkeypatch.setattr(service_logic.google_api_service, "obter_planilha", fake_obter_planilha)
+    monkeypatch.setattr(
+        service_logic, "obter_detalhes_sessao", fake_obter_detalhes_sessao
+    )
+    monkeypatch.setattr(
+        service_logic.google_api_service, "obter_planilha", fake_obter_planilha
+    )
     monkeypatch.setattr(
         service_logic.google_api_service,
         "anexar_linhas_unicas",
         fake_anexar_linhas_unicas,
     )
 
-    service_logic.sincronizar_todas_sessoes_para_google_sheets(repo_sessao, repo_consumo)
+    service_logic.sincronizar_todas_sessoes_para_google_sheets(
+        repo_sessao, repo_consumo
+    )
 
     assert len(chamadas) == 2
     assert chamadas[0][0] == "Almoço"
@@ -117,6 +125,4 @@ def test_anexar_linhas_unicas_ignora_duplicatas_pelo_identificador_de_colunas():
     )
 
     assert resultado == 1
-    assert append_calls == [
-        [["123", "01/01/2026", "Carlos", "C", "Jantar", "13:00"]]
-    ]
+    assert append_calls == [[["123", "01/01/2026", "Carlos", "C", "Jantar", "13:00"]]]

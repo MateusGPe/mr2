@@ -32,9 +32,7 @@ def test_criar_estudante_e_grupo_relacionamento(
     assert "1º A - MEC" in repr(grupo)
 
 
-def test_prontuario_duplicado_lanca_integridade(
-    db_session: Session, criar_estudante
-):
+def test_prontuario_duplicado_lanca_integridade(db_session: Session, criar_estudante):
     """Verifica que o prontuário é único no banco."""
     criar_estudante(prontuario="IQ3000020", nome="Primeiro")
 
@@ -45,9 +43,7 @@ def test_prontuario_duplicado_lanca_integridade(
     db_session.rollback()
 
 
-def test_grupo_nome_duplicado_lanca_integridade(
-    db_session: Session, criar_grupo
-):
+def test_grupo_nome_duplicado_lanca_integridade(db_session: Session, criar_grupo):
     """Verifica que o nome do grupo é único."""
     criar_grupo(nome="2º B - MEC")
 
@@ -86,9 +82,7 @@ def test_sessao_e_consumo_fluxo(
         refeicao="lanche", data="22/10/2026", hora="10:00", item_servido="Maçã"
     )
 
-    consumo = criar_consumo(
-        estudante=estudante, sessao=sessao, hora_consumo="10:02:15"
-    )
+    consumo = criar_consumo(estudante=estudante, sessao=sessao, hora_consumo="10:02:15")
 
     assert consumo.id is not None
     assert consumo.estudante.prontuario == "IQ3000040"

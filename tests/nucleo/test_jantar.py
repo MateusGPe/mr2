@@ -43,4 +43,3 @@ def test_jantar_com_reserva_e_sem_reserva(
     res_sem = facade.registrar_consumo("IQ3077772")
     assert res_sem["autorizado"] is False
     assert "Acesso Negado" in res_sem["motivo"]
-

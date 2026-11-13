@@ -206,7 +206,9 @@ class AbaDashboard(ttk.Frame):
             consumos_hoje = stats.get("consumos_hoje", 0)
             consumos_ontem = stats.get("consumo_ontem", 0)
             self.lbl_consumos_val.configure(text=str(consumos_hoje))
-            self.lbl_consumos_sub.configure(text=f"{consumos_ontem} ontem | {stats.get('consumos_total', 0)} total")
+            self.lbl_consumos_sub.configure(
+                text=f"{consumos_ontem} ontem | {stats.get('consumos_total', 0)} total"
+            )
 
             # Tabela Turmas
             dist_turmas = stats.get("distribuicao_turmas", [])
@@ -225,7 +227,9 @@ class AbaDashboard(ttk.Frame):
             dist_pratos = stats.get("distribuicao_pratos", {})
             dados_p = [
                 (prato, qtd)
-                for prato, qtd in sorted(dist_pratos.items(), key=lambda x: x[1], reverse=True)
+                for prato, qtd in sorted(
+                    dist_pratos.items(), key=lambda x: x[1], reverse=True
+                )
             ]
             self.table_pratos.construir_dados_tabela(dados_p)
 

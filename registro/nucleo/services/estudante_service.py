@@ -111,7 +111,9 @@ def criar_estudante(
     except Exception as e:
         logger.exception("Falha ao criar estudante %s: %s", prontuario, e)
         rollback_seguro(repo_estudante.obter_sessao())
-        raise ErroNucleoRegistro(f"Falha ao criar estudante no banco de dados: {e}") from e
+        raise ErroNucleoRegistro(
+            f"Falha ao criar estudante no banco de dados: {e}"
+        ) from e
 
     _, cats_finais = extrair_turmas_e_categorias(novo_estudante)
     return {
@@ -148,7 +150,9 @@ def atualizar_estudante(
         if hasattr(estudante, k):
             setattr(estudante, k, v)
 
-    if repo_grupo is not None and (grupos is not None or categorias is not None or "categoria" in dados):
+    if repo_grupo is not None and (
+        grupos is not None or categorias is not None or "categoria" in dados
+    ):
         # Se ambos ou grupos+categorias foram passados explicitamente, substitui seletivamente
         turmas_atuais = [g.nome for g in estudante.grupos if not g.eh_categoria]
         cats_atuais = [g.nome for g in estudante.grupos if g.eh_categoria]
@@ -172,7 +176,9 @@ def atualizar_estudante(
     except Exception as e:
         logger.exception("Falha ao atualizar estudante %s: %s", id_estudante, e)
         rollback_seguro(sessao)
-        raise ErroNucleoRegistro(f"Falha ao atualizar estudante no banco de dados: {e}") from e
+        raise ErroNucleoRegistro(
+            f"Falha ao atualizar estudante no banco de dados: {e}"
+        ) from e
 
 
 def alternar_status_estudante(
@@ -189,9 +195,13 @@ def alternar_status_estudante(
         sessao.commit()
         return True
     except Exception as e:
-        logger.exception("Falha ao alternar status do estudante %s: %s", id_estudante, e)
+        logger.exception(
+            "Falha ao alternar status do estudante %s: %s", id_estudante, e
+        )
         rollback_seguro(sessao)
-        raise ErroNucleoRegistro(f"Falha ao alternar status do estudante no banco: {e}") from e
+        raise ErroNucleoRegistro(
+            f"Falha ao alternar status do estudante no banco: {e}"
+        ) from e
 
 
 def deletar_ou_desativar_estudante(
@@ -247,7 +257,9 @@ def deletar_ou_desativar_estudante(
         except Exception as e:
             logger.exception("Falha ao desativar estudante %s: %s", id_estudante, e)
             rollback_seguro(sessao)
-            raise ErroNucleoRegistro(f"Falha ao desativar estudante no banco: {e}") from e
+            raise ErroNucleoRegistro(
+                f"Falha ao desativar estudante no banco: {e}"
+            ) from e
 
     # Sem histórico: pode excluir com segurança
     estudante.grupos.clear()
@@ -349,9 +361,7 @@ def listar_estudantes_fuzzy(
             )
             final_score = max(score_nome, score_pront)
             if final_score >= limite:
-                resultados_com_score.append(
-                    {"estudante": est, "score": final_score}
-                )
+                resultados_com_score.append({"estudante": est, "score": final_score})
 
         resultados_com_score.sort(key=lambda x: x["score"], reverse=True)
         estudantes = [item["estudante"] for item in resultados_com_score]

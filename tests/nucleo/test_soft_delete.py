@@ -9,10 +9,16 @@ from registro.nucleo.models import Consumo
 
 
 def test_soft_delete_preserva_registro_e_permite_repassagem(
-    facade: FachadaRegistro, db_session: Session, criar_grupo, criar_estudante, criar_sessao
+    facade: FachadaRegistro,
+    db_session: Session,
+    criar_grupo,
+    criar_estudante,
+    criar_sessao,
 ):
     grupo = criar_grupo(nome="3º A - INF")
-    estudante = criar_estudante(prontuario="IQ3099990", nome="Aluno Auditoria", grupos=[grupo])
+    estudante = criar_estudante(
+        prontuario="IQ3099990", nome="Aluno Auditoria", grupos=[grupo]
+    )
     sessao = criar_sessao(refeicao="lanche", grupos=[grupo])
     facade.id_sessao_ativa = sessao.id
 
@@ -55,10 +61,16 @@ def test_soft_delete_preserva_registro_e_permite_repassagem(
 
 
 def test_soft_delete_por_prontuario(
-    facade: FachadaRegistro, db_session: Session, criar_grupo, criar_estudante, criar_sessao
+    facade: FachadaRegistro,
+    db_session: Session,
+    criar_grupo,
+    criar_estudante,
+    criar_sessao,
 ):
     grupo = criar_grupo(nome="1º BEM")
-    estudante = criar_estudante(prontuario="IQ3088880", nome="Aluno Por Prontuario", grupos=[grupo])
+    estudante = criar_estudante(
+        prontuario="IQ3088880", nome="Aluno Por Prontuario", grupos=[grupo]
+    )
     sessao = criar_sessao(refeicao="lanche", grupos=[grupo])
     facade.id_sessao_ativa = sessao.id
 
@@ -68,4 +80,3 @@ def test_soft_delete_por_prontuario(
     sucesso = facade.desfazer_consumo_por_prontuario("IQ3088880")
     assert sucesso is True
     assert len(facade.repo_consumo.ler_filtrado(sessao_id=sessao.id)) == 0
-

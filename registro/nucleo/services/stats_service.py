@@ -56,11 +56,7 @@ def obter_estatisticas_dashboard(
     alunos_ativos = alunos_total - alunos_inativos
 
     # Grupos / Turmas e Categorias
-    grupos = (
-        sessao_db.query(Grupo)
-        .options(selectinload(Grupo.estudantes))
-        .all()
-    )
+    grupos = sessao_db.query(Grupo).options(selectinload(Grupo.estudantes)).all()
     grupos_ativos = sum(1 for g in grupos if getattr(g, "ativo", True) is not False)
     dist_categorias_alunos: Dict[str, int] = {}
     for g in grupos:
@@ -91,9 +87,7 @@ def obter_estatisticas_dashboard(
 
     # Consumos: contagens históricas/ontem via SQL e objetos detalhados apenas de hoje (apenas ativos)
     consumos_total = int(
-        sessao_db.query(func.count(Consumo.id))
-        .filter(Consumo.ativo.is_(True))
-        .scalar()
+        sessao_db.query(func.count(Consumo.id)).filter(Consumo.ativo.is_(True)).scalar()
         or 0
     )
     consumos_ontem_qtd = int(
@@ -294,7 +288,9 @@ def obter_estatisticas_sessao(
         except (ValueError, TypeError):
             velocidade = 0.0
 
-    total_pap = sum(qtd for nome, qtd in dist_categorias.items() if "PAP" in nome.upper())
+    total_pap = sum(
+        qtd for nome, qtd in dist_categorias.items() if "PAP" in nome.upper()
+    )
     return {
         "id_sessao": id_sessao,
         "refeicao": sessao.refeicao,

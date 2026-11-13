@@ -22,6 +22,7 @@ from registro.nucleo.importar.definitions import (
 
 class AnalisadorSimplificado:
     """Classifica registros importados em Automáticos, Revisão ou Inválidos."""
+
     SCORE_MATCH_CERTO = 95
     SCORE_MATCH_PRONTUARIO = 85
     SCORE_MATCH_NOME = 75
@@ -44,8 +45,7 @@ class AnalisadorSimplificado:
 
         self._cache_busca: List[Tuple[Any, str, str]] = []
         for aluno in self._todos_alunos:
-            p_limpo = REGEX_LIMPEZA_PRONTUARIO.sub(
-                "", aluno.prontuario.lower())
+            p_limpo = REGEX_LIMPEZA_PRONTUARIO.sub("", aluno.prontuario.lower())
             self._cache_busca.append((aluno, aluno.nome.lower(), p_limpo))
 
     def processar_lote(
@@ -75,7 +75,6 @@ class AnalisadorSimplificado:
                 if linha not in automaticos and not self._item_revisao_existe(
                     revisao, linha
                 ):
-
                     id_temp += 1
                 continue
 
@@ -95,8 +94,7 @@ class AnalisadorSimplificado:
                 linha["nome"] = self.NOME_DECONHECIDO  # Placeholder visual
                 if not candidatos:
                     revisao.append(
-                        self._criar_item_revisao(
-                            id_temp, linha, "NOVO_ESTUDANTE", [])
+                        self._criar_item_revisao(id_temp, linha, "NOVO_ESTUDANTE", [])
                     )
                 else:
                     revisao.append(
@@ -137,7 +135,6 @@ class AnalisadorSimplificado:
             )
             lista_auto.append(linha)
         else:
-
             lista_rev.append(
                 self._criar_item_revisao(
                     id_temp,
@@ -172,7 +169,6 @@ class AnalisadorSimplificado:
         melhor_cand = candidatos_ajustados[0]
 
         if melhor_cand["score"] >= self.SCORE_MATCH_CERTO:
-
             linha.update(
                 {
                     "_id_banco": melhor_cand["id"],
@@ -212,8 +208,7 @@ class AnalisadorSimplificado:
             score = fuzz.token_sort_ratio(nome_lower, nome_db_lower)
 
             if score > self.SCORE_CORTE_BUSCA:
-                resultados.append(
-                    self._converter_aluno_para_match(aluno, score))
+                resultados.append(self._converter_aluno_para_match(aluno, score))
 
         return sorted(resultados, key=lambda x: x["score"], reverse=True)[:4]
 
@@ -226,8 +221,7 @@ class AnalisadorSimplificado:
             score = fuzz.partial_ratio(pront_lower, pront_db_lower)
 
             if score > self.SCORE_MATCH_PRONTUARIO:
-                resultados.append(
-                    self._converter_aluno_para_match(aluno, score))
+                resultados.append(self._converter_aluno_para_match(aluno, score))
 
         return sorted(resultados, key=lambda x: x["score"], reverse=True)[:4]
 
@@ -257,7 +251,10 @@ class AnalisadorSimplificado:
             id_vinculo = candidatos[0]["id"]
             if candidatos[0]["score"] > self.SCORE_MATCH_CERTO:
                 resolucao = "VINCULAR"
-        if not dados.get("prontuario") or dados.get("nome", self.NOME_DECONHECIDO) == self.NOME_DECONHECIDO:
+        if (
+            not dados.get("prontuario")
+            or dados.get("nome", self.NOME_DECONHECIDO) == self.NOME_DECONHECIDO
+        ):
             resolucao = "IGNORAR"
 
         return {

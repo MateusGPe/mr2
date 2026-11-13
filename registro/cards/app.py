@@ -85,7 +85,9 @@ class CardsApp(ttk.Window):
         file_frame = ttk.Labelframe(self, text=" Fonte de Dados ", padding=15)
         file_frame.pack(fill=X, padx=20, pady=(5, 10))
 
-        entry_file = ttk.Entry(file_frame, textvariable=self.caminho_arquivo_var, state="readonly")
+        entry_file = ttk.Entry(
+            file_frame, textvariable=self.caminho_arquivo_var, state="readonly"
+        )
         entry_file.pack(side=LEFT, fill=X, expand=True, padx=(0, 10))
 
         btn_selecionar = ttk.Button(
@@ -116,7 +118,9 @@ class CardsApp(ttk.Window):
         content_frame = ttk.Frame(self, padding=(20, 0, 20, 10))
         content_frame.pack(fill=BOTH, expand=True)
 
-        list_labelframe = ttk.Labelframe(content_frame, text=" Pré-visualização dos Discentes ", padding=10)
+        list_labelframe = ttk.Labelframe(
+            content_frame, text=" Pré-visualização dos Discentes ", padding=10
+        )
         list_labelframe.pack(fill=BOTH, expand=True)
 
         # Barra de Busca na tabela
@@ -171,8 +175,12 @@ class CardsApp(ttk.Window):
         self.tree.column("name", width=360, stretch=True)
         self.tree.column("turma", width=160, stretch=False)
 
-        scroll_y = ttk.Scrollbar(tree_container, orient="vertical", command=self.tree.yview)
-        scroll_x = ttk.Scrollbar(tree_container, orient="horizontal", command=self.tree.xview)
+        scroll_y = ttk.Scrollbar(
+            tree_container, orient="vertical", command=self.tree.yview
+        )
+        scroll_x = ttk.Scrollbar(
+            tree_container, orient="horizontal", command=self.tree.xview
+        )
         self.tree.configure(yscrollcommand=scroll_y.set, xscrollcommand=scroll_x.set)
 
         self.tree.grid(row=0, column=0, sticky="nsew")
@@ -183,7 +191,9 @@ class CardsApp(ttk.Window):
         tree_container.columnconfigure(0, weight=1)
 
         # Status Bar da Tabela
-        lbl_status = ttk.Label(list_labelframe, textvariable=self.status_var, font=("Helvetica", 8))
+        lbl_status = ttk.Label(
+            list_labelframe, textvariable=self.status_var, font=("Helvetica", 8)
+        )
         lbl_status.pack(anchor=W, pady=(6, 0))
 
         # 4. Painel de Opções de Leiaute
@@ -193,7 +203,9 @@ class CardsApp(ttk.Window):
         row1 = ttk.Frame(options_frame)
         row1.pack(fill=X, pady=(0, 6))
 
-        ttk.Label(row1, text="Grade (Colunas x Linhas):", font=("Helvetica", 9, "bold")).pack(side=LEFT, padx=(0, 6))
+        ttk.Label(
+            row1, text="Grade (Colunas x Linhas):", font=("Helvetica", 9, "bold")
+        ).pack(side=LEFT, padx=(0, 6))
 
         combo_cols = ttk.Combobox(
             row1,
@@ -236,7 +248,9 @@ class CardsApp(ttk.Window):
         row2 = ttk.Frame(options_frame)
         row2.pack(fill=X)
 
-        ttk.Label(row2, text="Cabeçalho no Cartão:", font=("Helvetica", 9)).pack(side=LEFT, padx=(0, 6))
+        ttk.Label(row2, text="Cabeçalho no Cartão:", font=("Helvetica", 9)).pack(
+            side=LEFT, padx=(0, 6)
+        )
         entry_cabecalho = ttk.Entry(row2, textvariable=self.cabecalho_var)
         entry_cabecalho.pack(side=LEFT, fill=X, expand=True)
 
@@ -329,15 +343,19 @@ class CardsApp(ttk.Window):
                     turmas_str, cat = formatar_turma_e_categoria(
                         e, turma_vazia="(Sem Turma)"
                     )
-                    lista_alunos.append({
-                        "name": e.nome,
-                        "register": e.prontuario,
-                        "turma": turmas_str,
-                        "categoria": cat,
-                    })
+                    lista_alunos.append(
+                        {
+                            "name": e.nome,
+                            "register": e.prontuario,
+                            "turma": turmas_str,
+                            "categoria": cat,
+                        }
+                    )
 
                 self.students_raw = lista_alunos
-                self.caminho_arquivo_var.set("📦 Banco de Dados do Sistema (registro.db)")
+                self.caminho_arquivo_var.set(
+                    "📦 Banco de Dados do Sistema (registro.db)"
+                )
 
                 turmas_set = set()
                 for s in lista_alunos:
@@ -349,7 +367,9 @@ class CardsApp(ttk.Window):
                     turmas_ordenadas.append("(Sem Turma)")
 
                 self.todas_turmas = turmas_ordenadas
-                self.turmas_vars = {t: ttk.BooleanVar(value=True) for t in self.todas_turmas}
+                self.turmas_vars = {
+                    t: ttk.BooleanVar(value=True) for t in self.todas_turmas
+                }
                 self._atualizar_menu_turmas()
                 self._filtrar_estudantes()
 
@@ -369,13 +389,19 @@ class CardsApp(ttk.Window):
         """Reconstrói as opções do menu suspenso de seleção múltipla de turmas."""
         self.menu_turmas.delete(0, END)
         if not self.todas_turmas:
-            self.menu_turmas.add_command(label="Nenhuma turma disponível", state="disabled")
+            self.menu_turmas.add_command(
+                label="Nenhuma turma disponível", state="disabled"
+            )
             self.btn_turmas.configure(text="Turmas: Nenhuma", state="disabled")
             return
 
         self.btn_turmas.configure(state="normal")
-        self.menu_turmas.add_command(label="Marcar Todas", command=self._marcar_todas_turmas)
-        self.menu_turmas.add_command(label="Desmarcar Todas", command=self._desmarcar_todas_turmas)
+        self.menu_turmas.add_command(
+            label="Marcar Todas", command=self._marcar_todas_turmas
+        )
+        self.menu_turmas.add_command(
+            label="Desmarcar Todas", command=self._desmarcar_todas_turmas
+        )
         self.menu_turmas.add_separator()
 
         for turma in self.todas_turmas:
@@ -417,7 +443,11 @@ class CardsApp(ttk.Window):
             self.btn_turmas.configure(text="Turmas: Nenhuma")
             return
 
-        selecionadas = [t for t in self.todas_turmas if self.turmas_vars.get(t) and self.turmas_vars[t].get()]
+        selecionadas = [
+            t
+            for t in self.todas_turmas
+            if self.turmas_vars.get(t) and self.turmas_vars[t].get()
+        ]
         qtd = len(selecionadas)
         if qtd == total:
             self.btn_turmas.configure(text="Turmas: Todas")
@@ -449,7 +479,9 @@ class CardsApp(ttk.Window):
                 turmas_ordenadas.append("(Sem Turma)")
 
             self.todas_turmas = turmas_ordenadas
-            self.turmas_vars = {t: ttk.BooleanVar(value=True) for t in self.todas_turmas}
+            self.turmas_vars = {
+                t: ttk.BooleanVar(value=True) for t in self.todas_turmas
+            }
             self._atualizar_menu_turmas()
             self._filtrar_estudantes()
         except (OSError, ValueError, KeyError) as e:
@@ -461,7 +493,11 @@ class CardsApp(ttk.Window):
     def _filtrar_estudantes(self):
         """Aplica os filtros de turma e busca textual sobre os estudantes carregados."""
         termo = self.busca_var.get().strip().lower()
-        turmas_ativas = {t for t in self.todas_turmas if self.turmas_vars.get(t) and self.turmas_vars[t].get()}
+        turmas_ativas = {
+            t
+            for t in self.todas_turmas
+            if self.turmas_vars.get(t) and self.turmas_vars[t].get()
+        }
 
         resultado = []
         for s in self.students_raw:
@@ -537,7 +573,11 @@ class CardsApp(ttk.Window):
                 try:
                     os.startfile(caminho_arquivo)
                 except OSError as e:
-                    logger.warning("Não foi possível abrir %s automaticamente: %s", caminho_arquivo, e)
+                    logger.warning(
+                        "Não foi possível abrir %s automaticamente: %s",
+                        caminho_arquivo,
+                        e,
+                    )
         else:
             Messagebox.show_info(
                 f"Cartões exportados com sucesso em:\n{caminho_arquivo}",

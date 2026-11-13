@@ -77,8 +77,7 @@ def obter_data(texto_data: Any) -> Optional[datetime]:
     if not texto_data or not isinstance(texto_data, str):
         return None
     texto_limpo = texto_data.strip()[:10]  # Pega apenas a data se tiver hora
-    formatos = ["%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d",
-                "%Y/%m/%d", "%m/%d/%y", "%m-%d-%y"]
+    formatos = ["%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d", "%Y/%m/%d", "%m/%d/%y", "%m-%d-%y"]
 
     for fmt in formatos:
         try:

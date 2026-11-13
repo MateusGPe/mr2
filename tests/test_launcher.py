@@ -26,7 +26,15 @@ def test_identificar_alvo_cli_painel():
 
 
 def test_identificar_alvo_cli_autoatendimento():
-    for flag in ["--auto", "/auto", "-auto", "auto", "--autoatendimento", "/autoatendimento", "/AUTO"]:
+    for flag in [
+        "--auto",
+        "/auto",
+        "-auto",
+        "auto",
+        "--autoatendimento",
+        "/autoatendimento",
+        "/AUTO",
+    ]:
         alvo = identificar_alvo_cli([flag])
         assert alvo == executar_autoatendimento
 
@@ -38,7 +46,10 @@ def test_identificar_alvo_cli_registrar():
 
 
 def test_identificar_alvo_cli_ajuda():
-    with pytest.raises(SystemExit) as exc_info, patch("registro.launcher.exibir_ajuda") as mock_ajuda:
+    with (
+        pytest.raises(SystemExit) as exc_info,
+        patch("registro.launcher.exibir_ajuda") as mock_ajuda,
+    ):
         identificar_alvo_cli(["--help"])
         mock_ajuda.assert_called_once()
     assert exc_info.value.code == 0
@@ -50,7 +61,17 @@ def test_identificar_alvo_cli_vazio():
 
 
 def test_identificar_alvo_cli_setup():
-    for flag in ["--setup", "/setup", "-setup", "setup", "--config", "/config", "--quickstart", "/quickstart", "/SETUP"]:
+    for flag in [
+        "--setup",
+        "/setup",
+        "-setup",
+        "setup",
+        "--config",
+        "/config",
+        "--quickstart",
+        "/quickstart",
+        "/SETUP",
+    ]:
         alvo = identificar_alvo_cli([flag])
         assert alvo == executar_setup
 
@@ -74,7 +95,10 @@ def test_executar_modulos():
 
 
 def test_main_com_argumentos():
-    with patch("sys.argv", ["registro", "--painel"]), patch("registro.launcher.executar_painel") as mock_painel:
+    with (
+        patch("sys.argv", ["registro", "--painel"]),
+        patch("registro.launcher.executar_painel") as mock_painel,
+    ):
         main()
         mock_painel.assert_called_once()
 
