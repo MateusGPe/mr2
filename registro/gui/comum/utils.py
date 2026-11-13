@@ -11,15 +11,13 @@ específicas do sistema operacional.
 """
 
 import csv
-import ctypes
-import json
 import logging
 import os
 import platform
 import sys
 from json import JSONDecodeError
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 from registro.gui.comum.constants import (
     CSIDL_PERSONAL,
@@ -212,12 +210,6 @@ def emitir_feedback_sonoro(sucesso: bool = True, widget: Optional[Any] = None) -
             logger.debug("Falha ao emitir feedback sonoro no Linux: %s", e)
 
 
-from registro.nucleo.utils import (
-    carregar_csv_como_dict,
-    carregar_json,
-    salvar_csv_de_lista,
-    salvar_json,
-)
 
 
 
@@ -232,4 +224,4 @@ def _tratar_erro_arquivo(e: Exception, caminho: Union[str, Path], operacao: str)
     elif isinstance(e, (IOError, OSError)):
         logger.error("Erro de I/O em '%s' em %s: %s", operacao, caminho, e)
     else:
-        logger.exception("Erro inesperado em '%s' de %s: %s", operacao, caminho, e)
+        logger.error("Erro inesperado em '%s' de %s: %s", operacao, caminho, e, exc_info=e)

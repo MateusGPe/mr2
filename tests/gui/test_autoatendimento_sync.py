@@ -5,6 +5,7 @@
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from registro.gui.autoatendimento.app import AppSelfService

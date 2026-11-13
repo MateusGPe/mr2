@@ -3,8 +3,9 @@ Testes unitários para importação de múltiplas categorias (PAP, ESP1, LIB0) e
 """
 
 from pathlib import Path
-from registro.nucleo.facade import FachadaRegistro
+
 from registro.nucleo import importers_service
+from registro.nucleo.facade import FachadaRegistro
 
 
 def test_importar_estudantes_com_categoria_pap(

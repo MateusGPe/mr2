@@ -10,14 +10,13 @@ validando interação de botões e fechamento de janela.
 """
 
 from unittest.mock import patch
+
 import ttkbootstrap as ttk
 
 from registro.launcher import (
     abrir_menu_inicial,
     executar_autoatendimento,
-    executar_painel,
     executar_registrar,
-    executar_setup,
 )
 
 

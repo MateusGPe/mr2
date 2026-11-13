@@ -9,8 +9,8 @@ Fornece uma classe CRUD (Create, Read, Update, Delete) genérica para
 interações com o banco de dados via SQLAlchemy.
 """
 
-from typing import Any, Dict, Generic, List, Optional, Self, Sequence, Type, TypeVar
 import logging
+from typing import Any, Dict, Generic, List, Optional, Self, Sequence, Type, TypeVar
 
 from sqlalchemy import ColumnElement, insert, select
 from sqlalchemy.exc import DBAPIError

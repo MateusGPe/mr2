@@ -3,14 +3,15 @@ Testes unitários para estratégias de leitura de arquivo em registro.nucleo.imp
 """
 
 from pathlib import Path
+
 import pytest
 
+from registro.nucleo.exceptions import ErroImportacaoDados
 from registro.nucleo.importar.strategies import (
     CarregarCSVComCabecalho,
     CarregarCSVPosicional,
     CarregarListaSimples,
 )
-from registro.nucleo.exceptions import ErroImportacaoDados
 
 
 def test_carregar_csv_com_cabecalho(tmp_path: Path):
@@ -96,6 +97,7 @@ def test_carregar_csv_posicional_casos_borda(tmp_path: Path):
 def test_carregar_google_sheets():
     """Testa o carregamento de dados a partir do Google Sheets com mock."""
     from unittest.mock import MagicMock, patch
+
     from registro.nucleo.importar.strategies import CarregarGoogleSheets
 
     with patch("registro.nucleo.google_api_service.obter_planilha") as m_obter, \

@@ -9,9 +9,8 @@ import tkinter as tk
 from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import CENTER, PRIMARY, WARNING
+from ttkbootstrap.constants import CENTER, PRIMARY
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.localization.msgcat import MessageCatalog
 
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva

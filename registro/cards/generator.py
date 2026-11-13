@@ -9,22 +9,24 @@ Motor de geração de crachás e cartões de identificação com QR Code.
 Suporta exportação de alta fidelidade para PDF (ReportLab) e HTML moderno.
 """
 
+import base64
+import csv
+import logging
+import sys
 from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-import base64
-import csv
-import sys
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import openpyxl
 import qrcode
 from PIL import Image
-from reportlab.lib.pagesizes import A4
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen import canvas
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -76,8 +78,8 @@ def _configurar_fontes_reportlab() -> Tuple[str, str]:
                 nome_regular = "Roboto-Card"
                 nome_bold = "Roboto-Card"
                 _FONTE_REGISTRADA = True
-            except Exception:
-                pass
+            except (OSError, ValueError) as e:
+                logger.debug("Falha ao registrar fonte Roboto-Card (%s): %s", caminho_roboto, e)
     elif "Roboto-Card" in pdfmetrics.getRegisteredFontNames():
         nome_regular = "Roboto-Card"
         nome_bold = "Roboto-Card"
@@ -191,7 +193,7 @@ def load_students_from_file(filepath: Union[Path, str]) -> List[Dict[str, str]]:
             except UnicodeDecodeError:
                 continue
 
-        linhas_brutas = [l for l in conteudo.splitlines() if l.strip()]
+        linhas_brutas = [linha for linha in conteudo.splitlines() if linha.strip()]
         if not linhas_brutas:
             return []
 
@@ -331,8 +333,8 @@ def generate_cards_pdf(
                 try:
                     img_qr = generate_qr_pil(matricula)
                     c.drawInlineImage(img_qr, qr_x, qr_y, width=qr_size, height=qr_size)
-                except Exception:
-                    pass
+                except (OSError, ValueError) as e:
+                    logger.debug("Falha ao gerar/desenhar QR Code para '%s': %s", matricula, e)
 
             # Informações textuais (lado direito do cartão)
             text_x = qr_x + qr_size + 2.5 * mm

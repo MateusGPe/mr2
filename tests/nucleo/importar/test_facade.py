@@ -3,8 +3,8 @@ Testes unitários para a classe FachadaImportacao em registro.nucleo.importar.fa
 """
 
 from unittest.mock import MagicMock
-import pytest
 
+from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.importar.facade import FachadaImportacao
 from registro.nucleo.importar.strategies import (
     CarregarCSVComCabecalho,
@@ -12,7 +12,6 @@ from registro.nucleo.importar.strategies import (
     CarregarGoogleSheets,
     CarregarListaSimples,
 )
-from registro.nucleo.facade import FachadaRegistro
 
 
 def test_fachada_importacao_analisar_arquivo_tipos():

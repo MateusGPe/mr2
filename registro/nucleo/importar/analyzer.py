@@ -18,7 +18,6 @@ from registro.nucleo.importar.definitions import (
     CandidatoMatch,
     ItemRevisao,
 )
-from registro.nucleo.repository import RepositorioEstudante
 
 
 class AnalisadorSimplificado:

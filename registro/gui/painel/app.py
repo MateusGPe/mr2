@@ -11,10 +11,10 @@ Fornece abas de gestão de alunos, reservas, importação de dados e dashboard a
 
 import traceback
 from typing import Dict, Optional
-from ttkbootstrap.dialogs import Messagebox
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import EW, NSEW
+from ttkbootstrap.dialogs import Messagebox
 
 from registro.gui.painel.abas.aba_alunos import AbaAlunos
 from registro.gui.painel.abas.aba_dashboard import AbaDashboard

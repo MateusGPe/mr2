@@ -11,6 +11,7 @@ Testes funcionais de GUI para os diálogos de sessão e filtros de turmas:
 """
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from registro.gui.registrar.dialogo_filtro_turmas import DialogoFiltroTurmas

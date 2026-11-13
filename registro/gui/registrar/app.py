@@ -3,8 +3,6 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
-import datetime as dt
-import json
 import logging
 import sys
 import threading
@@ -20,18 +18,18 @@ warnings.filterwarnings(
     category=UserWarning,
 )
 
+import ttkbootstrap as ttk
 from ttkbootstrap.constants import HORIZONTAL, LEFT, LIGHT, RIGHT, VERTICAL, X
 from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
 
+from registro.gui.comum.utils import capitalizar
 from registro.gui.registrar.constants import DadosNovaSessao
 from registro.gui.registrar.dialogo_filtro_turmas import DialogoFiltroTurmas
 from registro.gui.registrar.dialogo_sessao import DialogoSessao
 from registro.gui.registrar.janela_self_service import JanelaSelfService
 from registro.gui.registrar.painel_acao_busca import PainelAcaoBusca
 from registro.gui.registrar.painel_status_registrados import PainelStatusRegistrados
-from registro.gui.comum.utils import capitalizar
-import ttkbootstrap as ttk
 from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.utils import DADOS_SESSAO
@@ -619,17 +617,17 @@ class AppRegistro(tk.Tk):
     def _acao_sinc_wrapper(self, funcao_sinc: Callable):
         """Wrapper que executa a função de sincronização e captura exceções na thread."""
         thread = threading.current_thread()
-        setattr(thread, "error", None)
-        setattr(thread, "success", False)
-        setattr(thread, "records_affected", 0)
+        thread.error = None
+        thread.success = False
+        thread.records_affected = 0
 
         try:
             # Assume que funcao_sinc retorna o número de registros afetados
             records_affected = funcao_sinc()
-            setattr(thread, "success", True)
-            setattr(thread, "records_affected", records_affected or 0)
+            thread.success = True
+            thread.records_affected = records_affected or 0
         except Exception as e:  # pylint: disable=broad-exception-caught
-            setattr(thread, "error", e)
+            thread.error = e
 
     def _monitorar_thread_sinc(self, thread: Thread, nome_tarefa: str, automatico: bool = False):
         """Verifica o status da thread de sincronização e exibe o resultado ao final."""
@@ -717,7 +715,7 @@ class AppRegistro(tk.Tk):
             "Erro Crítico de Inicialização - Componente: %s | Erro: %s",
             componente,
             erro,
-            exc_info=True,
+            exc_info=erro,
         )
         try:
             Messagebox.show_error(

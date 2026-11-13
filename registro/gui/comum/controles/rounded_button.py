@@ -8,8 +8,8 @@ import tkinter as tk
 from typing import Any, Callable, Optional, Tuple, cast
 
 import ttkbootstrap as ttk
-from ttkbootstrap.style import Colors
 from PIL import Image, ImageDraw, ImageFont, ImageTk
+from ttkbootstrap.style import Colors
 
 try:
     from PIL.Image import Resampling

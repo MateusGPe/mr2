@@ -71,10 +71,12 @@ def exibir_ajuda() -> None:
         "Sem argumentos: Abre o menu gráfico inicial para seleção."
     )
     try:
+        import tkinter as tk
+
         from ttkbootstrap.dialogs import Messagebox
 
         Messagebox.show_info(msg, title="Ajuda - Registro de Refeições")
-    except Exception:
+    except (ImportError, tk.TclError, RuntimeError):
         print(msg)
 
 

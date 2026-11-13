@@ -6,7 +6,6 @@ Testes unitários para o diálogo de PIN do operador.
 """
 
 from unittest.mock import MagicMock, patch
-import pytest
 
 from registro.gui.comum.dialogo_pin import solicitar_pin
 

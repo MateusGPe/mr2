@@ -1,8 +1,10 @@
 # ----------------------------------------------------------------------------
 # Arquivo: tests/nucleo/test_grupo_e_melhorias_painel.py
 # ----------------------------------------------------------------------------
-import pytest
 from pathlib import Path
+
+import pytest
+
 from registro.nucleo.facade import FachadaRegistro
 
 

@@ -3,12 +3,13 @@ Testes unitários para o orquestrador ServicoImportacao em registro.nucleo.impor
 """
 
 from pathlib import Path
+
 import pytest
 
-from registro.nucleo.importar.service import ServicoImportacao
-from registro.nucleo.importar.strategies import CarregarCSVComCabecalho
 from registro.nucleo.exceptions import ErroImportacaoDados
 from registro.nucleo.facade import FachadaRegistro
+from registro.nucleo.importar.service import ServicoImportacao
+from registro.nucleo.importar.strategies import CarregarCSVComCabecalho
 
 
 def test_servico_importacao_preparar_arquivo_vazio(facade: FachadaRegistro, tmp_path: Path):

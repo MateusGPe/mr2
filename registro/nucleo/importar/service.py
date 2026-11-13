@@ -11,11 +11,11 @@ Gerencia estado entre etapas e garante persistência segura.
 
 from typing import Any, Dict, List, Optional
 
+from registro.nucleo.exceptions import ErroImportacaoDados
+from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.importar.analyzer import AnalisadorSimplificado
 from registro.nucleo.importar.definitions import ItemRevisao, ResumoImportacao
 from registro.nucleo.importar.strategies import EstrategiaCarregamento
-from registro.nucleo.exceptions import ErroImportacaoDados
-from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.utils import (
     formatar_turnos_reserva,
     resolver_turnos_reserva,
@@ -71,7 +71,7 @@ class ServicoImportacao:
             itens_revisados, valores_padrao
         )
 
-        
+
         novos = []
         reservas = []
         prontuarios_vistos = set()
@@ -84,20 +84,19 @@ class ServicoImportacao:
             if not data:
                 continue
 
-            if not id_banco and pront:
-                if pront not in prontuarios_vistos:
-                    prontuarios_vistos.add(pront)
-                    novos.append(
-                        {
-                            "prontuario": pront,
-                            "nome": linha.get("nome", "Desconhecido"),
-                            "turma": linha.get("turma", "-"),  
-                        }
-                    )
+            if not id_banco and pront and pront not in prontuarios_vistos:
+                prontuarios_vistos.add(pront)
+                novos.append(
+                    {
+                        "prontuario": pront,
+                        "nome": linha.get("nome", "Desconhecido"),
+                        "turma": linha.get("turma", "-"),
+                    }
+                )
 
-            
+
             nome_display = linha.get("nome")
-            
+
             alm = bool(linha.get("almoco", True))
             jan = bool(linha.get("jantar", False))
             reservas.append(
@@ -141,17 +140,18 @@ class ServicoImportacao:
             elif decisao == "VINCULAR" and item["id_estudante_vinculo"]:
                 novo = dados.copy()
                 novo["_id_banco"] = item["id_estudante_vinculo"]
-                try:
-                    if iid := item.get("id_estudante_vinculo"):
-                        cand = next(
-                            cand
-                            for cand in item.get("candidatos", [])
-                            if cand["id"] == iid
-                        )
+                if iid := item.get("id_estudante_vinculo"):
+                    cand = next(
+                        (
+                            c
+                            for c in item.get("candidatos", [])
+                            if c["id"] == iid
+                        ),
+                        None,
+                    )
+                    if cand is not None:
                         novo["nome"] = cand["nome"]
                         novo["prontuario"] = cand["prontuario"]
-                except Exception:
-                    pass
                 lista_final.append(novo)
             elif decisao == "CRIAR_NOVO":
                 dados.pop("_id_banco", None)

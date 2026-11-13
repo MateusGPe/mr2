@@ -3,17 +3,9 @@ Testes unitários para as regras de negócio em registro.nucleo.service_logic.
 """
 
 import pytest
-from sqlalchemy.orm import Session
 
 from registro.nucleo import service_logic
 from registro.nucleo.exceptions import ErroSessao
-from registro.nucleo.repository import (
-    RepositorioConsumo,
-    RepositorioEstudante,
-    RepositorioGrupo,
-    RepositorioReserva,
-    RepositorioSessao,
-)
 
 
 def test_iniciar_sessao_lanche_sucesso(repos, criar_grupo):
@@ -288,7 +280,7 @@ def test_obter_estudantes_para_sessao_almoco_filtros(
         repos["grupo"],
         id_sessao=sessao.id,
         consumido=False,
-        excessao_grupos={"2º B - MEC"},
+        excecao_grupos={"2º B - MEC"},
     )
     assert len(nao_consumidos) == 1
     assert nao_consumidos[0]["pront"] == "IQ3009502"
@@ -415,8 +407,8 @@ def test_exportar_todos_os_consumos_vazio_lanca_erro(repos):
 
 def test_sincronizacao_google_sheets(repos, tmp_path, monkeypatch):
     """Testa a sincronização de entrada e saída com o Google Sheets."""
-    from unittest.mock import MagicMock, patch
-    from registro.nucleo.exceptions import ErroNucleoRegistro
+    from unittest.mock import patch
+
 
     # Sincronizar de Google Sheets
     with patch("registro.nucleo.google_api_service.obter_planilha") as mock_pl, \
@@ -433,7 +425,7 @@ def test_sincronizacao_google_sheets(repos, tmp_path, monkeypatch):
         mock_imp_r.assert_called_once()
 
     # Sincronizar para Google Sheets
-    from registro.nucleo.models import Estudante, Sessao, Consumo
+    from registro.nucleo.models import Consumo, Estudante, Sessao
     e = Estudante(prontuario="IQ3009801", nome="Aluno Sync")
     s = Sessao(refeicao="lanche", data="21/10/2026", hora="09:00")
     repos["estudante"].obter_sessao().add_all([e, s])

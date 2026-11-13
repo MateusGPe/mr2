@@ -5,8 +5,8 @@
 Testes unitários para o módulo de configurações, segurança por PIN e utilitários GCP.
 """
 
-from pathlib import Path
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from registro.nucleo import config_service
@@ -168,6 +168,7 @@ def test_obter_status_sistema_com_contagem_sql(temp_config_dir, monkeypatch):
     """Garante que obter_status_sistema consulte contagens reais via SQL sem lançar AttributeError."""
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
+
     import registro.nucleo.models as models_mod
 
     db_path = temp_config_dir / "registro.db"

@@ -3,6 +3,7 @@ Testes unitários para o serviço de grade horária semanal e validação de jan
 """
 
 from pathlib import Path
+
 from registro.nucleo.services import grade_horarios_service
 
 
@@ -307,7 +308,7 @@ def test_categoria_como_grupo_equivalente_informa_horario_previsto(tmp_path: Pat
         caminho_grade=caminho_grade,
     )
     assert ok_2a is False
-    assert "Fora do horário da sua turma. Seu horário: 12:15 às 13:00." == motivo_2a
+    assert motivo_2a == "Fora do horário da sua turma. Seu horário: 12:15 às 13:00."
 
     # Às 12:25 (durante slot da 2º A), aluno de 3º C participante do evento recebe o horário da sua categoria (11:15 às 11:35)
     ok_ev, motivo_ev = grade_horarios_service.validar_janela_horario(
@@ -319,7 +320,7 @@ def test_categoria_como_grupo_equivalente_informa_horario_previsto(tmp_path: Pat
         caminho_grade=caminho_grade,
     )
     assert ok_ev is False
-    assert "Fora do horário da sua categoria. Seu horário: 11:15 às 11:35." == motivo_ev
+    assert motivo_ev == "Fora do horário da sua categoria. Seu horário: 11:15 às 11:35."
 
     # Às 11:20, aluno participante do evento (case-insensitive) entra normalmente
     ok_ev_hora, motivo_ev_hora = grade_horarios_service.validar_janela_horario(

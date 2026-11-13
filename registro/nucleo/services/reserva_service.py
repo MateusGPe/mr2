@@ -12,11 +12,12 @@ import logging
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 from sqlalchemy import insert
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import selectinload
 
 from registro.nucleo.constants import TIPO_GRUPO_CATEGORIA
 from registro.nucleo.exceptions import ErroNucleoRegistro
-from registro.nucleo.models import Estudante, Grupo, Reserva, associacao_reserva_grupo
+from registro.nucleo.models import Estudante, Reserva, associacao_reserva_grupo
 from registro.nucleo.repository import (
     RepositorioEstudante,
     RepositorioGrupo,
@@ -27,6 +28,7 @@ from registro.nucleo.utils import (
     formatar_turnos_reserva,
     normalizar_lista_categorias,
     resolver_turnos_reserva,
+    rollback_seguro,
 )
 
 logger = logging.getLogger(__name__)
@@ -98,10 +100,7 @@ def criar_reserva(
         repo_reserva.obter_sessao().commit()
     except Exception as e:
         logger.exception("Falha ao criar reserva para estudante %s: %s", prontuario_estudante, e)
-        try:
-            repo_reserva.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_reserva.obter_sessao())
         raise ErroNucleoRegistro(f"Falha ao criar reserva no banco: {e}") from e
 
     cats_salvas = sorted(g.nome for g in nova_reserva.grupos)
@@ -165,10 +164,7 @@ def atualizar_reserva(
             return True
         except Exception as e:
             logger.exception("Falha ao atualizar reserva %s: %s", id_reserva, e)
-            try:
-                repo_reserva.obter_sessao().rollback()
-            except Exception:
-                pass
+            rollback_seguro(repo_reserva.obter_sessao())
             raise ErroNucleoRegistro(f"Falha ao atualizar reserva no banco: {e}") from e
     return False
 
@@ -184,10 +180,7 @@ def deletar_reserva(
             return True
     except Exception as e:
         logger.exception("Falha ao deletar reserva %s: %s", id_reserva, e)
-        try:
-            repo_reserva.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_reserva.obter_sessao())
         raise ErroNucleoRegistro(f"Falha ao excluir reserva no banco: {e}") from e
     return False
 
@@ -195,6 +188,7 @@ def deletar_reserva(
 def listar_datas_reservas(repo_reserva: RepositorioReserva) -> List[str]:
     """Retorna uma lista única e cronologicamente ordenada de datas de reservas existentes."""
     from sqlalchemy import select
+
     from registro.nucleo.importar.patterns_find import obter_data
     from registro.nucleo.models import Reserva
 
@@ -208,8 +202,8 @@ def listar_datas_reservas(repo_reserva: RepositorioReserva) -> List[str]:
             valores = sessao.scalars(select(Reserva.data).distinct()).all()
             datas = {d for d in valores if isinstance(d, str) and d}
             return sorted(datas, reverse=True, key=_chave_data)
-        except Exception:
-            pass
+        except SQLAlchemyError as e:
+            logger.debug("Fallback para leitura de datas de reserva: %s", e)
 
     datas = {s.data for s in repo_reserva.ler_unicos() if s.data}
     return sorted(datas, reverse=True, key=_chave_data)
@@ -224,10 +218,9 @@ def listar_reservas(
     filtros = filtros or {}
     if "grupos" in filtros or "grupo" in filtros:
         raw_grupos = filtros.get("grupos") or filtros.get("grupo") or []
-        if isinstance(raw_grupos, str):
-            grupos = {raw_grupos} if raw_grupos.strip() else set()
-        else:
-            grupos = set(raw_grupos)
+        grupos = (
+            {raw_grupos} if raw_grupos.strip() else set()
+        ) if isinstance(raw_grupos, str) else set(raw_grupos)
         grupos_ids = [g.id for g in repo_grupo.por_nomes(grupos)]
         reservas = repo_reserva.por_data_e_grupos(
             grupos_ids=grupos_ids, data_formatada=filtros.get("data")
@@ -285,10 +278,7 @@ def atualizar_cancelamento_reserva(
         repo_reserva.obter_sessao().commit()
     except Exception as e:
         logger.exception("Falha ao atualizar cancelamento da reserva %s: %s", id_reserva, e)
-        try:
-            repo_reserva.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_reserva.obter_sessao())
         raise ErroNucleoRegistro(f"Falha ao atualizar cancelamento da reserva: {e}") from e
 
 
@@ -508,10 +498,7 @@ def salvar_importacao_dados(
         repo_estudante.obter_sessao().commit()
     except Exception as e:
         logger.exception("Falha ao salvar dados importados: %s", e)
-        try:
-            repo_estudante.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_estudante.obter_sessao())
         raise ErroNucleoRegistro(f"Falha ao salvar importação de dados no banco: {e}") from e
 
     return {

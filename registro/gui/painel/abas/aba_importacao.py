@@ -9,16 +9,16 @@ Implementa um Wizard de 4 passos: Seleção, Revisão, Preview e Confirmação.
 """
 
 import tkinter as tk
-from tkinter import filedialog
 import traceback
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Dict, List, Literal, Optional
+from tkinter import filedialog
+from typing import Any, Dict, List, Optional
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, E, EW, LEFT, NSEW, RIGHT, W, X
-from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap import ScrolledFrame
+from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, RIGHT, E, W, X
+from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.widgets import DateEntry
 
 from registro.gui.comum.controles.rounded_button import RoundedButton
@@ -38,7 +38,7 @@ class RowItemRevisao(ttk.Frame):
     def __init__(self, parent, item: ItemRevisao, cores=None, *args, **kwargs):
         if cores is None:
             cores = {}
-        super().__init__(parent, padding=5, bootstyle="light", *args, **kwargs)
+        super().__init__(parent, *args, padding=5, bootstyle="light", **kwargs)
         self.item = item
         self.pack(fill=X, pady=2, padx=5)
 

@@ -7,11 +7,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from registro.nucleo.models import (
-    Consumo,
     Estudante,
     Grupo,
-    Reserva,
-    Sessao,
     SyncLog,
 )
 

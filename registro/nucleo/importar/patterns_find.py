@@ -14,7 +14,6 @@ from datetime import datetime
 from typing import Any, Dict, Optional, Sequence
 
 from registro.nucleo.utils import (
-    EXCECOES_CAPITALIZACAO,
     capitalizar_com_excecoes,
 )
 

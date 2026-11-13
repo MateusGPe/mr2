@@ -10,7 +10,7 @@ Testes abrangentes de mutações, filtros, ciclo de vida e casos de uso
 """
 
 import json
-from pathlib import Path
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -188,7 +188,7 @@ def test_obter_estudantes_excecao_grupos_e_pular_grupos(
 
     # Com exceção para MONITORES: Oficial + Monitor
     res2 = sessao_service.obter_estudantes_para_sessao(
-        repo_s, repo_e, repo_r, repo_c, repo_g, sessao.id, excessao_grupos={"MONITORES"}
+        repo_s, repo_e, repo_r, repo_c, repo_g, sessao.id, excecao_grupos={"MONITORES"}
     )
     assert {e["pront"] for e in res2} == {"IQ01", "IQ02"}
 

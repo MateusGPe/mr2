@@ -24,7 +24,7 @@ from registro.nucleo.repository import (
 )
 from registro.nucleo.services import grade_horarios_service
 from registro.nucleo.services.sessao_service import obter_detalhes_sessao
-from registro.nucleo.utils import extrair_turmas_e_categorias
+from registro.nucleo.utils import extrair_turmas_e_categorias, rollback_seguro
 
 logger = logging.getLogger(__name__)
 
@@ -161,11 +161,7 @@ def _avaliar_regra_padrao(
                 g.id for g in sessao.grupos if g.nome.strip().lower() in excecao_norm
             }
             nomes_estudante_norm = {n.strip().lower() for n in nomes_estudante if n}
-            if ids_excecao_grupos.intersection(ids_grupos_estudante):
-                autorizado = True
-                motivo = "Autorizado por exceção (grupo)."
-                prato = "Sem Reserva (Grupo)"
-            elif excecao_norm and nomes_estudante_norm.intersection(excecao_norm):
+            if ids_excecao_grupos.intersection(ids_grupos_estudante) or excecao_norm and nomes_estudante_norm.intersection(excecao_norm):
                 autorizado = True
                 motivo = "Autorizado por exceção (grupo)."
                 prato = "Sem Reserva (Grupo)"
@@ -392,10 +388,7 @@ def _processar_consumo_pipeline(
             repo_consumo.obter_sessao().commit()
         except Exception as e:
             logger.exception("Falha ao salvar consumo no banco de dados: %s", e)
-            try:
-                repo_consumo.obter_sessao().rollback()
-            except Exception:
-                pass
+            rollback_seguro(repo_consumo.obter_sessao())
             return {
                 "autorizado": False,
                 "motivo": "Erro de gravação no banco de dados. Tente novamente.",
@@ -428,14 +421,12 @@ def registrar_consumo(
     id_sessao: int,
     prontuario: str,
     excecao_grupos: Optional[Set[str]] = None,
-    excessao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
     ignorar_horario_grade: bool = False,
     dia_semana_grade: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Aplica a lógica de autorização padrão e, se bem-sucedido, registra o consumo."""
-    grupos_filtro = excecao_grupos if excecao_grupos is not None else excessao_grupos
     return _processar_consumo_pipeline(
         repo_sessao=repo_sessao,
         repo_estudante=repo_estudante,
@@ -444,7 +435,7 @@ def registrar_consumo(
         id_sessao=id_sessao,
         prontuario=prontuario,
         avaliador_regra=_avaliar_regra_padrao,
-        excecao_grupos=grupos_filtro,
+        excecao_grupos=excecao_grupos,
         pular_grupos=pular_grupos,
         permitir_fora_horario=permitir_fora_horario,
         ignorar_horario_grade=ignorar_horario_grade,
@@ -460,7 +451,6 @@ def registrar_consumo_com_reserva(
     id_sessao: int,
     prontuario: str,
     excecao_grupos: Optional[Set[str]] = None,
-    excessao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
     permitir_fora_horario: bool = False,
     ignorar_horario_grade: bool = False,
@@ -469,7 +459,6 @@ def registrar_consumo_com_reserva(
     """
     Aplica a lógica de autorização estrita (com reserva obrigatória) e registra o consumo.
     """
-    grupos_filtro = excecao_grupos if excecao_grupos is not None else excessao_grupos
     return _processar_consumo_pipeline(
         repo_sessao=repo_sessao,
         repo_estudante=repo_estudante,
@@ -478,7 +467,7 @@ def registrar_consumo_com_reserva(
         id_sessao=id_sessao,
         prontuario=prontuario,
         avaliador_regra=_avaliar_regra_com_reserva,
-        excecao_grupos=grupos_filtro,
+        excecao_grupos=excecao_grupos,
         pular_grupos=pular_grupos,
         permitir_fora_horario=permitir_fora_horario,
         ignorar_horario_grade=ignorar_horario_grade,
@@ -504,10 +493,7 @@ def desfazer_consumo(
             return True
         except Exception as e:
             logger.exception("Falha ao desfazer consumo %s: %s", id_consumo, e)
-            try:
-                repo_consumo.obter_sessao().rollback()
-            except Exception:
-                pass
+            rollback_seguro(repo_consumo.obter_sessao())
             return False
     return False
 
@@ -533,10 +519,7 @@ def desfazer_consumo_por_prontuario(
             return True
         except Exception as e:
             logger.exception("Falha ao desfazer consumo por prontuário %s: %s", prontuario, e)
-            try:
-                repo_consumo.obter_sessao().rollback()
-            except Exception:
-                pass
+            rollback_seguro(repo_consumo.obter_sessao())
             return False
     return False
 
@@ -595,8 +578,5 @@ def atualizar_consumo(
         return True
     except Exception as e:
         logger.exception("Falha ao atualizar consumo %s: %s", id_consumo, e)
-        try:
-            repo_consumo.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_consumo.obter_sessao())
         return False

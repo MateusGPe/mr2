@@ -14,7 +14,6 @@ import pkgutil
 import subprocess
 import sys
 from pathlib import Path
-import pytest
 
 
 def test_ruff_static_code_integrity():

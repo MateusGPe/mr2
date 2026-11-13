@@ -17,8 +17,9 @@ import zipfile
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from registro.nucleo.constants import (
-    DIRETORIO_APP,
     DIRETORIO_BACKUPS,
     DIRETORIO_CONFIG,
     URL_BANCO_DADOS,
@@ -38,10 +39,7 @@ def criar_backup(
     timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
     nome_arquivo = f"{prefixo}_{timestamp}.zip"
 
-    if destino_personalizado:
-        pasta_destino = Path(destino_personalizado)
-    else:
-        pasta_destino = DIRETORIO_BACKUPS
+    pasta_destino = Path(destino_personalizado) if destino_personalizado else DIRETORIO_BACKUPS
 
     pasta_destino.mkdir(parents=True, exist_ok=True)
     caminho_zip = pasta_destino / nome_arquivo
@@ -51,7 +49,7 @@ def criar_backup(
         try:
             with contextlib.closing(sqlite3.connect(db_path)) as conn:
                 conn.execute("PRAGMA wal_checkpoint(TRUNCATE)")
-        except Exception as e:
+        except sqlite3.Error as e:
             logger.debug("Checkpoint WAL ignorado antes do backup: %s", e)
 
     with zipfile.ZipFile(caminho_zip, "w", zipfile.ZIP_DEFLATED) as zipf:
@@ -99,7 +97,7 @@ def listar_backups(diretorio: Optional[Path] = None) -> List[Dict[str, Any]]:
                     "mtime": stat.st_mtime,
                 }
             )
-        except Exception as e:
+        except OSError as e:
             logger.warning("Falha ao inspecionar arquivo de backup %s: %s", arq, e)
 
     return resultado
@@ -123,7 +121,7 @@ def restaurar_backup(
     if criar_salvaguarda:
         try:
             salvaguarda_path = criar_backup(prefixo="backup_pre_restauracao")
-        except Exception as e:
+        except (OSError, zipfile.BadZipFile, ValueError) as e:
             logger.warning("Não foi possível gerar backup prévio de segurança: %s", e)
 
     try:
@@ -132,8 +130,8 @@ def restaurar_backup(
             from registro.nucleo.models import motor
 
             motor.dispose()
-        except Exception:
-            pass
+        except (ImportError, SQLAlchemyError, OSError) as e:
+            logger.debug("Não foi possível descartar conexões SQLAlchemy antes da restauração: %s", e)
 
         for sufixo_wal in ("registro.db-wal", "registro.db-shm"):
             (DIRETORIO_CONFIG / sufixo_wal).unlink(missing_ok=True)
@@ -163,7 +161,7 @@ def restaurar_backup(
             True,
             f"Backup restaurado com sucesso a partir de '{zip_path.name}'!{msg_extra}",
         )
-    except Exception as e:
+    except (OSError, zipfile.BadZipFile, KeyError, ValueError) as e:
         logger.error("Falha durante a restauração do backup: %s", e)
         return False, f"Erro ao restaurar backup: {e}"
 
@@ -175,7 +173,7 @@ def excluir_backup(caminho_zip: Union[str, Path]) -> bool:
         try:
             arq.unlink()
             return True
-        except Exception as e:
+        except OSError as e:
             logger.error("Falha ao excluir backup %s: %s", arq, e)
             return False
     return False
@@ -190,11 +188,12 @@ def redefinir_banco_dados(criar_backup_previo: bool = True) -> Tuple[bool, str]:
     if criar_backup_previo:
         try:
             backup_criado = criar_backup(prefixo="backup_pre_redefinicao")
-        except Exception as e:
+        except (OSError, zipfile.BadZipFile, ValueError) as e:
             logger.warning("Falha ao gerar backup prévio da redefinição: %s", e)
 
     try:
         from sqlalchemy import create_engine
+
         from registro.nucleo.models import Base
 
         engine = create_engine(URL_BANCO_DADOS)
@@ -206,6 +205,6 @@ def redefinir_banco_dados(criar_backup_previo: bool = True) -> Tuple[bool, str]:
         if backup_criado:
             msg += f"\nBackup prévio salvo como: {backup_criado.name}"
         return True, msg
-    except Exception as e:
+    except (SQLAlchemyError, OSError) as e:
         logger.error("Falha ao redefinir banco de dados: %s", e)
         return False, f"Erro ao redefinir banco de dados: {e}"

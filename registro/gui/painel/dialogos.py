@@ -9,9 +9,9 @@ import traceback
 from datetime import datetime
 
 import ttkbootstrap as ttk
+from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.constants import BOTH, END, EW, HORIZONTAL, LEFT, NSEW, RIGHT, E, W, X
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.widgets import DateEntry
 
 from registro.nucleo.constants import TIPO_GRUPO_CATEGORIA, TIPO_GRUPO_TURMA
@@ -624,6 +624,7 @@ class ReservaDialog(ttk.Toplevel):
     def _load_reserva_data(self):
         try:
             from sqlalchemy.orm import selectinload
+
             from registro.nucleo.models import Reserva
 
             reserva = (

@@ -13,7 +13,7 @@ import tkinter as tk
 from typing import Optional
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import CENTER, BOTH, X
+from ttkbootstrap.constants import BOTH, CENTER, X
 
 from registro.nucleo.config_service import tem_pin_configurado, verificar_pin
 

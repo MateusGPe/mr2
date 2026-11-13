@@ -11,6 +11,7 @@ integrando com SQLite em memória e FachadaRegistro real.
 """
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from registro.gui.registrar.app import AppRegistro

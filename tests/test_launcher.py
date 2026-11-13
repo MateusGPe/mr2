@@ -6,6 +6,7 @@ Testes unitários para o módulo despachante e inicializador unificado (registro
 """
 
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from registro.launcher import (
@@ -37,10 +38,9 @@ def test_identificar_alvo_cli_registrar():
 
 
 def test_identificar_alvo_cli_ajuda():
-    with pytest.raises(SystemExit) as exc_info:
-        with patch("registro.launcher.exibir_ajuda") as mock_ajuda:
-            identificar_alvo_cli(["--help"])
-            mock_ajuda.assert_called_once()
+    with pytest.raises(SystemExit) as exc_info, patch("registro.launcher.exibir_ajuda") as mock_ajuda:
+        identificar_alvo_cli(["--help"])
+        mock_ajuda.assert_called_once()
     assert exc_info.value.code == 0
 
 
@@ -74,10 +74,9 @@ def test_executar_modulos():
 
 
 def test_main_com_argumentos():
-    with patch("sys.argv", ["registro", "--painel"]):
-        with patch("registro.launcher.executar_painel") as mock_painel:
-            main()
-            mock_painel.assert_called_once()
+    with patch("sys.argv", ["registro", "--painel"]), patch("registro.launcher.executar_painel") as mock_painel:
+        main()
+        mock_painel.assert_called_once()
 
 
 def test_main_sem_argumentos():

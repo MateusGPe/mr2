@@ -17,9 +17,9 @@ import sys
 import tkinter as tk
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
+import ttkbootstrap as ttk
 from fuzzywuzzy import fuzz
 from PIL import Image, ImageTk
-import ttkbootstrap as ttk
 from ttkbootstrap.constants import BOTH, CENTER, EW, NSEW, X
 
 from registro.gui.comum.utils import emitir_feedback_sonoro

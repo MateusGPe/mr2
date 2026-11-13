@@ -11,17 +11,12 @@ Mantida para retrocompatibilidade com a interface gráfica existente.
 
 from typing import Any, Dict, List, Optional
 
+from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.importar.definitions import ItemRevisao
 from registro.nucleo.importar.service import ServicoImportacao
 from registro.nucleo.importar.strategies import (
-    CarregarCSVComCabecalho,
-    CarregarCSVPosicional,
-    CarregarExcel,
-    CarregarGoogleSheets,
-    CarregarListaSimples,
     criar_estrategia_carregamento,
 )
-from registro.nucleo.facade import FachadaRegistro
 
 
 class FachadaImportacao:

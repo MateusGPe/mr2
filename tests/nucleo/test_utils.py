@@ -2,17 +2,16 @@
 Testes unitários para o módulo registro.nucleo.utils.
 """
 
-from pathlib import Path
 import platform
-import pytest
+from pathlib import Path
 
 from registro.nucleo.utils import (
-    para_codigo,
-    obter_caminho_documentos,
-    salvar_csv,
-    encontrar_melhor_par_correspondente,
-    capitalizar_com_excecoes,
     ajustar_chaves_e_valores,
+    capitalizar_com_excecoes,
+    encontrar_melhor_par_correspondente,
+    obter_caminho_documentos,
+    para_codigo,
+    salvar_csv,
 )
 
 

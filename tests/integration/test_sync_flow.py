@@ -3,10 +3,8 @@ Testes de integração para a sincronização com Google Sheets e persistência 
 """
 
 from types import SimpleNamespace
-import pytest
 
 from registro.nucleo import google_api_service, service_logic
-from registro.nucleo.exceptions import ErroAPIGoogle
 
 
 class FakeRepoSessao:

@@ -14,7 +14,6 @@ from unittest.mock import patch
 
 from registro.nucleo.services import grade_horarios_service
 
-
 # ============================================================================
 # 1. Testes de Parser e Conversão de Planilha (converter_linhas_configuracao_para_grade)
 # ============================================================================

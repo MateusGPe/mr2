@@ -7,11 +7,7 @@ Testes unitários para o módulo centralizador de logging (registro.nucleo.loggi
 
 import logging
 import sys
-import threading
 from pathlib import Path
-from unittest.mock import MagicMock
-
-import pytest
 
 from registro.nucleo.logging_config import (
     BACKUP_COUNT_LOG,

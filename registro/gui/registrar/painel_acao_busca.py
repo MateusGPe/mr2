@@ -15,8 +15,8 @@ from fuzzywuzzy import fuzz
 from ttkbootstrap.constants import DISABLED, LEFT, NORMAL, W
 from ttkbootstrap.dialogs import Messagebox
 
-from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 from registro.gui.comum.constants import REGEX_LIMPEZA_PRONTUARIO
+from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 
@@ -48,12 +48,12 @@ class PainelAcaoBusca(ttk.Frame):
         self._app = app
         self._fachada = fachada_nucleo
 
-        
+
         self._id_after_busca: Optional[str] = None
         self._dados_correspondencias_elegiveis_atuais: List[Dict[str, Any]] = []
         self._dados_elegivel_selecionado: Optional[Dict[str, Any]] = None
 
-        
+
         self._var_entrada_busca: tk.StringVar = tk.StringVar()
         self._var_bypass_horario: tk.BooleanVar = tk.BooleanVar(value=False)
         self._entrada_busca: Optional[ttk.Entry] = None
@@ -70,7 +70,7 @@ class PainelAcaoBusca(ttk.Frame):
         self._criar_widgets()
         self._configurar_vinculos_eventos()
 
-    
+
 
     @property
     def id_after_busca(self) -> Optional[str]:
@@ -80,9 +80,9 @@ class PainelAcaoBusca(ttk.Frame):
     def id_after_busca(self, value: Optional[str]):
         self._id_after_busca = value
 
-    
-    
-    
+
+
+
 
     def _configurar_layout(self):
         """Configura o grid layout do painel."""
@@ -197,9 +197,9 @@ class PainelAcaoBusca(ttk.Frame):
                 "<Double-1>", lambda _: self._registrar_elegivel_selecionado()
             )
 
-    
-    
-    
+
+
+
 
     def habilitar_controles(self):
         """Habilita os controles do painel para interação."""
@@ -254,9 +254,9 @@ class PainelAcaoBusca(ttk.Frame):
             self._id_after_busca = None
         self._executar_busca_real()
 
-    
-    
-    
+
+
+
 
     def _na_mudanca_entrada_busca(self, *_):
         """
@@ -322,9 +322,9 @@ class PainelAcaoBusca(ttk.Frame):
         finally:
             self._atualizar_label_preview()
 
-    
-    
-    
+
+
+
 
     def _executar_busca_real(self):
         """
@@ -441,9 +441,9 @@ class PainelAcaoBusca(ttk.Frame):
             if self._botao_registrar:
                 self._botao_registrar.config(state=DISABLED)
 
-    
-    
-    
+
+
+
 
     def _resetar_estado_busca(self):
         """Limpa a lista de resultados e reseta os componentes relacionados."""
@@ -466,7 +466,7 @@ class PainelAcaoBusca(ttk.Frame):
         """Retorna todos os estudantes elegíveis que ainda não consumiram."""
         logger.debug("Filtrando %d alunos elegíveis.", len(estudantes_elegiveis))
 
-        
+
         elegiveis_formatados = [
             {
                 "Pront": s.get("pront"),
@@ -474,7 +474,7 @@ class PainelAcaoBusca(ttk.Frame):
                 "Turma": s.get("turma"),
                 "Prato": s.get("prato"),
                 "Categoria": s.get("categoria", "REGULAR"),
-                "score": 100,  
+                "score": 100,
             }
             for s in estudantes_elegiveis
         ]
@@ -492,7 +492,7 @@ class PainelAcaoBusca(ttk.Frame):
         termo_lower = termo_busca.lower().strip()
         correspondencias = []
 
-        
+
         busca_por_pront = bool(
             re.fullmatch(r"(?:[a-z]{2})?[\dx\s]+", termo_lower, re.IGNORECASE)
         )
@@ -561,7 +561,7 @@ class PainelAcaoBusca(ttk.Frame):
         try:
             view = self._tree_estudantes_elegiveis.view
             for linha in linhas_para_inserir:
-                
+
                 view.insert("", tk.END, iid=linha[1], values=linha)
             self._tree_estudantes_elegiveis.apply_zebra_striping()
         except Exception as e: # pylint: disable=broad-exception-caught

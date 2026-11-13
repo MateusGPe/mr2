@@ -15,10 +15,11 @@ a sessão do banco de dados, os repositórios, a lógica de serviço e a importa
 
 import datetime as dt
 import logging
-from pathlib import Path
 import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Set, Union
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from registro.nucleo import service_logic
@@ -101,15 +102,6 @@ class FachadaRegistro:
         """Acesso retrocompatível ao repositório de grupos."""
         return self._repo_grupo
 
-    @property
-    def excessao_grupos(self) -> Set[str]:
-        """Acesso retrocompatível para a grafia anterior 'excessao_grupos'."""
-        return self.excecao_grupos
-
-    @excessao_grupos.setter
-    def excessao_grupos(self, valor: Set[str]):
-        self.excecao_grupos = set(valor)
-
     # --- Gerenciamento de Conexão e Context Manager ---
 
     def fechar_conexao(self):
@@ -120,7 +112,7 @@ class FachadaRegistro:
         """Invalida o cache em memória da sessão SQLAlchemy (após gravações em worker threads)."""
         try:
             self._sessao_db.expire_all()
-        except Exception as e:
+        except SQLAlchemyError as e:
             logger.warning("Falha ao expirar cache da sessão SQLAlchemy: %s", e)
 
     def __enter__(self):
@@ -199,15 +191,13 @@ class FachadaRegistro:
         self,
         grupos: List[str],
         excecao_grupos: Optional[Sequence[str]] = None,
-        excessao_grupos: Optional[Sequence[str]] = None,
     ):
         """Atualiza a configuração de grupos para a sessão ativa."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
 
-        filtro_excecao = excecao_grupos if excecao_grupos is not None else excessao_grupos
-        if filtro_excecao is not None:
-            self.excecao_grupos = set(filtro_excecao)
+        if excecao_grupos is not None:
+            self.excecao_grupos = set(excecao_grupos)
 
         service_logic.atualizar_grupos_sessao(
             self._repo_sessao, self._repo_grupo, self.id_sessao_ativa, grupos
@@ -217,7 +207,6 @@ class FachadaRegistro:
         self,
         grupos: List[str],
         excecao_grupos: Optional[Sequence[str]] = None,
-        excessao_grupos: Optional[Sequence[str]] = None,
     ):
         """
         Alias para atualizar_grupos_sessao (mantém compatibilidade com chamadas legadas da GUI).
@@ -228,7 +217,6 @@ class FachadaRegistro:
         self.atualizar_grupos_sessao(
             grupos,
             excecao_grupos=excecao_grupos,
-            excessao_grupos=excessao_grupos,
         )
 
     def definir_excecao_grupos(self, grupos: Set[str]) -> None:
@@ -276,12 +264,15 @@ class FachadaRegistro:
         'Lanches' da planilha do Google Sheets conectada.
         """
         import threading
+
         from registro.nucleo.services import sync_service
 
         def _worker():
+            from registro.nucleo.exceptions import ErroAPIGoogle
+
             try:
                 sync_service.sincronizar_novo_lanche_para_planilha(item_lanche)
-            except Exception as e:
+            except (ErroAPIGoogle, OSError, ValueError) as e:
                 logger.warning("Falha assíncrona ao sincronizar lanche: %s", e)
 
         threading.Thread(target=_worker, daemon=True).start()
@@ -292,7 +283,6 @@ class FachadaRegistro:
         self,
         prontuario: str,
         excecao_grupos: Optional[Set[str]] = None,
-        excessao_grupos: Optional[Set[str]] = None,
         pular_grupos: bool = False,
         permitir_fora_horario: bool = False,
     ) -> Dict[str, Any]:
@@ -301,7 +291,7 @@ class FachadaRegistro:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
 
         prontuario_limpo = (prontuario or "").strip().upper()
-        grupos_filtro = excecao_grupos or excessao_grupos or self.excecao_grupos
+        grupos_filtro = excecao_grupos or self.excecao_grupos
 
         return service_logic.registrar_consumo(
             repo_sessao=self._repo_sessao,
@@ -321,7 +311,6 @@ class FachadaRegistro:
         self,
         prontuario: str,
         excecao_grupos: Optional[Set[str]] = None,
-        excessao_grupos: Optional[Set[str]] = None,
         pular_grupos: bool = False,
         permitir_fora_horario: bool = False,
     ) -> Dict[str, Any]:
@@ -330,7 +319,7 @@ class FachadaRegistro:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
 
         prontuario_limpo = (prontuario or "").strip().upper()
-        grupos_filtro = excecao_grupos or excessao_grupos or self.excecao_grupos
+        grupos_filtro = excecao_grupos or self.excecao_grupos
 
         return service_logic.registrar_consumo_com_reserva(
             repo_sessao=self._repo_sessao,
@@ -561,7 +550,6 @@ class FachadaRegistro:
     def obter_estudantes_pesquisaveis_para_sessao(
         self,
         excecao_grupos: Optional[Set[str]] = None,
-        excessao_grupos: Optional[Set[str]] = None,
         pular_grupos: bool = False,
     ) -> List[Dict[str, str]]:
         """
@@ -575,7 +563,7 @@ class FachadaRegistro:
         if self.id_sessao_ativa is None:
             return []
 
-        grupos_filtro = excecao_grupos or excessao_grupos or self.excecao_grupos
+        grupos_filtro = excecao_grupos or self.excecao_grupos
 
         todos_elegiveis = service_logic.obter_estudantes_para_sessao(
             repo_sessao=self._repo_sessao,
@@ -585,7 +573,7 @@ class FachadaRegistro:
             repo_grupo=self._repo_grupo,
             id_sessao=self.id_sessao_ativa,
             consumido=False,
-            excessao_grupos=grupos_filtro,
+            excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
         )
         return [
@@ -598,13 +586,12 @@ class FachadaRegistro:
         consumido: Optional[bool] = None,
         pular_grupos: bool = False,
         excecao_grupos: Optional[Set[str]] = None,
-        excessao_grupos: Optional[Set[str]] = None,
     ) -> List[Dict[str, Any]]:
         """Retorna estudantes para a sessão ativa, com filtro opcional por consumo."""
         if self.id_sessao_ativa is None:
             raise ErroSessaoNaoAtiva("Nenhuma sessão ativa definida.")
 
-        grupos_filtro = excecao_grupos or excessao_grupos or self.excecao_grupos
+        grupos_filtro = excecao_grupos or self.excecao_grupos
 
         return service_logic.obter_estudantes_para_sessao(
             repo_sessao=self._repo_sessao,
@@ -614,7 +601,7 @@ class FachadaRegistro:
             repo_grupo=self._repo_grupo,
             id_sessao=self.id_sessao_ativa,
             consumido=consumido,
-            excessao_grupos=grupos_filtro,
+            excecao_grupos=grupos_filtro,
             pular_grupos=pular_grupos,
         )
 
@@ -783,7 +770,7 @@ class FachadaRegistro:
             self._sessao_db.add(log_entry)
             self._sessao_db.commit()
             return True
-        except Exception as e:
+        except SQLAlchemyError as e:
             logger.error("Falha ao registrar log de sincronização no BD: %s", e)
             self._sessao_db.rollback()
             return False
@@ -989,6 +976,6 @@ class FachadaRegistro:
             repo_consumo=self._repo_consumo,
             repo_grupo=self._repo_grupo,
             id_sessao=alvo_id,
-            excessao_grupos=self.excecao_grupos,
+            excecao_grupos=self.excecao_grupos,
         )
 

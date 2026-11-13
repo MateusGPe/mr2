@@ -9,17 +9,11 @@ Testes para validar a integridade e coerência da massa de dados gerada pelo
 script scripts/gerar_dados_teste.py.
 """
 
-from scripts.gerar_dados_teste import (
-    CATEGORIAS_PONTUAIS_RESERVA,
-    TURMAS_PADRAO,
-    GeradorDadosTeste,
-)
 from registro.nucleo.constants import (
     CABECALHO_CANCELADOS,
     CABECALHO_CONFIGURACAO,
     CABECALHO_DISCENTES,
     CABECALHO_EXPORTACAO,
-    CABECALHO_LANCHES,
     CABECALHO_RESERVAS,
 )
 from registro.nucleo.services.grade_horarios_service import (
@@ -27,6 +21,11 @@ from registro.nucleo.services.grade_horarios_service import (
     converter_linhas_configuracao_para_grade,
     salvar_grade_horarios,
     validar_janela_horario,
+)
+from scripts.gerar_dados_teste import (
+    CATEGORIAS_PONTUAIS_RESERVA,
+    TURMAS_PADRAO,
+    GeradorDadosTeste,
 )
 
 

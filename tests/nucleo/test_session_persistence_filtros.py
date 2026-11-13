@@ -3,8 +3,9 @@ Testes para persistência de estado da sessão com filtros de categoria e exceç
 """
 
 from pathlib import Path
-from registro.nucleo.facade import FachadaRegistro
+
 import registro.nucleo.constants as constants
+from registro.nucleo.facade import FachadaRegistro
 
 
 def test_salvar_e_carregar_estado_sessao_com_filtros(facade: FachadaRegistro, tmp_path: Path, monkeypatch):

@@ -4,11 +4,13 @@ Utiliza SQLite em memória isolado para cada teste e factories para entidades.
 """
 
 from typing import Any, Callable, Dict, List, Optional
+
 import pytest
 from sqlalchemy import create_engine, event
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.models import (
     Base,
     Consumo,
@@ -16,9 +18,7 @@ from registro.nucleo.models import (
     Grupo,
     Reserva,
     Sessao,
-    SyncLog,
 )
-from registro.nucleo.facade import FachadaRegistro
 
 
 @pytest.fixture(autouse=True)

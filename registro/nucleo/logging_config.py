@@ -9,6 +9,7 @@ Configura saída dupla (Console e Arquivo Rotacionado em disco) em UTF-8,
 além de ganchos para captura de exceções não tratadas em threads e no processo principal.
 """
 
+import contextlib
 import logging
 import logging.handlers
 import sys
@@ -75,10 +76,8 @@ def configurar_logging(
     # Remove handlers antigos vinculados ao root logger
     for handler in list(root_logger.handlers):
         root_logger.removeHandler(handler)
-        try:
+        with contextlib.suppress(OSError, ValueError):
             handler.close()
-        except Exception:
-            pass
 
     # 1. Handler de Console (Terminal / Stdout) - omitido em executáveis sem console
     if sys.stdout is not None:

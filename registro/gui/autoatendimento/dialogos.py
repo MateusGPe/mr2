@@ -13,16 +13,13 @@ Diálogos interativos para operações de CRUD nos registros de consumo do autoa
 
 import datetime as dt
 import logging
-import re
 import tkinter as tk
 from typing import Any, Callable, Dict, List, Optional
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, CENTER, EW, HORIZONTAL, LEFT, NSEW, RIGHT, VERTICAL, W, X
+from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, RIGHT, VERTICAL, W, X
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.localization.msgcat import MessageCatalog
 
-from registro.gui.comum.constants import REGEX_LIMPEZA_PRONTUARIO
 from registro.nucleo.facade import FachadaRegistro
 
 logger = logging.getLogger(__name__)

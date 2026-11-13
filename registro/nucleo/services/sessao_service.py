@@ -30,6 +30,7 @@ from registro.nucleo.utils import (
     DADOS_SESSAO,
     extrair_turmas_e_categorias,
     para_codigo,
+    rollback_seguro,
 )
 
 logger = logging.getLogger(__name__)
@@ -74,10 +75,7 @@ def iniciar_nova_sessao(
         return nova_sessao_db.id
     except Exception as e:
         logger.exception("Falha ao iniciar nova sessão: %s", e)
-        try:
-            repo_sessao.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_sessao.obter_sessao())
         raise ErroSessao(f"Falha ao iniciar nova sessão no banco de dados: {e}") from e
 
 
@@ -134,7 +132,6 @@ def obter_estudantes_para_sessao(
     id_sessao: int,
     consumido: Optional[bool] = None,
     excecao_grupos: Optional[Set[str]] = None,
-    excessao_grupos: Optional[Set[str]] = None,
     pular_grupos: bool = False,
 ) -> List[Dict[str, Any]]:
     """Busca estudantes elegíveis ou atendidos para uma sessão."""
@@ -142,10 +139,9 @@ def obter_estudantes_para_sessao(
     db_session = repo_estudante.obter_sessao()
     EstudanteGrupo = models.associacao_estudante_grupo
 
-    grupos_filtro = excecao_grupos if excecao_grupos is not None else excessao_grupos
     ids_grupos_sessao = {g.id for g in sessao.grupos}
     ids_excecao_grupos = {
-        g.id for g in repo_grupo.por_nomes(grupos_filtro or set())
+        g.id for g in repo_grupo.por_nomes(excecao_grupos or set())
     }
 
     q1 = select(EstudanteGrupo.c.estudante_id).where(
@@ -298,10 +294,7 @@ def deletar_sessao(repo_sessao: RepositorioSessao, id_sessao: int):
         repo_sessao.obter_sessao().commit()
     except Exception as e:
         logger.exception("Falha ao deletar sessão %s: %s", id_sessao, e)
-        try:
-            repo_sessao.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_sessao.obter_sessao())
         raise ErroSessao(f"Falha ao excluir sessão do banco de dados: {e}") from e
 
 
@@ -320,10 +313,7 @@ def atualizar_sessao(
         return sessao_atualizada
     except Exception as e:
         logger.exception("Falha ao atualizar sessão %s: %s", id_sessao, e)
-        try:
-            repo_sessao.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_sessao.obter_sessao())
         raise ErroSessao(f"Falha ao atualizar sessão no banco de dados: {e}") from e
 
 
@@ -341,10 +331,7 @@ def atualizar_grupos_sessao(
         repo_sessao.obter_sessao().commit()
     except Exception as e:
         logger.exception("Falha ao atualizar grupos da sessão %s: %s", id_sessao, e)
-        try:
-            repo_sessao.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_sessao.obter_sessao())
         raise ErroSessao(f"Falha ao atualizar grupos da sessão no banco de dados: {e}") from e
 
 
@@ -369,7 +356,7 @@ def carregar_estado_sessao(fachada: Any) -> Optional[Dict[str, Any]]:
         if hasattr(fachada, "ignorar_horario_grade"):
             fachada.ignorar_horario_grade = bool(dados.get("ignorar_horario_grade", False))
         return dados
-    except Exception as e:
+    except (OSError, json.JSONDecodeError, ValueError, ErroSessao) as e:
         logger.error(
             "Erro ao carregar estado da sessão de %s: %s",
             constants.CAMINHO_SESSAO,
@@ -406,7 +393,7 @@ def salvar_estado_sessao(
             "Estado da sessão salvo em %s.", constants.CAMINHO_SESSAO
         )
         return True
-    except Exception as e:
+    except (OSError, TypeError, ValueError) as e:
         logger.error(
             "Erro ao salvar estado da sessão em %s: %s",
             constants.CAMINHO_SESSAO,
@@ -424,7 +411,7 @@ def limpar_estado_sessao(fachada: Any) -> bool:
             fachada.ignorar_horario_grade = False
         logger.info("Estado da sessão limpo: %s", constants.CAMINHO_SESSAO)
         return True
-    except Exception as e:
+    except OSError as e:
         logger.error("Erro ao limpar estado da sessão: %s", e)
         return False
 

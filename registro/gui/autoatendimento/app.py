@@ -14,8 +14,8 @@ import datetime as dt
 import logging
 import threading
 import time
-import traceback
 import tkinter as tk
+import traceback
 from threading import Thread
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
@@ -231,16 +231,16 @@ class AppSelfService(ttk.Window):
     def _acao_sinc_wrapper(self, funcao_sinc: Callable):
         """Wrapper que executa a função de sincronização e captura exceções na thread."""
         thread = threading.current_thread()
-        setattr(thread, "error", None)
-        setattr(thread, "success", False)
-        setattr(thread, "records_affected", 0)
+        thread.error = None
+        thread.success = False
+        thread.records_affected = 0
 
         try:
             records_affected = funcao_sinc()
-            setattr(thread, "success", True)
-            setattr(thread, "records_affected", records_affected or 0)
+            thread.success = True
+            thread.records_affected = records_affected or 0
         except Exception as e:  # pylint: disable=broad-exception-caught
-            setattr(thread, "error", e)
+            thread.error = e
 
     def _monitorar_thread_sinc(
         self, thread: Thread, nome_tarefa: str, automatico: bool = False
@@ -741,7 +741,7 @@ class AppSelfService(ttk.Window):
             )
             return
 
-        novo_estado = not (getattr(self.fachada_nucleo, "ignorar_horario_grade", False) is True)
+        novo_estado = getattr(self.fachada_nucleo, "ignorar_horario_grade", False) is not True
         self.fachada_nucleo.definir_ignorar_horario_grade(novo_estado)
         self._atualizar_barra_sessao()
         msg = (

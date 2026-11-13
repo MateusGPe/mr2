@@ -15,10 +15,10 @@ import os
 import sys
 import threading
 import tkinter as tk
-from tkinter import filedialog
 import webbrowser
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from tkinter import filedialog
+from typing import Any, Dict, List, Tuple
 
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import (
@@ -26,12 +26,9 @@ from ttkbootstrap.constants import (
     CENTER,
     DISABLED,
     END,
-    EW,
     LEFT,
     NORMAL,
-    NSEW,
     RIGHT,
-    TOP,
     X,
     Y,
 )
@@ -39,15 +36,14 @@ from ttkbootstrap.dialogs import Messagebox
 
 from registro.gui.comum.dialogo_pin import solicitar_pin
 from registro.nucleo import backup_service, config_service
-from registro.nucleo.services import grade_horarios_service
 from registro.nucleo.constants import (
-    CAMINHO_CREDENCIAS,
     CAMINHO_TOKEN,
     DIRETORIO_APP,
     DIRETORIO_BACKUPS,
     DIRETORIO_CONFIG,
     DIRETORIO_LOG,
 )
+from registro.nucleo.services import grade_horarios_service
 
 logger = logging.getLogger(__name__)
 
@@ -961,6 +957,7 @@ class AppSetup(ttk.Window):
     def _restaurar_grade_padrao(self):
         """Restaura a grade horária semanal para a matriz padrão."""
         import copy
+
         from ttkbootstrap.dialogs import MessageCatalog
 
         resp = Messagebox.yesno(
@@ -1321,7 +1318,7 @@ class AppSetup(ttk.Window):
         idx = sel[0]
         lanches = config_service.obter_lanches()
         if 0 <= idx < len(lanches):
-            item = lanches.pop(idx)
+            lanches.pop(idx)
             config_service.salvar_lanches(lanches)
             self._carregar_lanches()
 

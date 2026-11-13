@@ -9,21 +9,19 @@ erros de referências indefinidas (NameError), atributos inexistentes ou falhas
 de integração entre a GUI e a Fachada.
 """
 
-import tkinter as tk
 from unittest.mock import MagicMock, patch
+
 import pytest
 
-from registro.gui.registrar.dialogo_sessao import DialogoSessao
-from registro.gui.registrar.dialogo_filtro_turmas import DialogoFiltroTurmas
-from registro.gui.registrar.painel_acao_busca import PainelAcaoBusca
-from registro.gui.registrar.painel_status_registrados import PainelStatusRegistrados
 from registro.gui.painel.abas.aba_alunos import AbaAlunos
 from registro.gui.painel.abas.aba_dashboard import AbaDashboard
 from registro.gui.painel.abas.aba_importacao import AbaImportacao
 from registro.gui.painel.abas.aba_reservas import AbaReservas
 from registro.gui.painel.abas.aba_turmas import AbaTurmas
-
-
+from registro.gui.registrar.dialogo_filtro_turmas import DialogoFiltroTurmas
+from registro.gui.registrar.dialogo_sessao import DialogoSessao
+from registro.gui.registrar.painel_acao_busca import PainelAcaoBusca
+from registro.gui.registrar.painel_status_registrados import PainelStatusRegistrados
 
 
 @pytest.fixture
@@ -202,7 +200,8 @@ def test_frame_self_service_inicializacao(app_root, mock_fachada):
 
 def test_autoatendimento_dashboard_e_consumos(app_root, mock_fachada):
     """Testa as abas de Dashboard e Consumos do autoatendimento com troca dinâmica de sessão e CRUD."""
-    from registro.gui.autoatendimento.app import AbaDashboard as AbaDashAuto, AbaConsumos as AbaConsAuto
+    from registro.gui.autoatendimento.app import AbaConsumos as AbaConsAuto
+    from registro.gui.autoatendimento.app import AbaDashboard as AbaDashAuto
 
     mock_fachada.obter_estudantes_para_sessao.return_value = [
         {"pront": "IQ30001", "nome": "Aluno Teste", "turma": "1INFO", "hora_consumo": "12:05", "prato": "Almoço", "id_consumo": 1}
@@ -262,9 +261,9 @@ def test_autoatendimento_dashboard_e_consumos(app_root, mock_fachada):
 def test_dialogos_autoatendimento_smoke(app_root, mock_fachada):
     """Testa a instanciação dos novos diálogos de CRUD do autoatendimento."""
     from registro.gui.autoatendimento.dialogos import (
-        DialogoNovoConsumo,
-        DialogoEditarConsumo,
         DialogoDetalhesConsumo,
+        DialogoEditarConsumo,
+        DialogoNovoConsumo,
     )
 
     mock_fachada.obter_estudantes_para_sessao.return_value = [

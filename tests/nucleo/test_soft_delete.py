@@ -3,6 +3,7 @@ Testes unitários para o padrão de soft delete e auditoria de consumos.
 """
 
 from sqlalchemy.orm import Session
+
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.models import Consumo
 

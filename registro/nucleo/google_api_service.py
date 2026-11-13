@@ -10,28 +10,34 @@ Google Sheets, para sincronização de dados.
 """
 
 import json
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 
 import gspread
+from google.auth.exceptions import GoogleAuthError
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google.oauth2.service_account import Credentials as ServiceAccountCredentials
 from google_auth_oauthlib.flow import InstalledAppFlow
-from gspread.exceptions import APIError, SpreadsheetNotFound, WorksheetNotFound
+from gspread.exceptions import APIError, GSpreadException, SpreadsheetNotFound, WorksheetNotFound
 from gspread.utils import ValueInputOption
 from requests.exceptions import RequestException
- 
-from registro.nucleo.exceptions import ErroAPIGoogle
 
 from registro.nucleo.constants import (
     CAMINHO_CREDENCIAS,
     CAMINHO_TOKEN,
-    DIRETORIO_CONFIG as CAMINHO_CONFIG,
-    ESCOPOS as SCOPES,
     ESTRUTURA_ABAS_PADRAO,
+)
+from registro.nucleo.constants import (
+    ESCOPOS as SCOPES,
+)
+from registro.nucleo.constants import (
     JSON_ID_PLANILHA as CAMINHO_PLANILHA_JSON,
 )
+from registro.nucleo.exceptions import ErroAPIGoogle
+
+logger = logging.getLogger(__name__)
 
 
 def _chave_identificadora_linha(linha: List[str]) -> tuple[str, ...]:
@@ -58,15 +64,16 @@ def _obter_credenciais(
                     return ServiceAccountCredentials.from_service_account_file(  # type: ignore
                         str(caminho_credenciais), scopes=SCOPES
                     )
-        except Exception:
-            pass
+        except (OSError, json.JSONDecodeError, ValueError, GoogleAuthError) as e:
+            logger.debug("Credenciais em %s não são conta de serviço válida: %s", caminho_credenciais, e)
 
     # 2. Fluxo OAuth2 Desktop com token existente
     credenciais = None
     if caminho_token.exists():
         try:
             credenciais = Credentials.from_authorized_user_file(str(caminho_token), SCOPES)
-        except Exception:
+        except (OSError, ValueError) as e:
+            logger.debug("Token existente inválido ou ilegível: %s", e)
             credenciais = None
 
     if credenciais and credenciais.valid:
@@ -75,7 +82,7 @@ def _obter_credenciais(
     if credenciais and credenciais.expired and credenciais.refresh_token:
         try:
             credenciais.refresh(Request())
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - traduz qualquer falha de refresh para ErroAPIGoogle
             raise ErroAPIGoogle(f"Falha ao atualizar token de acesso: {e}") from e
     else:
         if not caminho_credenciais.exists():
@@ -87,7 +94,7 @@ def _obter_credenciais(
                 str(caminho_credenciais), SCOPES
             )
             credenciais = flow.run_local_server(port=0)
-        except Exception as e:
+        except (OSError, ValueError, GoogleAuthError) as e:
             raise ErroAPIGoogle(f"Falha na autenticação OAuth: {e}") from e
 
     caminho_token.parent.mkdir(parents=True, exist_ok=True)
@@ -110,7 +117,7 @@ class GoogleSheetsService:
             raise ErroAPIGoogle(
                 f"Falha ao abrir planilha com a chave '{spreadsheet_key}': {e}"
             ) from e
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - fronteira de serviço traduz falhas para ErroAPIGoogle
             raise ErroAPIGoogle(
                 f"Erro inesperado na inicialização do serviço: {e}"
             ) from e
@@ -185,14 +192,7 @@ class GoogleSheetsService:
                         cabecalho,
                         value_input_option=ValueInputOption.user_entered,
                     )
-                    try:
-                        aba.freeze(rows=1)
-                    except Exception:
-                        pass
-                    try:
-                        aba.format("1:1", {"textFormat": {"bold": True}})
-                    except Exception:
-                        pass
+                    _formatar_cabecalho_aba(aba)
                     criadas.append(nome_aba)
                 else:
                     aba = worksheets_existentes[nome_aba]
@@ -205,14 +205,7 @@ class GoogleSheetsService:
                             cabecalho,
                             value_input_option=ValueInputOption.user_entered,
                         )
-                        try:
-                            aba.freeze(rows=1)
-                        except Exception:
-                            pass
-                        try:
-                            aba.format("1:1", {"textFormat": {"bold": True}})
-                        except Exception:
-                            pass
+                        _formatar_cabecalho_aba(aba)
                         atualizadas_vazias.append(nome_aba)
                     else:
                         mantidas.append(nome_aba)
@@ -222,10 +215,20 @@ class GoogleSheetsService:
                 "atualizadas_vazias": atualizadas_vazias,
                 "mantidas": mantidas,
             }
-        except (APIError, RequestException) as e:
+        except (APIError, RequestException, GSpreadException) as e:
             raise ErroAPIGoogle(f"Falha ao criar/verificar abas na planilha: {e}") from e
-        except Exception as e:
-            raise ErroAPIGoogle(f"Erro inesperado ao inicializar abas: {e}") from e
+
+
+def _formatar_cabecalho_aba(aba: gspread.Worksheet) -> None:
+    """Congela e aplica negrito na linha de cabeçalho da aba, sem falhar em caso de erro de formatação."""
+    try:
+        aba.freeze(rows=1)
+    except (APIError, RequestException, GSpreadException) as e:
+        logger.debug("Não foi possível congelar cabeçalho da aba '%s': %s", aba.title, e)
+    try:
+        aba.format("1:1", {"textFormat": {"bold": True}})
+    except (APIError, RequestException, GSpreadException) as e:
+        logger.debug("Não foi possível formatar cabeçalho da aba '%s': %s", aba.title, e)
 
 
 def obter_servico_planilha_padrao() -> GoogleSheetsService:

@@ -10,7 +10,6 @@ Funções utilitárias para a aplicação, incluindo manipulação de arquivos,
 processamento de texto e tipos de dados customizados.
 """
 import csv
-import ctypes
 import json
 import logging
 import os
@@ -20,9 +19,19 @@ import sys
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Literal, Optional, Tuple, TypedDict, Union
 
+from fuzzywuzzy import fuzz
+from sqlalchemy.exc import SQLAlchemyError
+
 logger = logging.getLogger(__name__)
 
-from fuzzywuzzy import fuzz
+
+def rollback_seguro(sessao: Any, contexto: str = "") -> None:
+    """Executa rollback da sessão SQLAlchemy de forma segura, registrando falhas."""
+    try:
+        sessao.rollback()
+    except SQLAlchemyError as e:
+        sufixo = f" ({contexto})" if contexto else ""
+        logger.warning("Falha ao executar rollback da sessão%s: %s", sufixo, e)
 
 
 DADOS_SESSAO = TypedDict(
@@ -94,11 +103,13 @@ def obter_caminho_documentos() -> Path:
     """Retorna o caminho para a pasta 'Documentos' do usuário de forma segura."""
     if platform.system() == "Windows":
         try:
+            import ctypes
+            import ctypes.wintypes
+
             CSIDL_PERSONAL = 5
             SHGFP_TYPE_CURRENT = 0
-            buf = ctypes.create_unicode_buffer(
-                getattr(ctypes, "wintypes").MAX_PATH)
-            getattr(ctypes, "windll").shell32.SHGetFolderPathW(
+            buf = ctypes.create_unicode_buffer(ctypes.wintypes.MAX_PATH)
+            ctypes.windll.shell32.SHGetFolderPathW(
                 None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf
             )
             return Path(buf.value)
@@ -202,7 +213,7 @@ def carregar_json(nome_arquivo: Union[str, Path]) -> Optional[Any]:
     try:
         with open(nome_arquivo, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception as e:
+    except (OSError, json.JSONDecodeError, ValueError) as e:
         logger.error("Erro ao carregar JSON de %s: %s", nome_arquivo, e)
         return None
 
@@ -216,7 +227,7 @@ def salvar_json(nome_arquivo: Union[str, Path], dados: Union[Dict, List, Any]) -
         with open(caminho, "w", encoding="utf-8") as f:
             json.dump(dados, f, indent=2, ensure_ascii=False)
         return True
-    except Exception as e:
+    except (OSError, TypeError, ValueError) as e:
         logger.error("Erro ao salvar JSON em %s: %s", nome_arquivo, e)
         return False
 
@@ -227,7 +238,7 @@ def carregar_csv_como_dict(nome_arquivo: Union[str, Path]) -> Optional[List[Dict
     try:
         with open(nome_arquivo, "r", newline="", encoding="utf-8") as f:
             return list(csv.DictReader(f))
-    except Exception as e:
+    except (OSError, csv.Error, UnicodeDecodeError) as e:
         logger.error("Erro ao ler CSV de %s: %s", nome_arquivo, e)
         return None
 
@@ -246,7 +257,7 @@ def salvar_csv_de_lista(dados: List[List[Any]], nome_arquivo: Union[str, Path], 
             writer.writerows(dados)
         logger.info("%s linhas salvas no CSV: %s", len(dados), nome_arquivo)
         return True
-    except Exception as e:
+    except (OSError, csv.Error, TypeError) as e:
         logger.error("Erro ao salvar CSV em %s: %s", nome_arquivo, e)
         return False
 

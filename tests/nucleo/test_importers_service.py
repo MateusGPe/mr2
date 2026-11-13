@@ -3,6 +3,7 @@ Testes unitários e de integração para o serviço de importação (registro.nu
 """
 
 from pathlib import Path
+
 import pytest
 from sqlalchemy.orm import Session
 

@@ -2,8 +2,7 @@
 Testes de integração do módulo Cards, CLI do launcher e grade de horários na fachada.
 """
 
-from unittest.mock import MagicMock, patch
-from registro.launcher import identificar_alvo_cli, executar_cards
+from registro.launcher import executar_cards, identificar_alvo_cli
 from registro.nucleo.facade import FachadaRegistro
 
 

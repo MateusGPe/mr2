@@ -1,9 +1,11 @@
 import tkinter as tk
 from unittest.mock import MagicMock, patch
+
 import pytest
 
-from registro.gui.autoatendimento.totem import FrameSelfService
 from registro.gui.autoatendimento.app import AppSelfService
+from registro.gui.autoatendimento.totem import FrameSelfService
+
 
 @pytest.fixture
 def mock_fachada():

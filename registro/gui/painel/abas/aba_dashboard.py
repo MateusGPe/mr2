@@ -5,8 +5,9 @@
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import traceback
+
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, EW, HORIZONTAL, LEFT, NSEW, RIGHT, W, X
+from ttkbootstrap.constants import BOTH, HORIZONTAL, LEFT, NSEW, RIGHT, W, X
 
 from registro.gui.comum.controles.rounded_button import RoundedButton
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples

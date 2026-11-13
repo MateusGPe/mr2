@@ -90,6 +90,7 @@ def test_categoria_arbitraria_almoco_com_excecao_respeita_grade_e_separa_jantar(
     no horário da grade, respeita o horário e não confunde reserva de jantar com almoço.
     """
     from unittest.mock import patch
+
     from registro.nucleo import constants
     from registro.nucleo.services import grade_horarios_service
 

@@ -12,7 +12,7 @@ lógica de processamento e inserção no banco de dados.
 import csv
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Set, Tuple
+from typing import Dict, Optional, Set
 
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session

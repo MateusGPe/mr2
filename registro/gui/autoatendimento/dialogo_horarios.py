@@ -11,14 +11,14 @@ dinâmico (Liberado Agora, Em Breve, Encerrado), fechamento automático por
 inatividade e integração com leituras rápidas (QR Code / Scanner USB).
 """
 
-from datetime import datetime
 import logging
 import tkinter as tk
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional
 
 import ttkbootstrap as ttk
 from ttkbootstrap import ScrolledFrame
-from ttkbootstrap.constants import BOTH, CENTER, EW, LEFT, NSEW, RIGHT, VERTICAL, X, YES
+from ttkbootstrap.constants import BOTH, CENTER, EW, LEFT, NSEW, YES, X
 
 from registro.nucleo.services import grade_horarios_service
 

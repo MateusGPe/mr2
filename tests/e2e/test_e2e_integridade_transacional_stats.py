@@ -14,13 +14,14 @@ Testes E2E rigorosos para:
 """
 
 import datetime as dt
+
 import pytest
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from registro.nucleo import constants
 from registro.nucleo.exceptions import ErroNucleoRegistro, ErroSessao
 from registro.nucleo.facade import FachadaRegistro
-from registro.nucleo.models import Consumo, Estudante, Reserva
+from registro.nucleo.models import Consumo, Reserva
 
 
 def test_constraints_fk_restrict_e_unique_sqlite_ativo(

@@ -9,7 +9,8 @@ Testes funcionais e de casos de uso para o Painel Administrativo
 (AbaAlunos, AbaTurmas, AbaDashboard e PainelApp), integrando com SQLite em memória.
 """
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
+
 import pytest
 
 from registro.gui.painel.abas.aba_alunos import AbaAlunos

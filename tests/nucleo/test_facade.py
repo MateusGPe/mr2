@@ -5,6 +5,7 @@ Testes unitários e de regressão para a classe FachadaRegistro em registro.nucl
 import datetime as dt
 from pathlib import Path
 from unittest.mock import patch
+
 import pytest
 from sqlalchemy.orm import Session
 
@@ -235,9 +236,9 @@ def test_facade_operacoes_sessao_e_delegacoes(facade: FachadaRegistro, tmp_path)
     facade.definir_sessao_ativa(id_sessao)
     assert facade.id_sessao_ativa == id_sessao
 
-    # Atualizar grupos da sessão com excessao_grupos
-    facade.atualizar_grupos_sessao(["1º A - MEC"], excessao_grupos=["2º B - MEC"])
-    assert "2º B - MEC" in facade.excessao_grupos
+    # Atualizar grupos da sessão com excecao_grupos
+    facade.atualizar_grupos_sessao(["1º A - MEC"], excecao_grupos=["2º B - MEC"])
+    assert "2º B - MEC" in facade.excecao_grupos
 
     # Estudantes pesquisáveis para sessão
     pesquisaveis = facade.obter_estudantes_pesquisaveis_para_sessao()
@@ -378,13 +379,8 @@ def test_facade_repositorio_encapsulamento_e_propriedades(facade: FachadaRegistr
     assert facade.repo_consumo is facade._repo_consumo
     assert facade.repo_grupo is facade._repo_grupo
 
-    # Teste de propriedade de compatibilidade ortográfica (excecao_grupos / excessao_grupos)
-    facade.excessao_grupos = {"GrupoTeste"}
-    assert "GrupoTeste" in facade.excecao_grupos
-    assert "GrupoTeste" in facade.excessao_grupos
-
     facade.excecao_grupos = {"GrupoNovo"}
-    assert "GrupoNovo" in facade.excessao_grupos
+    assert "GrupoNovo" in facade.excecao_grupos
 
 
 def test_facade_importacao_unificada(facade: FachadaRegistro, tmp_path):
@@ -435,7 +431,7 @@ def test_facade_obter_todos_estudantes_com_grupos(
 def test_facade_parametros_grafia_excecao(
     facade: FachadaRegistro, criar_grupo, criar_estudante
 ):
-    """Verifica aceitação de ambos os parâmetros 'excecao_grupos' e 'excessao_grupos'."""
+    """Verifica aceitação do parâmetro padronizado 'excecao_grupos'."""
     grupo = criar_grupo(nome="Grupo Grafia")
     criar_estudante(prontuario="IQ3007777", nome="Aluno Grafia", grupos=[grupo])
 

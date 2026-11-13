@@ -10,6 +10,7 @@ Valida o carregamento de arquivos CSV/XLSX, geração de PDF e geração de HTML
 """
 
 from pathlib import Path
+
 import openpyxl
 import pytest
 
@@ -143,7 +144,9 @@ def test_generate_cards_html(tmp_path: Path):
 def test_formatar_nome_em_linhas():
     """Valida quebra inteligente de nomes em até 2 linhas e redução suave de fonte."""
     from io import BytesIO
+
     from reportlab.pdfgen import canvas
+
     from registro.cards.generator import _formatar_nome_em_linhas
 
     c = canvas.Canvas(BytesIO())

@@ -11,6 +11,7 @@ Totem de Autoatendimento, integrando com SQLite em memória e FachadaRegistro re
 
 import tkinter as tk
 from unittest.mock import MagicMock, patch
+
 import pytest
 
 from registro.gui.autoatendimento.app import AbaConsumos, AbaDashboard, AppSelfService

@@ -18,6 +18,8 @@ import shutil
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from registro.nucleo.constants import (
     AUDIO_DUR_ERRO_MS_PADRAO,
     AUDIO_DUR_SUCESSO_MS_PADRAO,
@@ -66,7 +68,7 @@ def _carregar_json_seguro(caminho: Path, padrao: Any) -> Any:
     try:
         with open(caminho, "r", encoding="utf-8") as f:
             return json.load(f)
-    except Exception as e:
+    except (OSError, json.JSONDecodeError, ValueError) as e:
         logger.warning("Falha ao ler %s: %s. Utilizando padrão.", caminho, e)
         return padrao
 
@@ -265,7 +267,7 @@ def limpar_token() -> bool:
         try:
             CAMINHO_TOKEN.unlink()
             return True
-        except Exception as e:
+        except OSError as e:
             logger.error("Erro ao remover token.json: %s", e)
             return False
     return True
@@ -298,7 +300,7 @@ def testar_conexao_google_sheets() -> Tuple[bool, str]:
             True,
             f"Conexão estabelecida com sucesso!\nPlanilha: '{titulo}'",
         )
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - retorna tupla (False, msg) para a UI de diagnóstico
         return (False, f"Falha ao conectar à API do Google Sheets:\n{e}")
 
 
@@ -342,7 +344,7 @@ def inicializar_estrutura_planilha() -> Tuple[bool, str, Dict[str, List[str]]]:
 
         mensagem = "\n".join(partes) if partes else "Nenhuma alteração necessária nas abas."
         return (True, mensagem, detalhes)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - retorna tupla (False, msg, detalhes) para a UI de diagnóstico
         return (
             False,
             f"Falha ao criar/estruturar abas no Google Sheets:\n{e}",
@@ -400,6 +402,7 @@ def obter_status_sistema() -> Dict[str, Any]:
     if db_existe:
         try:
             from sqlalchemy import func
+
             from registro.nucleo.models import Consumo, Estudante, SessaoLocal
 
             with SessaoLocal() as sessao:
@@ -409,7 +412,7 @@ def obter_status_sistema() -> Dict[str, Any]:
                 total_consumos = int(
                     sessao.query(func.count(Consumo.id)).scalar() or 0
                 )
-        except Exception as e:
+        except (SQLAlchemyError, OSError) as e:
             logger.debug("Falha ao consultar contagens de diagnóstico do BD: %s", e)
 
     credenciais_existem = CAMINHO_CREDENCIAS.exists()

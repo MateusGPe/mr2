@@ -12,7 +12,7 @@ escalonamento físico de acesso ao refeitório.
 import json
 import logging
 import unicodedata
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
 
@@ -80,7 +80,7 @@ def carregar_grade_horarios(
         with open(caminho_arquivo, "r", encoding="utf-8") as f:
             grade = json.load(f)
             return grade
-    except Exception as e:
+    except (OSError, json.JSONDecodeError, ValueError) as e:
         logger.warning(
             "Erro ao ler grade horária de %s: %s. Utilizando padrão.", caminho_arquivo, e
         )
@@ -98,7 +98,7 @@ def salvar_grade_horarios(
         with open(caminho_arquivo, "w", encoding="utf-8") as f:
             json.dump(grade, f, indent=2, ensure_ascii=False)
         return True
-    except Exception as e:
+    except (OSError, TypeError, ValueError) as e:
         logger.error("Erro ao salvar grade horária em %s: %s", caminho_arquivo, e)
         return False
 
@@ -202,7 +202,7 @@ def converter_linhas_configuracao_para_grade(
         try:
             _hora_para_minutos(inicio)
             _hora_para_minutos(fim)
-        except Exception:
+        except (ValueError, TypeError):
             logger.warning("Linha com horário inválido na configuração: %s - %s", inicio, fim)
             continue
 
@@ -348,7 +348,7 @@ def validar_janela_horario(
 
     try:
         minutos_atuais = _hora_para_minutos(hora_atual)
-    except Exception:
+    except (ValueError, TypeError):
         logger.warning("Formato inválido de hora: %s", hora_atual)
         return True, ""
 

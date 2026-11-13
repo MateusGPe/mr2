@@ -6,18 +6,18 @@
 
 import logging
 import tkinter as tk
-from tkinter import BOTH, EW, HORIZONTAL, NSEW, YES, W, E
+from tkinter import BOTH, EW, HORIZONTAL, NSEW, YES, E, W
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 import ttkbootstrap as ttk
-from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap import ScrolledFrame
+from ttkbootstrap.dialogs import Messagebox
 
-from registro.gui.registrar.constants import TURMAS_INTEGRADO, obter_turmas_integrado
+from registro.gui.registrar.constants import obter_turmas_integrado
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
-    from registro.gui.registrar.app import AppRegistro
+    pass
 
 logger = logging.getLogger(__name__)
 

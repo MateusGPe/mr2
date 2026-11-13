@@ -5,13 +5,13 @@
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import tkinter as tk
-from tkinter import filedialog
 import traceback
 from datetime import datetime
 from pathlib import Path
+from tkinter import filedialog
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, RIGHT, W, X
+from ttkbootstrap.constants import EW, LEFT, NSEW, RIGHT, W, X
 from ttkbootstrap.dialogs import Messagebox
 
 from registro.gui.comum.controles.rounded_button import RoundedButton

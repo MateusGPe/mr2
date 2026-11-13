@@ -27,6 +27,7 @@ from registro.nucleo.repository import (
 from registro.nucleo.utils import (
     extrair_turmas_e_categorias,
     normalizar_lista_categorias,
+    rollback_seguro,
 )
 
 logger = logging.getLogger(__name__)
@@ -109,10 +110,7 @@ def criar_estudante(
         repo_estudante.obter_sessao().commit()
     except Exception as e:
         logger.exception("Falha ao criar estudante %s: %s", prontuario, e)
-        try:
-            repo_estudante.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_estudante.obter_sessao())
         raise ErroNucleoRegistro(f"Falha ao criar estudante no banco de dados: {e}") from e
 
     _, cats_finais = extrair_turmas_e_categorias(novo_estudante)
@@ -173,10 +171,7 @@ def atualizar_estudante(
         return True
     except Exception as e:
         logger.exception("Falha ao atualizar estudante %s: %s", id_estudante, e)
-        try:
-            sessao.rollback()
-        except Exception:
-            pass
+        rollback_seguro(sessao)
         raise ErroNucleoRegistro(f"Falha ao atualizar estudante no banco de dados: {e}") from e
 
 
@@ -195,10 +190,7 @@ def alternar_status_estudante(
         return True
     except Exception as e:
         logger.exception("Falha ao alternar status do estudante %s: %s", id_estudante, e)
-        try:
-            sessao.rollback()
-        except Exception:
-            pass
+        rollback_seguro(sessao)
         raise ErroNucleoRegistro(f"Falha ao alternar status do estudante no banco: {e}") from e
 
 
@@ -254,10 +246,7 @@ def deletar_ou_desativar_estudante(
             }
         except Exception as e:
             logger.exception("Falha ao desativar estudante %s: %s", id_estudante, e)
-            try:
-                sessao.rollback()
-            except Exception:
-                pass
+            rollback_seguro(sessao)
             raise ErroNucleoRegistro(f"Falha ao desativar estudante no banco: {e}") from e
 
     # Sem histórico: pode excluir com segurança
@@ -271,10 +260,7 @@ def deletar_ou_desativar_estudante(
         }
     except Exception as e:
         logger.exception("Falha ao excluir estudante %s: %s", id_estudante, e)
-        try:
-            sessao.rollback()
-        except Exception:
-            pass
+        rollback_seguro(sessao)
         raise ErroNucleoRegistro(f"Falha ao excluir estudante no banco: {e}") from e
 
 

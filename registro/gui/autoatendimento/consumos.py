@@ -16,7 +16,6 @@ from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 import ttkbootstrap as ttk
 from ttkbootstrap.constants import CENTER, LEFT
 from ttkbootstrap.dialogs import Messagebox
-from ttkbootstrap.localization.msgcat import MessageCatalog
 
 from registro.gui.autoatendimento.dialogos import (
     DialogoDetalhesConsumo,

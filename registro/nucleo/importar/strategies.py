@@ -12,13 +12,13 @@ import abc
 import csv
 from typing import Dict, List, Optional
 
+from registro.nucleo import google_api_service
+from registro.nucleo.exceptions import ErroImportacaoDados
 from registro.nucleo.importar.patterns_find import (
     ajustar_chaves_e_valores,
     checar_prontuario,
     detectar_tipo_coluna,
 )
-from registro.nucleo import google_api_service
-from registro.nucleo.exceptions import ErroImportacaoDados
 
 
 class EstrategiaCarregamento(abc.ABC):
@@ -79,7 +79,7 @@ class CarregarCSVPosicional(EstrategiaCarregamento):
             if not linhas_csv:
                 return []
 
-            colunas = list(zip(*linhas_csv))
+            colunas = list(zip(*linhas_csv, strict=False))
             mapa_colunas: Dict[int, str] = {}
 
             for i, valores_coluna in enumerate(colunas):
@@ -148,7 +148,7 @@ class CarregarGoogleSheets(EstrategiaCarregamento):
 
             for linha in valores[1:]:
                 linha_ajustada = linha + [""] * (len(cabecalho) - len(linha))
-                linha_dict = dict(zip(cabecalho, linha_ajustada))
+                linha_dict = dict(zip(cabecalho, linha_ajustada, strict=False))
                 dados.append(ajustar_chaves_e_valores(linha_dict))
 
             return dados

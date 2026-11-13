@@ -5,16 +5,15 @@
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
 import logging
-import tkinter as tk
 import re
-from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
+import tkinter as tk
+from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 
-from fuzzywuzzy import fuzz
 import ttkbootstrap as ttk
+from fuzzywuzzy import fuzz
 from PIL import Image, ImageTk
-from ttkbootstrap.constants import CENTER, LEFT, NSEW, RIGHT, X
+from ttkbootstrap.constants import CENTER, NSEW, X
 
-from registro.gui.comum.constants import REGEX_LIMPEZA_PRONTUARIO
 from registro.gui.comum.utils import emitir_feedback_sonoro
 from registro.nucleo.config_service import obter_config_totem
 from registro.nucleo.facade import FachadaRegistro
@@ -25,13 +24,14 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 try:
-    import cv2
-    import numpy as np
+    import os
 
     # Correção para Windows: adicionar diretório do pyzbar ao caminho de busca de DLLs
     # Isso ajuda a resolver problemas de caminho longo e dependências (libiconv.dll)
     import sys
-    import os
+
+    import cv2
+    import numpy as np
     if sys.platform == "win32":
         import pyzbar
         # Adiciona o diretório do pacote (onde estão as DLLs) à busca
@@ -39,7 +39,7 @@ try:
         _pyzbar_dll_path = os.add_dll_directory(
             os.path.dirname(pyzbar.__file__))
 
-    from pyzbar.pyzbar import decode, ZBarSymbol
+    from pyzbar.pyzbar import ZBarSymbol, decode
 
     OPENCV_DISPONIVEL = True
 except (ImportError, OSError) as e:

@@ -10,14 +10,15 @@ Permite selecionar arquivos CSV/Excel, pré-visualizar estudantes, customizar le
 da folha A4 e exportar diretamente para PDF (vetorial) ou HTML.
 """
 
-from pathlib import Path
+import logging
 import os
-import sys
+from pathlib import Path
 from tkinter import filedialog
 from typing import Dict, List
 
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, END, EW, LEFT, RIGHT, W, X, Y
+from sqlalchemy.exc import SQLAlchemyError
+from ttkbootstrap.constants import BOTH, END, LEFT, RIGHT, W, X
 from ttkbootstrap.dialogs import Messagebox
 
 from registro.cards.generator import (
@@ -26,6 +27,8 @@ from registro.cards.generator import (
     generate_cards_pdf,
     load_students_from_file,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class CardsApp(ttk.Window):
@@ -269,7 +272,8 @@ class CardsApp(ttk.Window):
                 try:
                     self._carregar_dados_de_caminho(c)
                     return
-                except Exception:
+                except (OSError, ValueError, KeyError) as e:
+                    logger.debug("Ignorando arquivo inicial %s: %s", c, e)
                     continue
 
     def _selecionar_arquivo(self):
@@ -354,7 +358,7 @@ class CardsApp(ttk.Window):
                     "Banco de Dados Conectado",
                     parent=self,
                 )
-        except Exception as ex:
+        except (SQLAlchemyError, OSError, ValueError) as ex:
             Messagebox.show_error(
                 f"Erro ao carregar dados do banco do sistema:\n{ex}",
                 "Erro no Banco",
@@ -448,7 +452,7 @@ class CardsApp(ttk.Window):
             self.turmas_vars = {t: ttk.BooleanVar(value=True) for t in self.todas_turmas}
             self._atualizar_menu_turmas()
             self._filtrar_estudantes()
-        except Exception as e:
+        except (OSError, ValueError, KeyError) as e:
             Messagebox.show_error(
                 f"Não foi possível processar o arquivo:\n{e}",
                 "Erro ao Carregar Arquivo",
@@ -532,8 +536,8 @@ class CardsApp(ttk.Window):
             if resposta == "Yes":
                 try:
                     os.startfile(caminho_arquivo)
-                except Exception:
-                    pass
+                except OSError as e:
+                    logger.warning("Não foi possível abrir %s automaticamente: %s", caminho_arquivo, e)
         else:
             Messagebox.show_info(
                 f"Cartões exportados com sucesso em:\n{caminho_arquivo}",
@@ -557,9 +561,9 @@ class CardsApp(ttk.Window):
 
         try:
             opcoes = self._obter_opcoes()
-            total = generate_cards_pdf(self.students_filtered, destino, opcoes)
+            generate_cards_pdf(self.students_filtered, destino, opcoes)
             self._perguntar_abrir_arquivo(destino)
-        except Exception as e:
+        except (OSError, ValueError) as e:
             Messagebox.show_error(f"Falha ao gerar PDF:\n{e}", "Erro na Exportação")
 
     def _exportar_html(self):
@@ -579,9 +583,9 @@ class CardsApp(ttk.Window):
 
         try:
             opcoes = self._obter_opcoes()
-            total = generate_cards_html(self.students_filtered, destino, opcoes)
+            generate_cards_html(self.students_filtered, destino, opcoes)
             self._perguntar_abrir_arquivo(destino)
-        except Exception as e:
+        except (OSError, ValueError) as e:
             Messagebox.show_error(f"Falha ao gerar HTML:\n{e}", "Erro na Exportação")
 
 

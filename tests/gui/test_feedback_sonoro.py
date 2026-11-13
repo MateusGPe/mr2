@@ -4,7 +4,6 @@ Testes unitários para o utilitário multiplataforma emitir_feedback_sonoro.
 
 import sys
 from unittest.mock import MagicMock, patch
-import pytest
 
 from registro.gui.comum.utils import emitir_feedback_sonoro, obter_caminho_documentos
 

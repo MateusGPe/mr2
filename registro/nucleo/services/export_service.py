@@ -41,9 +41,8 @@ _OPCOES_XLSX_SEGURO = {"strings_to_formulas": False, "strings_to_urls": False}
 
 def _sanitizar_celula_planilha(valor: Any) -> Any:
     """Previne CSV/Formula Injection (OWASP) escapando células iniciadas por operadores de fórmula."""
-    if isinstance(valor, str) and valor.startswith(_PREFIXOS_FORMULA_PERIGOSOS):
-        if valor != "-":
-            return f"'{valor}"
+    if isinstance(valor, str) and valor.startswith(_PREFIXOS_FORMULA_PERIGOSOS) and valor != "-":
+        return f"'{valor}"
     return valor
 
 

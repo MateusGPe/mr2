@@ -33,6 +33,8 @@ from sqlalchemy.orm import (
     sessionmaker,
 )
 
+from registro.nucleo.constants import URL_BANCO_DADOS as URL_BANCO_DE_DADOS
+
 
 class Base(DeclarativeBase):
     """Base declarativa para os modelos do SQLAlchemy."""
@@ -305,7 +307,7 @@ class Consumo(Base):
             "estudante_id",
             "sessao_id",
             unique=True,
-            sqlite_where=(Column("ativo") == True),
+            sqlite_where=(Column("ativo").is_(True)),
         ),
     )
 
@@ -343,8 +345,6 @@ class SyncLog(Base):
             f"direction='{self.direction}', status='{self.status}')>"
         )
 
-
-from registro.nucleo.constants import URL_BANCO_DADOS as URL_BANCO_DE_DADOS
 
 motor = create_engine(
     URL_BANCO_DE_DADOS,

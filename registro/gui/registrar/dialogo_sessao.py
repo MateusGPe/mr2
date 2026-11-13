@@ -6,10 +6,10 @@
 
 import datetime as dt
 import logging
-from pathlib import Path
 import threading
-from threading import Thread
 import tkinter as tk
+from pathlib import Path
+from threading import Thread
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -24,7 +24,7 @@ from typing import (
 
 import ttkbootstrap as ttk
 from ttkbootstrap import ScrolledFrame
-from ttkbootstrap.constants import E, EW, HORIZONTAL, NSEW, W
+from ttkbootstrap.constants import EW, HORIZONTAL, NSEW, E, W
 from ttkbootstrap.dialogs import Messagebox
 
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples
@@ -40,7 +40,7 @@ from registro.nucleo.services import grade_horarios_service
 from registro.nucleo.utils import carregar_json, salvar_json
 
 if TYPE_CHECKING:
-    from registro.gui.registrar.app import AppRegistro
+    pass
 
 logger = logging.getLogger(__name__)
 
@@ -1515,11 +1515,11 @@ class DialogoSessao(tk.Toplevel):
     def _acao_sincronizacao(self):
         """Wrapper para a chamada de sincronização, capturando exceções."""
         thread = threading.current_thread()
-        setattr(thread, "error", None)
+        thread.error = None
         try:
             self._fachada.sincronizar_do_google_sheets()
         except Exception as e:  # pylint: disable=broad-exception-caught
-            setattr(thread, "error", e)
+            thread.error = e
 
     def _monitorar_sincronizacao(self, thread: Thread):
         """Verifica o status da thread e exibe o resultado ao final."""

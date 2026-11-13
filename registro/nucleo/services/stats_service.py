@@ -184,10 +184,8 @@ def obter_estatisticas_sessao(
     repo_grupo: RepositorioGrupo,
     id_sessao: int,
     excecao_grupos: Optional[Set[str]] = None,
-    excessao_grupos: Optional[Set[str]] = None,
 ) -> Dict[str, Any]:
     """Calcula estatísticas detalhadas e consolidadas para uma sessão de refeição."""
-    grupos_filtro = excecao_grupos if excecao_grupos is not None else excessao_grupos
     sessao = obter_detalhes_sessao(repo_sessao, id_sessao)
     consumidos = obter_estudantes_para_sessao(
         repo_sessao=repo_sessao,
@@ -198,7 +196,7 @@ def obter_estatisticas_sessao(
         id_sessao=id_sessao,
         consumido=True,
         pular_grupos=True,
-        excecao_grupos=grupos_filtro,
+        excecao_grupos=excecao_grupos,
     )
     elegiveis = obter_estudantes_para_sessao(
         repo_sessao=repo_sessao,
@@ -208,7 +206,7 @@ def obter_estatisticas_sessao(
         repo_grupo=repo_grupo,
         id_sessao=id_sessao,
         consumido=False,
-        excecao_grupos=grupos_filtro,
+        excecao_grupos=excecao_grupos,
     )
 
     total_consumidos = len(consumidos)
@@ -271,7 +269,7 @@ def obter_estatisticas_sessao(
                 dist_horarios[chave_intervalo] = (
                     dist_horarios.get(chave_intervalo, 0) + 1
                 )
-            except Exception:
+            except (ValueError, TypeError):
                 chave_hora = f"{hora[:2]}:00"
                 dist_horarios[chave_hora] = dist_horarios.get(chave_hora, 0) + 1
 
@@ -293,7 +291,7 @@ def obter_estatisticas_sessao(
             minutos = (h_fim - h_ini).total_seconds() / 60.0
             if minutos >= 1.0:
                 velocidade = round(total_consumidos / minutos, 1)
-        except Exception:
+        except (ValueError, TypeError):
             velocidade = 0.0
 
     total_pap = sum(qtd for nome, qtd in dist_categorias.items() if "PAP" in nome.upper())

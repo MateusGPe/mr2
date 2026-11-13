@@ -10,15 +10,17 @@ Serviço de gerenciamento de Grupos / Turmas (CRUD, listagens e vinculação de 
 
 import logging
 from typing import Any, Dict, List, Optional
+
 from sqlalchemy.orm import selectinload
 
 from registro.nucleo.constants import (
-    TIPOS_GRUPO_VALIDOS,
     TIPO_GRUPO_TURMA,
+    TIPOS_GRUPO_VALIDOS,
 )
 from registro.nucleo.exceptions import ErroNucleoRegistro
-from registro.nucleo.models import Estudante, Grupo
+from registro.nucleo.models import Grupo
 from registro.nucleo.repository import RepositorioEstudante, RepositorioGrupo
+from registro.nucleo.utils import rollback_seguro
 
 logger = logging.getLogger(__name__)
 
@@ -55,10 +57,7 @@ def criar_grupo(
         repo_grupo.obter_sessao().commit()
     except Exception as e:
         logger.exception("Falha ao criar grupo %s: %s", nome_limpo, e)
-        try:
-            repo_grupo.obter_sessao().rollback()
-        except Exception:
-            pass
+        rollback_seguro(repo_grupo.obter_sessao())
         raise ErroNucleoRegistro(f"Falha ao criar grupo no banco: {e}") from e
     return {"id": grupo.id, "nome": grupo.nome, "ativo": grupo.ativo, "tipo": grupo.tipo}
 
@@ -94,10 +93,7 @@ def atualizar_grupo(
         return True
     except Exception as e:
         logger.exception("Falha ao atualizar turma %s: %s", id_grupo, e)
-        try:
-            sessao.rollback()
-        except Exception:
-            pass
+        rollback_seguro(sessao)
         raise ErroNucleoRegistro(f"Falha ao atualizar turma no banco: {e}") from e
 
 
@@ -144,10 +140,7 @@ def deletar_grupo(
         return {"status": "deleted", "mensagem": f"Turma '{grupo.nome}' excluída com sucesso."}
     except Exception as e:
         logger.exception("Falha ao excluir turma %s: %s", id_grupo, e)
-        try:
-            sessao.rollback()
-        except Exception:
-            pass
+        rollback_seguro(sessao)
         raise ErroNucleoRegistro(f"Falha ao excluir turma no banco: {e}") from e
 
 
@@ -230,10 +223,7 @@ def vincular_aluno_turma(
             sessao.commit()
         except Exception as e:
             logger.exception("Falha ao vincular aluno %s à turma %s: %s", id_estudante, id_grupo, e)
-            try:
-                sessao.rollback()
-            except Exception:
-                pass
+            rollback_seguro(sessao)
             raise ErroNucleoRegistro(f"Falha ao vincular aluno à turma: {e}") from e
     return True
 
@@ -264,9 +254,6 @@ def desvincular_aluno_turma(
             return True
         except Exception as e:
             logger.exception("Falha ao desvincular aluno %s da turma %s: %s", id_estudante, id_grupo, e)
-            try:
-                sessao.rollback()
-            except Exception:
-                pass
+            rollback_seguro(sessao)
             raise ErroNucleoRegistro(f"Falha ao desvincular aluno da turma: {e}") from e
     return False

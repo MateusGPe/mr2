@@ -4,13 +4,10 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
-import pytest
-from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 
 from registro.nucleo.constants import NOME_ABA_CONFIGURACAO, NOME_ABA_LANCHES
 from registro.nucleo.services import grade_horarios_service, sync_service
-from registro.nucleo.facade import FachadaRegistro
 
 
 def test_converter_linhas_configuracao_para_grade():

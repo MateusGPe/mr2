@@ -9,8 +9,8 @@ Serviço de sincronização de dados com planilhas Google Sheets.
 """
 
 import json
-from datetime import datetime
 import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
@@ -23,7 +23,6 @@ from registro.nucleo.constants import (
     NOME_ABA_CONFIGURACAO,
     NOME_ABA_LANCHES,
 )
-from registro.nucleo.services import grade_horarios_service
 from registro.nucleo.exceptions import (
     ErroAPIGoogle,
     ErroImportacaoDados,
@@ -38,6 +37,7 @@ from registro.nucleo.repository import (
     RepositorioReserva,
     RepositorioSessao,
 )
+from registro.nucleo.services import grade_horarios_service
 from registro.nucleo.services.sessao_service import obter_detalhes_sessao
 from registro.nucleo.utils import formatar_turma_e_categoria, salvar_csv
 
@@ -94,7 +94,7 @@ def sincronizar_do_google_sheets(
                         grade_estruturada, caminho_config / "grade_horarios.json"
                     )
                     logger.info("Grade horária sincronizada da aba Configuração.")
-        except Exception as e:
+        except (ErroAPIGoogle, OSError, ValueError) as e:
             logger.warning("Aba '%s' não sincronizada: %s", NOME_ABA_CONFIGURACAO, e)
 
         # Sincronização bidirecional da aba Lanches
@@ -112,8 +112,8 @@ def sincronizar_do_google_sheets(
                             lanches_locais = {
                                 str(item).strip() for item in dados if str(item).strip()
                             }
-                except Exception:
-                    pass
+                except (OSError, json.JSONDecodeError, ValueError) as e:
+                    logger.debug("Falha ao ler lanches locais de %s: %s", caminho_lanches, e)
 
             novos_lanches_remotos = set()
             if linhas_lanches:
@@ -133,13 +133,13 @@ def sincronizar_do_google_sheets(
 
                 # Bidirecional: envia itens locais que ainda não existiam na planilha
                 lanches_para_enviar = [
-                    [l] for l in lanches_locais if l not in novos_lanches_remotos
+                    [lanche] for lanche in lanches_locais if lanche not in novos_lanches_remotos
                 ]
                 if lanches_para_enviar:
                     google_api_service.anexar_linhas_unicas(
                         planilha, lanches_para_enviar, NOME_ABA_LANCHES
                     )
-        except Exception as e:
+        except (ErroAPIGoogle, OSError, ValueError) as e:
             logger.warning("Aba '%s' não sincronizada: %s", NOME_ABA_LANCHES, e)
 
     except (ErroAPIGoogle, ErroImportacaoDados) as e:
@@ -348,5 +348,5 @@ def sincronizar_novo_lanche_para_planilha(item_lanche: str):
         google_api_service.anexar_linhas_unicas(
             planilha, [[item_lanche.strip()]], NOME_ABA_LANCHES
         )
-    except Exception as e:
+    except (ErroAPIGoogle, OSError, ValueError) as e:
         logger.warning("Não foi possível enviar novo lanche para a planilha: %s", e)

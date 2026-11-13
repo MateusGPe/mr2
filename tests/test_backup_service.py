@@ -5,8 +5,8 @@
 Testes unitários para o módulo de backup, restauração e salvaguardas.
 """
 
-from pathlib import Path
 import zipfile
+
 import pytest
 
 from registro.nucleo import backup_service
@@ -102,3 +102,59 @@ def test_restaurar_backup_invalido(temp_backup_env, tmp_path):
     sucesso, msg = backup_service.restaurar_backup(falso_zip)
     assert sucesso is False
     assert "não é um arquivo zip" in msg.lower()
+
+
+def test_criar_backup_ignora_temporarios_e_wal(temp_backup_env):
+    cfg_dir, _ = temp_backup_env
+    (cfg_dir / "temp.tmp").write_text("tmp", encoding="utf-8")
+    (cfg_dir / "app.lock").write_text("lock", encoding="utf-8")
+    (cfg_dir / "registro.db-wal").write_text("wal", encoding="utf-8")
+    (cfg_dir / "registro.db-shm").write_text("shm", encoding="utf-8")
+
+    zip_path = backup_service.criar_backup()
+    with zipfile.ZipFile(zip_path, "r") as zf:
+        nomes = set(zf.namelist())
+        assert "config/registro.db" in nomes
+        assert "config/temp.tmp" not in nomes
+        assert "config/app.lock" not in nomes
+        assert "config/registro.db-wal" not in nomes
+        assert "config/registro.db-shm" not in nomes
+
+
+def test_listar_backups_diretorio_inexistente(tmp_path):
+    assert backup_service.listar_backups(tmp_path / "nao_existe") == []
+
+
+def test_restaurar_backup_inexistente(temp_backup_env, tmp_path):
+    sucesso, msg = backup_service.restaurar_backup(tmp_path / "ausente.zip")
+    assert sucesso is False
+    assert "não encontrado" in msg.lower()
+
+
+def test_restaurar_backup_protege_contra_zip_slip(temp_backup_env, tmp_path):
+    cfg_dir, _ = temp_backup_env
+    zip_malicioso = tmp_path / "malicioso.zip"
+    with zipfile.ZipFile(zip_malicioso, "w") as zf:
+        zf.writestr("../../fora.txt", "conteudo_seguro_nome_limpo")
+
+    sucesso, _ = backup_service.restaurar_backup(zip_malicioso, criar_salvaguarda=False)
+    assert sucesso is True
+    assert not (tmp_path / "fora.txt").exists()
+    assert (cfg_dir / "fora.txt").read_text(encoding="utf-8") == "conteudo_seguro_nome_limpo"
+
+
+def test_excluir_backup_erro_oserror(temp_backup_env, monkeypatch):
+    zip_path = backup_service.criar_backup()
+    monkeypatch.setattr(type(zip_path), "unlink", lambda _self: (_ for _ in ()).throw(OSError("permissão negada")))
+    assert backup_service.excluir_backup(zip_path) is False
+
+
+def test_redefinir_banco_dados(temp_backup_env):
+    cfg_dir, bkp_dir = temp_backup_env
+    (cfg_dir / "registro.db").unlink()
+
+    sucesso, msg = backup_service.redefinir_banco_dados(criar_backup_previo=True)
+    assert sucesso is True
+    assert "sucesso" in msg.lower()
+    assert (cfg_dir / "registro.db").exists()
+    assert len(list(bkp_dir.glob("backup_pre_redefinicao_*.zip"))) == 1

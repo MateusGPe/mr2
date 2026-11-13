@@ -9,13 +9,11 @@ Testes unitários e de integração para validação de sanidade das correções
 - Tratamento transacional com rollback preventivo.
 """
 
-from unittest.mock import MagicMock, patch
-import pytest
+from unittest.mock import patch
+
 from sqlalchemy.exc import SQLAlchemyError
 
-from registro.nucleo import service_logic
 from registro.nucleo.facade import FachadaRegistro
-from registro.nucleo.models import Consumo
 from registro.nucleo.services import (
     consumo_service,
     export_service,

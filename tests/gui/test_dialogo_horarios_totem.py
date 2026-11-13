@@ -10,8 +10,8 @@ Testes unitários e de integração para o diálogo de horários das turmas no t
 """
 
 from unittest.mock import MagicMock, patch
+
 import pytest
-import tkinter as tk
 
 from registro.gui.autoatendimento.dialogo_horarios import DialogoGradeHorariosTotem
 from registro.gui.autoatendimento.totem import FrameSelfService

@@ -29,7 +29,7 @@ from gspread.exceptions import WorksheetNotFound
 
 from registro.nucleo import constants, google_api_service
 from registro.nucleo.facade import FachadaRegistro
-from registro.nucleo.models import Consumo, Estudante, Reserva
+from registro.nucleo.models import Estudante, Reserva
 from registro.nucleo.services import grade_horarios_service
 
 

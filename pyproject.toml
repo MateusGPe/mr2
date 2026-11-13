@@ -45,11 +45,26 @@ target-version = "py311"
 
 [tool.ruff.lint]
 select = [
-    "E9",    # Syntax errors and fatal parser errors
-    "F821",  # Undefined name
-    "F822",  # Undefined export in __all__
-    "F823",  # Local variable referenced before assignment
+    "E",      # pycodestyle errors
+    "F",      # pyflakes (unused imports, unused vars, undefined names)
+    "W",      # pycodestyle warnings
+    "B",      # flake8-bugbear
+    "SIM",    # flake8-simplify
+    "LOG",    # flake8-logging
+    "S110",   # try-except-pass
+    "S112",   # try-except-continue
+    "BLE001", # blind-except
+    "I",      # isort
 ]
+ignore = ["E501"]
+
+[tool.ruff.lint.per-file-ignores]
+"**/__init__.py" = ["F401"]
+"registro/nucleo/service_logic.py" = ["F401", "I001"]
+"registro/gui/registrar/constants.py" = ["F401", "I001"]
+"registro/gui/**" = ["BLE001", "S110", "SIM105", "SIM102", "E402", "E731", "E741"]
+"scripts/**" = ["BLE001", "S110", "SIM105", "I001", "F401", "F841", "E402"]
+"tests/**" = ["BLE001", "S110", "SIM105", "F841"]
 
 [build-system]
 requires = ["hatchling"]

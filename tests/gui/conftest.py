@@ -2,8 +2,8 @@ import tkinter as tk
 from dataclasses import dataclass, field
 from typing import Any, Dict, List
 from unittest.mock import patch
-import pytest
 
+import pytest
 from ttkbootstrap.localization.msgcat import MessageCatalog
 from ttkbootstrap.style.engine import Style, StyleBuilderTTK
 

@@ -13,6 +13,7 @@ Testes E2E rigorosos para:
 
 from contextlib import contextmanager
 from unittest.mock import patch
+
 import pytest
 
 from registro.nucleo import constants

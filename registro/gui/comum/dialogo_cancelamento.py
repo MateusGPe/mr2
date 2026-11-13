@@ -9,9 +9,10 @@ Diálogo de auditoria para confirmação e registro de motivo no cancelamento de
 """
 
 import tkinter as tk
-from typing import Optional, Tuple
+from typing import Tuple
+
 import ttkbootstrap as ttk
-from ttkbootstrap.constants import BOTH, EW, LEFT, RIGHT, W, X
+from ttkbootstrap.constants import BOTH, LEFT, RIGHT, W, X
 
 
 class DialogoConfirmarCancelamento(ttk.Toplevel):

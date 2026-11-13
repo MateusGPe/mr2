@@ -2,14 +2,12 @@
 Testes unitários para as operações de CRUD e repositórios em registro.nucleo.repository.
 """
 
-import pytest
 from sqlalchemy.orm import Session
 
 from registro.nucleo.repository import (
     RepositorioConsumo,
     RepositorioEstudante,
     RepositorioGrupo,
-    RepositorioReserva,
     RepositorioSessao,
 )
 
