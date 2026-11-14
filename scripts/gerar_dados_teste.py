@@ -974,8 +974,8 @@ def fazer_upload_para_google_sheets(
             try:
                 aba.freeze(rows=1)
                 aba.format("1:1", {"textFormat": {"bold": True}})
-            except Exception:
-                pass
+            except (OSError, RuntimeError, ValueError) as e:
+                logger.debug("Formatação opcional da aba ignorada: %s", e)
         else:
             # Apenas anexa linhas únicas
             adicionados = servico.anexar_linhas_unicas(nome_aba, linhas)

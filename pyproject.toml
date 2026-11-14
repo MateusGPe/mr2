@@ -37,6 +37,7 @@ dev = [
     "pyinstaller>=6.19.0",
     "qrcode>=8.2",
     "ruff>=0.9.0",
+    "pyright>=1.1.390",
 ]
 
 [tool.ruff]
@@ -60,10 +61,8 @@ ignore = ["E501"]
 
 [tool.ruff.lint.per-file-ignores]
 "**/__init__.py" = ["F401"]
-"registro/nucleo/service_logic.py" = ["F401", "I001"]
-"registro/gui/registrar/constants.py" = ["F401", "I001"]
-"registro/gui/**" = ["BLE001", "S110", "SIM105", "SIM102", "E402", "E731", "E741"]
-"scripts/**" = ["BLE001", "S110", "SIM105", "I001", "F401", "F841", "E402"]
+"registro/gui/**" = ["SIM105", "SIM102", "E402", "E731", "E741"]
+"scripts/**" = ["SIM105", "I001", "F401", "F841", "E402"]
 "tests/**" = ["BLE001", "S110", "SIM105", "F841"]
 
 [build-system]
@@ -80,3 +79,10 @@ source = ["registro/nucleo"]
 omit = [
     "*/__main__.py",
 ]
+
+[tool.pyright]
+include = ["registro/nucleo", "registro/cards"]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.13"
+typeCheckingMode = "standard"

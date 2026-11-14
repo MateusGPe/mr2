@@ -8,14 +8,15 @@ Módulo de interface gráfica para importação de dados.
 Implementa um Wizard de 4 passos: Seleção, Revisão, Preview e Confirmação.
 """
 
+import logging
 import tkinter as tk
-import traceback
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog
 from typing import Any, Dict, List, Optional
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, RIGHT, E, W, X
 from ttkbootstrap.dialogs import Messagebox
@@ -23,10 +24,12 @@ from ttkbootstrap.widgets import DateEntry
 
 from registro.gui.comum.controles.rounded_button import RoundedButton
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples
-from registro.nucleo.exceptions import ErroSessaoNaoAtiva
+from registro.nucleo.exceptions import ErroImportacaoDados, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 from registro.nucleo.importar.definitions import ItemRevisao, ResumoImportacao
 from registro.nucleo.importar.facade import FachadaImportacao
+
+logger = logging.getLogger(__name__)
 
 
 class RowItemRevisao(ttk.Frame):
@@ -324,8 +327,8 @@ class AbaImportacao(ttk.Frame):
                 "📥 Importação - Passo 2 (Revisão)",
             )
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            traceback.print_exc()
+        except (ErroImportacaoDados, OSError, SQLAlchemyError, ValueError) as e:
+            logger.exception("Erro na análise do arquivo de importação.")
             Messagebox.show_error(f"Erro na análise: {e}")
 
     def _criar_passo_2(self, parent):
@@ -494,8 +497,8 @@ class AbaImportacao(ttk.Frame):
                 "📥 Importação - Passo 3 (Confirmação)",
             )
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            traceback.print_exc()
+        except (ErroImportacaoDados, SQLAlchemyError, ValueError, KeyError) as e:
+            logger.exception("Erro ao gerar preview de importação.")
             Messagebox.show_error(f"Erro ao gerar preview: {e}")
 
     def _criar_passo_3_preview(self, parent):
@@ -584,8 +587,8 @@ class AbaImportacao(ttk.Frame):
             self._mostrar_sucesso_final(resultado)
             self._navegar(self.step3_frame, self.step4_frame, "✅ Importação Concluída")
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
-            traceback.print_exc()
+        except (ErroImportacaoDados, SQLAlchemyError, ValueError) as e:
+            logger.exception("Erro fatal ao salvar importação.")
             Messagebox.show_error(f"Erro fatal ao salvar: {e}")
 
     def _criar_passo_4_sucesso(self, parent):
@@ -721,5 +724,6 @@ class AbaImportacao(ttk.Frame):
             Messagebox.show_warning(
                 "Nenhuma sessão ativa para exportar consumo.", "Aviso"
             )
-        except Exception as e:
+        except (OSError, SQLAlchemyError) as e:
+            logger.exception("Falha na exportação de dados.")
             Messagebox.show_error(f"Falha na exportação: {e}", "Erro")

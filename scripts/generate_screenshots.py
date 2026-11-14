@@ -438,8 +438,8 @@ def run_group_setup():
     # Cria backup de demonstração para popular a aba de backups
     try:
         criar_backup(prefixo="backup_registro_demo")
-    except Exception:
-        pass
+    except (OSError, RuntimeError, ValueError) as e:
+        print(f"Aviso: falha ao criar backup de demonstração: {e}")
 
     setup_app = AppSetup()
     setup_app.geometry("980x700")

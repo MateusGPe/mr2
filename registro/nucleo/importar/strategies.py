@@ -45,7 +45,7 @@ class CarregarListaSimples(EstrategiaCarregamento):
                     if not texto:
                         continue
 
-                    item = {
+                    item: Dict[str, Optional[str]] = {
                         "prontuario": None,
                         "nome": None,
                         "data": None,

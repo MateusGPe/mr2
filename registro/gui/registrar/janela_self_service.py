@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING, Any, Dict, Optional, Tuple
 import ttkbootstrap as ttk
 from fuzzywuzzy import fuzz
 from PIL import Image, ImageTk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import CENTER, NSEW, X
 
 from registro.gui.comum.utils import emitir_feedback_sonoro
@@ -286,7 +287,7 @@ class JanelaSelfService(tk.Toplevel):
                         pts = pts.reshape((-1, 1, 2))
                         cv2.polylines(frame, [pts], True, (0, 255, 0), 3)
                     break  # Processa apenas um por vez
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except (ValueError, TypeError, RuntimeError, UnicodeDecodeError) as e:
             logger.error("Erro ao decodificar frame: %s", e)
 
     def _exibir_frame_no_label(self, frame):
@@ -304,7 +305,7 @@ class JanelaSelfService(tk.Toplevel):
             imgtk = ImageTk.PhotoImage(image=img)
             self._lbl_video.imgtk = imgtk
             self._lbl_video.configure(image=imgtk, text="")
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except (tk.TclError, OSError, ValueError) as e:
             logger.error("Erro ao exibir frame: %s", e)
 
     def _ao_submeter_manual(self, _=None):
@@ -504,7 +505,7 @@ class JanelaSelfService(tk.Toplevel):
 
             correspondencias.sort(key=lambda x: -x["score"])
             return correspondencias[0]
-        except Exception as e:
+        except (SQLAlchemyError, ValueError, KeyError, TypeError) as e:
             logger.error("Erro ao buscar sugestão por nome: %s", e)
             return None
 

@@ -4,19 +4,22 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
+import logging
 import tkinter as tk
-import traceback
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, W
 from ttkbootstrap.dialogs import Messagebox
 
 from registro.gui.comum.controles.rounded_button import RoundedButton
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 from registro.gui.painel.dialogos import StudentDialog
+
+logger = logging.getLogger(__name__)
 
 
 class AbaAlunos(ttk.Frame):
@@ -168,8 +171,8 @@ class AbaAlunos(ttk.Frame):
             self.cbo_turma["values"] = turmas
             if self.filter_turma_var.get() not in turmas:
                 self.filter_turma_var.set("Todas")
-        except Exception:
-            pass
+        except (SQLAlchemyError, tk.TclError) as e:
+            logger.debug("Falha ao atualizar combobox de turmas: %s", e)
 
     def _get_dados_linha_selecionada(self):
         return self.alunos_table.obter_linha_selecionada()
@@ -213,11 +216,9 @@ class AbaAlunos(ttk.Frame):
                 for aluno in alunos
             ]
             self.alunos_table.construir_dados_tabela(dados)
-        except Exception:
-            Messagebox.show_error(
-                "Erro ao carregar alunos. Verifique o console.", "Erro"
-            )
-            traceback.print_exc()
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar alunos na aba.")
+            Messagebox.show_error("Erro ao carregar alunos. Verifique os logs.", "Erro")
         self._on_aluno_select()
 
     def _get_aluno_selecionado_id(self):
@@ -312,5 +313,6 @@ class AbaAlunos(ttk.Frame):
             Messagebox.show_info(
                 f"Alunos exportados com sucesso em:\n{filepath}", "Sucesso"
             )
-        except Exception as e:
+        except (OSError, SQLAlchemyError, ValueError) as e:
+            logger.exception("Falha ao exportar alunos.")
             Messagebox.show_error(f"Falha ao exportar alunos: {e}", "Erro")

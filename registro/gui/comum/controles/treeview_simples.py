@@ -138,7 +138,7 @@ class TreeviewSimples:
                     ("active", hover_color),
                 ],
             )
-        except Exception:
+        except (tk.TclError, AttributeError, KeyError, TypeError):
             logger.warning(
                 "Não foi possível aplicar estilos de cabeçalho ttkbootstrap."
             )
@@ -167,7 +167,7 @@ class TreeviewSimples:
             defaults["hover_bg"] = Colors.update_hsv(accent_bg, vd=0.15, sd=-0.15)
             defaults["hover_fg"] = accent_fg
 
-        except Exception:
+        except (tk.TclError, AttributeError, KeyError, TypeError):
             logger.warning("Usando cores de fallback para tags.")
             defaults = {
                 "odd_row_bg": "#F0F0F0",

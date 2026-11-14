@@ -3,7 +3,9 @@
 # ----------------------------------------------------------------------------
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
+import contextlib
 import logging
+import subprocess
 import sys
 import threading
 import tkinter as tk
@@ -11,6 +13,8 @@ import warnings
 from threading import Thread
 from tkinter import CENTER, TclError
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union, cast
+
+from sqlalchemy.exc import SQLAlchemyError
 
 warnings.filterwarnings(
     "ignore",
@@ -24,9 +28,8 @@ from ttkbootstrap.dialogs import Messagebox
 from ttkbootstrap.localization.msgcat import MessageCatalog
 
 from registro.gui.comum.utils import capitalizar
-from registro.gui.registrar.constants import DadosNovaSessao
 from registro.gui.registrar.dialogo_filtro_turmas import DialogoFiltroTurmas
-from registro.gui.registrar.dialogo_sessao import DialogoSessao
+from registro.gui.registrar.dialogo_sessao import DadosNovaSessao, DialogoSessao
 from registro.gui.registrar.janela_self_service import JanelaSelfService
 from registro.gui.registrar.painel_acao_busca import PainelAcaoBusca
 from registro.gui.registrar.painel_status_registrados import PainelStatusRegistrados
@@ -77,7 +80,7 @@ class AppRegistro(tk.Tk):
             self._configurar_estilo()
             self._configurar_layout_grid()
             self._criar_widgets()
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except (SQLAlchemyError, OSError, TclError, RuntimeError) as e:
             self._tratar_erro_inicializacao("Inicialização da Aplicação", e)
             return
 
@@ -423,8 +426,8 @@ class AppRegistro(tk.Tk):
 
         try:
             self._atualizar_estado_horario_livre()
-        except Exception:
-            pass
+        except (ErroSessaoNaoAtiva, SQLAlchemyError, TclError) as e:
+            logger.debug("Falha ao atualizar estado de horário livre: %s", e)
 
         if self._painel_status:
             self._painel_status.atualizar_contadores()
@@ -511,8 +514,6 @@ class AppRegistro(tk.Tk):
 
     def _abrir_janela_self_service(self):
         """Abre o totem de autoatendimento autônomo em processo independente."""
-        import subprocess
-
         logger.info("Iniciando totem de autoatendimento autônomo...")
         try:
             if self._fachada and self._fachada.id_sessao_ativa:
@@ -524,7 +525,7 @@ class AppRegistro(tk.Tk):
                 cmd = [sys.executable, "-m", "registro.gui.autoatendimento"]
 
             subprocess.Popen(cmd)
-        except Exception as e:
+        except (OSError, subprocess.SubprocessError, SQLAlchemyError) as e:
             logger.warning(
                 "Falha ao abrir processo autônomo: %s. Abrindo janela interna.", e
             )
@@ -625,7 +626,7 @@ class AppRegistro(tk.Tk):
             records_affected = funcao_sinc()
             thread.success = True
             thread.records_affected = records_affected or 0
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # noqa: BLE001 - ponte de erro entre thread worker e UI
             thread.error = e
 
     def _monitorar_thread_sinc(
@@ -736,7 +737,7 @@ class AppRegistro(tk.Tk):
                 "Erro de Inicialização",
                 parent=(self if self.winfo_exists() else None),
             )
-        except Exception:  # pylint: disable=broad-exception-caught
+        except TclError:
             print(f"ERRO CRÍTICO ({componente}): {erro}", file=sys.stderr)
 
         if self.winfo_exists():
@@ -762,10 +763,8 @@ class AppRegistro(tk.Tk):
         logger.info("Sequência de fechamento da aplicação iniciada...")
 
         if self._painel_acao and self._painel_acao.id_after_busca is not None:
-            try:
+            with contextlib.suppress(TclError):
                 self._painel_acao.after_cancel(self._painel_acao.id_after_busca)
-            except Exception:  # pylint: disable=broad-exception-caught
-                pass
 
         if self._fachada:
             id_sessao = self._fachada.id_sessao_ativa

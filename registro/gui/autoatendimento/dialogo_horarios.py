@@ -11,6 +11,7 @@ dinâmico (Liberado Agora, Em Breve, Encerrado), fechamento automático por
 inatividade e integração com leituras rápidas (QR Code / Scanner USB).
 """
 
+import contextlib
 import logging
 import tkinter as tk
 from datetime import datetime
@@ -95,15 +96,13 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
         self._iniciar_temporizador()
 
         self.protocol("WM_DELETE_WINDOW", self.fechar)
-        try:
+        with contextlib.suppress(tk.TclError):
             self.focus_force()
-        except Exception:
-            pass
 
     def _centralizar(self, parent: tk.Widget):
         """Centraliza a janela sobre o elemento pai."""
         self.update_idletasks()
-        try:
+        with contextlib.suppress(tk.TclError):
             px = parent.winfo_rootx()
             py = parent.winfo_rooty()
             pw = parent.winfo_width()
@@ -113,8 +112,6 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
             x = max(10, px + (pw - w) // 2)
             y = max(10, py + (ph - h) // 2)
             self.geometry(f"{w}x{h}+{x}+{y}")
-        except Exception:
-            pass
 
     def _criar_interface(self):
         """Constrói os elementos visuais do diálogo."""
@@ -281,7 +278,7 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
                     s.get("inicio", "00:00")
                 ),
             )
-        except Exception:
+        except (ValueError, TypeError):
             slots_ordenados = slots_brutos
 
         # Renderiza a lista de cartões da linha do tempo
@@ -332,7 +329,7 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
         try:
             ini_m = grade_horarios_service._hora_para_minutos(ini_str)
             fim_m = grade_horarios_service._hora_para_minutos(fim_str)
-        except Exception:
+        except (ValueError, TypeError):
             ini_m = 0
             fim_m = 1440
 
@@ -640,13 +637,9 @@ class DialogoGradeHorariosTotem(ttk.Toplevel):
     def fechar(self):
         """Encerra com segurança o diálogo liberando o temporizador."""
         if self._timer_id:
-            try:
+            with contextlib.suppress(tk.TclError):
                 self.after_cancel(self._timer_id)
-            except Exception:
-                pass
             self._timer_id = None
 
-        try:
+        with contextlib.suppress(tk.TclError):
             self.destroy()
-        except Exception:
-            pass

@@ -4,11 +4,12 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
+import logging
 import tkinter as tk
-import traceback
 from datetime import datetime
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.constants import BOTH, END, EW, HORIZONTAL, LEFT, NSEW, RIGHT, E, W, X
 from ttkbootstrap.dialogs import Messagebox
@@ -21,6 +22,8 @@ from registro.nucleo.utils import (
     DADOS_SESSAO,
     normalizar_lista_categorias,
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _obter_categorias_selecionadas_painel(
@@ -191,11 +194,11 @@ class StudentDialog(ttk.Toplevel):
                 categorias,
             )
             self.seletor_categorias.grid(row=0, column=0, sticky=EW)
-        except Exception:
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Não foi possível carregar a lista de turmas.")
             Messagebox.show_error(
                 "Não foi possível carregar a lista de turmas.", "Erro"
             )
-            traceback.print_exc()
 
     def _load_student_data(self):
         try:
@@ -233,11 +236,11 @@ class StudentDialog(ttk.Toplevel):
 
             if self.seletor_categorias:
                 self.seletor_categorias.definir_selecionadas(cats_est)
-        except Exception:
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar dados do aluno %s.", self.student_id)
             Messagebox.show_error(
-                "Erro ao carregar dados do aluno. Verifique o console.", "Erro"
+                "Erro ao carregar dados do aluno. Verifique os logs.", "Erro"
             )
-            traceback.print_exc()
 
     def _on_save(self):
         nome = self.nome_entry.get().strip()
@@ -277,12 +280,12 @@ class StudentDialog(ttk.Toplevel):
             self.destroy()
         except ValueError as e:
             Messagebox.show_error(str(e), "Erro ao Salvar")
-        except Exception:
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Ocorreu um erro ao salvar o aluno.")
             Messagebox.show_error(
-                "Ocorreu um erro ao salvar o aluno. Verifique o console.",
+                "Ocorreu um erro ao salvar o aluno. Verifique os logs.",
                 "Erro Crítico",
             )
-            traceback.print_exc()
 
     def _on_cancel(self):
         self.result = False
@@ -376,8 +379,8 @@ class TurmaDialog(ttk.Toplevel):
                 self.tipo_combobox.set("Categoria (Optativa / Programa / Evento)")
             else:
                 self.tipo_combobox.set("Turma (Real)")
-        except Exception:
-            traceback.print_exc()
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar dados da turma %s.", self.turma_id)
 
     def _on_save(self):
         nome = self.nome_entry.get().strip()
@@ -406,7 +409,8 @@ class TurmaDialog(ttk.Toplevel):
             self.destroy()
         except ValueError as e:
             Messagebox.show_error(str(e), "Erro ao Salvar")
-        except Exception as e:
+        except (SQLAlchemyError, tk.TclError) as e:
+            logger.exception("Erro inesperado ao salvar turma.")
             Messagebox.show_error(f"Erro inesperado: {e}", "Erro")
 
     def _on_cancel(self):
@@ -494,8 +498,8 @@ class VincularAlunoDialog(ttk.Toplevel):
                 for a in alunos
             ]
             self.table.construir_dados_tabela(dados)
-        except Exception:
-            traceback.print_exc()
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar dados da turma %s.", self.turma_id)
 
     def _vincular(self):
         sel = self.table.obter_linha_selecionada()
@@ -508,7 +512,8 @@ class VincularAlunoDialog(ttk.Toplevel):
             self.result = True
             Messagebox.show_info("Aluno vinculado com sucesso!", "Sucesso")
             self.destroy()
-        except Exception as e:
+        except (SQLAlchemyError, ValueError) as e:
+            logger.exception("Erro ao vincular aluno à turma %s.", self.turma_id)
             Messagebox.show_error(f"Erro ao vincular: {e}", "Erro")
 
 
@@ -540,13 +545,13 @@ class ReservaDialog(ttk.Toplevel):
                 f"{s.get('prontuario', 'N/A')} - {s.get('nome', 'Sem Nome')}"
                 for s in self.student_cache
             ]
-        except Exception:
+        except SQLAlchemyError:
             self.student_cache = []
             self.student_display_list = []
+            logger.exception("Não foi possível carregar a lista de alunos.")
             Messagebox.show_error(
                 "Não foi possível carregar a lista de alunos.", "Erro"
             )
-            traceback.print_exc()
 
     def _create_widgets(self):
         main_frame = ttk.Frame(self, padding=20)
@@ -677,11 +682,11 @@ class ReservaDialog(ttk.Toplevel):
             cats_res = [g.nome for g in (reserva.grupos or [])]
             self.seletor_categorias_reserva.definir_selecionadas(cats_res)
 
-        except Exception:
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar dados da reserva %s.", self.reserva_id)
             Messagebox.show_error(
-                "Erro ao carregar dados da reserva. Verifique o console.", "Erro"
+                "Erro ao carregar dados da reserva. Verifique os logs.", "Erro"
             )
-            traceback.print_exc()
 
     def _on_save(self):
         aluno_selecionado = self.aluno_combobox.get().strip()
@@ -729,11 +734,9 @@ class ReservaDialog(ttk.Toplevel):
             self.destroy()
         except ValueError as e:
             Messagebox.show_error(str(e), "Erro ao Salvar")
-        except Exception:
-            Messagebox.show_error(
-                "Ocorreu um erro. Verifique o console.", "Erro Crítico"
-            )
-            traceback.print_exc()
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Ocorreu um erro ao salvar a reserva.")
+            Messagebox.show_error("Ocorreu um erro. Verifique os logs.", "Erro Crítico")
 
     def _on_cancel(self):
         self.result = False
@@ -838,7 +841,7 @@ class SessionDialog(ttk.Toplevel):
                     self.grupos_frame,
                     text=grupo["nome"],
                     variable=var,
-                    bootstyle="primary-outline",
+                    bootstyle="primary",
                 )
                 cb.pack(anchor=W, fill=X, padx=5, pady=2)
                 self.grupos_vars[grupo["nome"]] = var
@@ -858,11 +861,9 @@ class SessionDialog(ttk.Toplevel):
                 self.sessoes_combobox.set("Nenhuma sessão anterior encontrada.")
                 self.sessoes_combobox.config(state="disabled")
                 self.btn_select.config(state="disabled")
-        except Exception:
-            Messagebox.show_error(
-                "Erro ao carregar dados. Verifique o console.", "Erro"
-            )
-            traceback.print_exc()
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar dados de sessão.")
+            Messagebox.show_error("Erro ao carregar dados. Verifique os logs.", "Erro")
 
     def _on_create(self):
         grupos_selecionados = [
@@ -886,9 +887,9 @@ class SessionDialog(ttk.Toplevel):
                     f"Não é possível iniciar uma sessão de {dados_sessao['refeicao']} sem reservas ativas para a data."
                 )
             self.destroy()
-        except Exception as e:
+        except (ErroSessao, SQLAlchemyError, ValueError) as e:
+            logger.exception("Erro ao criar sessão.")
             Messagebox.show_error(f"Erro ao criar sessão: {e}", "Erro")
-            traceback.print_exc()
 
     def _on_select(self):
         selecionado = self.sessoes_combobox.get()

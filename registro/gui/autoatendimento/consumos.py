@@ -14,6 +14,7 @@ import tkinter as tk
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import CENTER, LEFT
 from ttkbootstrap.dialogs import Messagebox
 
@@ -281,7 +282,7 @@ class AbaConsumos(ttk.Frame):
             consumidos.sort(key=lambda x: str(x.get("hora_consumo", "")), reverse=True)
             self._consumos_raw = consumidos
             self._aplicar_filtro_e_renderizar()
-        except Exception as e:
+        except (SQLAlchemyError, tk.TclError) as e:
             logger.error("Erro ao carregar consumos no painel CRUD: %s", e)
 
     def _aplicar_filtro_e_renderizar(self):
@@ -394,7 +395,7 @@ class AbaConsumos(ttk.Frame):
                 )
                 if c_db:
                     id_consumo = c_db.id
-            except Exception as e:
+            except SQLAlchemyError as e:
                 logger.error("Erro ao buscar id_consumo: %s", e)
 
         if not id_consumo:
@@ -563,5 +564,5 @@ class AbaConsumos(ttk.Frame):
         if self.notificar_mudanca_callback:
             try:
                 self.notificar_mudanca_callback()
-            except Exception as e:
+            except (SQLAlchemyError, tk.TclError, RuntimeError, ValueError) as e:
                 logger.error("Erro no callback de notificação de mudança: %s", e)

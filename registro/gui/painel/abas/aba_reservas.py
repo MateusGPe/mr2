@@ -4,19 +4,22 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
+import logging
 import tkinter as tk
-import traceback
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, W
 from ttkbootstrap.dialogs import Messagebox
 
 from registro.gui.comum.controles.rounded_button import RoundedButton
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 from registro.gui.painel.dialogos import ReservaDialog
+
+logger = logging.getLogger(__name__)
 
 
 class AbaReservas(ttk.Frame):
@@ -193,7 +196,8 @@ class AbaReservas(ttk.Frame):
             return sorted(
                 [g["nome"] for g in self.fachada_nucleo.listar_todos_os_grupos()]
             )
-        except Exception:
+        except SQLAlchemyError as e:
+            logger.debug("Falha ao listar grupos disponíveis: %s", e)
             return []
 
     def _filtrar_reservas(self, _event=None):
@@ -236,11 +240,11 @@ class AbaReservas(ttk.Frame):
                 for r in reservas
             ]
             self.reservas_table.construir_dados_tabela(dados)
-        except Exception:
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar reservas.")
             Messagebox.show_error(
-                "Erro ao carregar reservas. Verifique o console.", "Erro"
+                "Erro ao carregar reservas. Verifique os logs.", "Erro"
             )
-            traceback.print_exc()
         self._on_reserva_select()
 
     def _carregar_reservas(self):
@@ -249,8 +253,8 @@ class AbaReservas(ttk.Frame):
             self.cbo_data["values"] = ["Todas"] + datas
             turmas = ["Todas"] + self._get_grupos_disponiveis()
             self.filter_turma_combobox["values"] = turmas
-        except Exception:
-            pass
+        except (SQLAlchemyError, tk.TclError) as e:
+            logger.debug("Falha ao carregar filtros de reservas: %s", e)
         self._filtrar_reservas()
 
     def _get_reserva_selecionada_id(self):
@@ -297,9 +301,9 @@ class AbaReservas(ttk.Frame):
             try:
                 self.fachada_nucleo.deletar_reserva(reserva_id)
                 self._carregar_reservas()
-            except Exception as e:
+            except (SQLAlchemyError, ValueError) as e:
+                logger.exception("Erro ao excluir reserva %s.", reserva_id)
                 Messagebox.show_error(f"Erro ao excluir reserva: {e}", "Erro")
-                traceback.print_exc()
 
     def _exportar_reservas(self, formato: str):
         try:
@@ -340,5 +344,6 @@ class AbaReservas(ttk.Frame):
             Messagebox.show_info(
                 f"Reservas exportadas com sucesso em:\n{filepath}", "Sucesso"
             )
-        except Exception as e:
+        except (OSError, SQLAlchemyError, ValueError) as e:
+            logger.exception("Falha ao exportar reservas.")
             Messagebox.show_error(f"Falha ao exportar reservas: {e}", "Erro")

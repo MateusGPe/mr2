@@ -63,7 +63,7 @@ class DialogoPIN(ttk.Toplevel):
             else:
                 px = (self.winfo_screenwidth() // 2) - (largura // 2)
                 py = (self.winfo_screenheight() // 2) - (altura // 2)
-        except Exception:
+        except tk.TclError:
             px = 100
             py = 100
         self.geometry(f"{largura}x{altura}+{max(0, px)}+{max(0, py)}")

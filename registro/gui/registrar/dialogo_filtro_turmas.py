@@ -10,10 +10,12 @@ from tkinter import BOTH, EW, HORIZONTAL, NSEW, YES, E, W
 from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap import ScrolledFrame
 from ttkbootstrap.dialogs import Messagebox
 
-from registro.gui.registrar.constants import obter_turmas_integrado
+from registro.nucleo.config_service import obter_turmas_integrado
+from registro.nucleo.exceptions import ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
@@ -337,7 +339,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
         try:
             detalhes = self._fachada.obter_detalhes_sessao_ativa()
             refeicao = detalhes.get("refeicao", "lanche")
-        except Exception:
+        except (ErroSessaoNaoAtiva, SQLAlchemyError):
             refeicao = "lanche"
 
         dia_atual = self._fachada.obter_dia_semana_atual()
@@ -402,7 +404,7 @@ class DialogoFiltroTurmas(tk.Toplevel):
 
             for identificador, var, _ in self._dados_checkbox:
                 var.set(identificador.strip().lower() in selecionados_norm)
-        except Exception as e:
+        except (ErroSessaoNaoAtiva, SQLAlchemyError, tk.TclError) as e:
             logger.error("Erro ao inicializar estados do filtro: %s", e)
 
         self._atualizar_contador()

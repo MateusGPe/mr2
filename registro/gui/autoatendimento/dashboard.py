@@ -14,6 +14,7 @@ import tkinter as tk
 from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import HORIZONTAL, LEFT, X
 from ttkbootstrap.dialogs import Messagebox
 
@@ -365,7 +366,7 @@ class AbaDashboard(ttk.Frame):
             if hasattr(self.fachada, "obter_estatisticas_sessao"):
                 try:
                     stats = self.fachada.obter_estatisticas_sessao(self.id_sessao)
-                except Exception as ex_stats:
+                except (SQLAlchemyError, ValueError, KeyError) as ex_stats:
                     logger.debug("Falha em obter_estatisticas_sessao: %s", ex_stats)
 
             if not stats:
@@ -450,7 +451,7 @@ class AbaDashboard(ttk.Frame):
                 text=f"🍲 {refeicao} ({hora_prev}){item_txt} | 📅 Data: {data} | ID Sessão: {self.id_sessao}"
             )
 
-        except Exception as e:
+        except (SQLAlchemyError, tk.TclError, ValueError, KeyError) as e:
             logger.error("Erro ao atualizar dashboard analítico: %s", e)
 
     def _limpar_paineis_analiticos(self):

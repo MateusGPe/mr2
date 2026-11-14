@@ -9,10 +9,12 @@ Aplicação principal do Painel Administrativo do sistema de registro de refeiç
 Fornece abas de gestão de alunos, reservas, importação de dados e dashboard analítico.
 """
 
-import traceback
+import logging
+import tkinter as tk
 from typing import Dict, Optional
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import EW, NSEW
 from ttkbootstrap.dialogs import Messagebox
 
@@ -22,6 +24,8 @@ from registro.gui.painel.abas.aba_importacao import AbaImportacao
 from registro.gui.painel.abas.aba_reservas import AbaReservas
 from registro.gui.painel.abas.aba_turmas import AbaTurmas
 from registro.nucleo.facade import FachadaRegistro
+
+logger = logging.getLogger(__name__)
 
 
 class App(ttk.Window):
@@ -33,12 +37,12 @@ class App(ttk.Window):
             self.fachada_nucleo: FachadaRegistro = (
                 fachada_nucleo if fachada_nucleo is not None else FachadaRegistro()
             )
-        except Exception:
+        except (SQLAlchemyError, OSError, tk.TclError):
+            logger.exception("Não foi possível iniciar o backend do Painel.")
             Messagebox.show_error(
-                "Não foi possível iniciar o backend. Verifique o console.",
+                "Não foi possível iniciar o backend. Verifique os logs.",
                 "Erro Fatal",
             )
-            traceback.print_exc()
             self.destroy()
             return
 
@@ -52,8 +56,8 @@ class App(ttk.Window):
     def _on_closing(self):
         try:
             self.fachada_nucleo.fechar_conexao()
-        except Exception:
-            pass
+        except SQLAlchemyError as e:
+            logger.debug("Erro ao fechar conexão ao encerrar Painel: %s", e)
         self.destroy()
 
     def _criar_widgets(self):

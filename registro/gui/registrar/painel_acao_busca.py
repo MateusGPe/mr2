@@ -12,12 +12,13 @@ from typing import TYPE_CHECKING, Any, Dict, List, Optional
 
 import ttkbootstrap as ttk
 from fuzzywuzzy import fuzz
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import DISABLED, LEFT, NORMAL, W
 from ttkbootstrap.dialogs import Messagebox
 
 from registro.gui.comum.constants import REGEX_LIMPEZA_PRONTUARIO
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples
-from registro.nucleo.exceptions import ErroSessaoNaoAtiva
+from registro.nucleo.exceptions import ErroSessao, ErroSessaoNaoAtiva
 from registro.nucleo.facade import FachadaRegistro
 
 if TYPE_CHECKING:
@@ -418,7 +419,7 @@ class PainelAcaoBusca(ttk.Frame):
                         parent=self._app,
                     )
 
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except (SQLAlchemyError, ValueError, ErroSessao, ErroSessaoNaoAtiva) as e:
             logger.warning("Falha ao registrar %s: %s", pront, e)
             Messagebox.show_error(
                 f"Não foi possível registrar o consumo para:\n{nome} ({pront})\nErro: {e}",
@@ -621,5 +622,5 @@ class PainelAcaoBusca(ttk.Frame):
                 view.focus(primeiro_iid)
                 view.selection_set(primeiro_iid)
                 view.see(primeiro_iid)
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except tk.TclError as e:
             logger.error("Erro ao auto-selecionar primeiro item: %s", e)

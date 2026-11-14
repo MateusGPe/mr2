@@ -21,6 +21,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import openpyxl
 import qrcode
 from PIL import Image
+from qrcode.constants import ERROR_CORRECT_M
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
@@ -51,8 +52,9 @@ def _obter_caminho_recurso(nome_arquivo: str) -> Optional[Path]:
         Path(__file__).resolve().parent.parent.parent / nome_arquivo,
     ]
     if getattr(sys, "frozen", False):
-        if hasattr(sys, "_MEIPASS"):
-            candidatos.insert(0, Path(sys._MEIPASS) / nome_arquivo)
+        meipass = getattr(sys, "_MEIPASS", None)
+        if meipass:
+            candidatos.insert(0, Path(meipass) / nome_arquivo)
         candidatos.insert(1, Path(sys.executable).parent / nome_arquivo)
 
     for cand in candidatos:
@@ -93,13 +95,14 @@ def generate_qr_pil(data: str) -> Image.Image:
     """Gera uma imagem PIL com o QR Code para inserção direta no ReportLab."""
     qr = qrcode.QRCode(
         version=1,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        error_correction=ERROR_CORRECT_M,
         box_size=12,
         border=0,
     )
     qr.add_data(data)
     qr.make(fit=True)
-    return qr.make_image(fill_color="black", back_color="white").convert("RGB")
+    img_qr: Any = qr.make_image(fill_color="black", back_color="white")
+    return img_qr.convert("RGB")
 
 
 def generate_qr_base64(data: str) -> str:
@@ -173,6 +176,8 @@ def load_students_from_file(filepath: Union[Path, str]) -> List[Dict[str, str]]:
         wb = openpyxl.load_workbook(path, data_only=True)
         try:
             sheet = wb.active
+            if sheet is None:
+                return []
             linhas = list(sheet.iter_rows(values_only=True))
             if not linhas:
                 return []

@@ -17,6 +17,7 @@ import tkinter as tk
 from typing import Any, Callable, Dict, List, Optional
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import BOTH, EW, LEFT, NSEW, RIGHT, VERTICAL, W, X
 from ttkbootstrap.dialogs import Messagebox
 
@@ -70,8 +71,8 @@ class DialogoNovoConsumo(ttk.Toplevel):
             x = max(10, px + (pw - w) // 2)
             y = max(10, py + (ph - h) // 2)
             self.geometry(f"{w}x{h}+{x}+{y}")
-        except Exception:
-            pass
+        except tk.TclError as e:
+            logger.debug("Centralização de diálogo ignorada: %s", e)
 
     def _criar_widgets(self):
         container = ttk.Frame(self, padding=16)
@@ -262,7 +263,7 @@ class DialogoNovoConsumo(ttk.Toplevel):
                         }
                     )
             self._atualizar_tabela_candidatos(self._alunos_cache[:50])
-        except Exception as e:
+        except (SQLAlchemyError, tk.TclError) as e:
             logger.error("Erro ao carregar lista de alunos no diálogo: %s", e)
 
     def _ao_digitar_busca(self):
@@ -339,8 +340,8 @@ class DialogoNovoConsumo(ttk.Toplevel):
                     )
                     if c_db:
                         id_consumo = c_db.id
-                except Exception:
-                    pass
+                except SQLAlchemyError as e:
+                    logger.debug("Falha ao buscar id_consumo após registro: %s", e)
 
             if id_consumo:
                 self.fachada.atualizar_consumo(
@@ -416,8 +417,8 @@ class DialogoEditarConsumo(ttk.Toplevel):
             x = max(10, px + (pw - w) // 2)
             y = max(10, py + (ph - h) // 2)
             self.geometry(f"{w}x{h}+{x}+{y}")
-        except Exception:
-            pass
+        except tk.TclError as e:
+            logger.debug("Centralização de diálogo ignorada: %s", e)
 
     def _criar_widgets(self):
         container = ttk.Frame(self, padding=20)
@@ -570,8 +571,8 @@ class DialogoDetalhesConsumo(ttk.Toplevel):
             x = max(10, px + (pw - w) // 2)
             y = max(10, py + (ph - h) // 2)
             self.geometry(f"{w}x{h}+{x}+{y}")
-        except Exception:
-            pass
+        except tk.TclError as e:
+            logger.debug("Centralização de diálogo ignorada: %s", e)
 
     def _criar_widgets(self):
         container = ttk.Frame(self, padding=20)

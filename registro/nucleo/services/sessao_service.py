@@ -48,10 +48,15 @@ def iniciar_nova_sessao(
         "%d/%m/%Y"
     )
 
-    if refeicao in ("almoço", "jantar"):
-        filtro_ref = {"almoco": True} if refeicao == "almoço" else {"jantar": True}
+    if refeicao == "almoço":
         reservas = repo_reserva.ler_filtrado(
-            data=data_formatada, cancelada=False, **filtro_ref
+            data=data_formatada, cancelada=False, almoco=True
+        )
+        if not reservas:
+            return None
+    elif refeicao == "jantar":
+        reservas = repo_reserva.ler_filtrado(
+            data=data_formatada, cancelada=False, jantar=True
         )
         if not reservas:
             return None
@@ -223,7 +228,7 @@ def obter_estudantes_para_sessao(
                     and bool(getattr(reserva, "jantar", False))
                 )
             )
-            if reserva_ref_valida:
+            if reserva is not None and reserva_ref_valida:
                 autorizado = True
                 motivo = "Reserva"
                 prato = reserva.prato

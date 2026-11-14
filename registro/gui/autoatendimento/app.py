@@ -10,16 +10,17 @@ Orquestra navegação entre telas, atalhos globais, menu de contexto do operador
 e ciclo de vida da aplicação.
 """
 
+import contextlib
 import datetime as dt
 import logging
 import threading
 import time
 import tkinter as tk
-import traceback
 from threading import Thread
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import LEFT, NSEW, X
 from ttkbootstrap.dialogs import Messagebox
 
@@ -59,11 +60,11 @@ class AppSelfService(ttk.Window):
             self.fachada_nucleo = (
                 fachada_nucleo if fachada_nucleo is not None else FachadaRegistro()
             )
-        except Exception:
+        except (SQLAlchemyError, OSError, tk.TclError):
+            logger.exception("Não foi possível iniciar o backend do Autoatendimento.")
             Messagebox.show_error(
-                "Não foi possível iniciar o backend. Verifique o console.", "Erro Fatal"
+                "Não foi possível iniciar o backend. Verifique os logs.", "Erro Fatal"
             )
-            traceback.print_exc()
             self.destroy()
             return
 
@@ -141,7 +142,7 @@ class AppSelfService(ttk.Window):
                     message=message,
                     records_affected=records_affected,
                 )
-            except Exception as e:
+            except (SQLAlchemyError, OSError) as e:
                 logger.warning("Erro ao gravar log de sincronização no BD: %s", e)
 
     def _sincronizar_dados_mestre(self, automatico: bool = False):
@@ -213,10 +214,8 @@ class AppSelfService(ttk.Window):
 
         inicio = time.time()
         while thread.is_alive():
-            try:
+            with contextlib.suppress(tk.TclError):
                 self.update()
-            except Exception:
-                pass
             thread.join(0.1)
             if time.time() - inicio > timeout:
                 logger.warning(
@@ -239,7 +238,7 @@ class AppSelfService(ttk.Window):
             records_affected = funcao_sinc()
             thread.success = True
             thread.records_affected = records_affected or 0
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except Exception as e:  # noqa: BLE001 - ponte de erro entre thread worker e UI
             thread.error = e
 
     def _monitorar_thread_sinc(
@@ -337,7 +336,7 @@ class AppSelfService(ttk.Window):
             return
 
         # Se houver diálogo Toplevel aberto e visível, não interfere nas digitações do usuário
-        try:
+        with contextlib.suppress(tk.TclError):
             for w in self.winfo_children():
                 if (
                     isinstance(w, tk.Toplevel)
@@ -345,15 +344,11 @@ class AppSelfService(ttk.Window):
                     and w.winfo_viewable()
                 ):
                     return
-        except Exception:
-            pass
 
         widget = getattr(event, "widget", None)
-        try:
+        with contextlib.suppress(tk.TclError):
             if widget and widget.winfo_toplevel() != self:
                 return
-        except Exception:
-            pass
 
         if isinstance(
             widget,
@@ -457,7 +452,7 @@ class AppSelfService(ttk.Window):
                     "Sessão de hoje detectada automaticamente: ID %s",
                     self.id_sessao_ativa,
                 )
-        except Exception as e:
+        except (SQLAlchemyError, OSError, ValueError) as e:
             logger.error("Erro na detecção inicial de sessão: %s", e)
 
     def _configurar_grade_sessao_ativa(self):
@@ -477,7 +472,7 @@ class AppSelfService(ttk.Window):
                 )
             else:
                 self.fachada_nucleo.dia_semana_grade = None
-        except Exception as e:
+        except (SQLAlchemyError, ValueError) as e:
             logger.warning("Falha ao ajustar grade para sessão ativa: %s", e)
 
     def exibir_menu_contexto(
@@ -587,7 +582,7 @@ class AppSelfService(ttk.Window):
                 else:
                     x = widget.winfo_rootx()
                     y = widget.winfo_rooty() + widget.winfo_height() + 2
-            except Exception:
+            except tk.TclError:
                 x = widget.winfo_rootx()
                 y = widget.winfo_rooty()
         else:
@@ -860,18 +855,18 @@ class AppSelfService(ttk.Window):
                     "Sincronização de Servidos",
                     timeout=8.0,
                 )
-            except Exception as e:
+            except (OSError, RuntimeError, SQLAlchemyError, tk.TclError) as e:
                 logger.warning("Falha ao sincronizar antes de fechar: %s", e)
 
             if self.id_sessao_ativa:
                 try:
                     self.fachada_nucleo.salvar_estado_sessao(self.id_sessao_ativa)
-                except Exception as e:
+                except (OSError, SQLAlchemyError, ValueError) as e:
                     logger.warning("Erro ao salvar estado da sessão: %s", e)
 
             try:
                 self.fachada_nucleo.fechar_conexao()
-            except Exception as e:
+            except SQLAlchemyError as e:
                 logger.warning("Erro ao fechar conexão com DB: %s", e)
 
         try:
@@ -890,9 +885,8 @@ def main():
     try:
         app = AppSelfService()
         app.mainloop()
-    except Exception:
-        logger.critical("Erro fatal ao iniciar a aplicação de autoatendimento.")
-        logger.critical(traceback.format_exc())
+    except Exception:  # noqa: BLE001 - fronteira principal da aplicação
+        logger.exception("Erro fatal ao iniciar a aplicação de autoatendimento.")
         Messagebox.show_error(
             "A aplicação encontrou um erro irrecuperável e será fechada. Verifique os logs para mais detalhes.",
             "Erro Crítico",

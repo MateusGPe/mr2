@@ -4,13 +4,17 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
-import traceback
+import logging
+import tkinter as tk
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import BOTH, HORIZONTAL, LEFT, NSEW, RIGHT, W, X
 
 from registro.gui.comum.controles.rounded_button import RoundedButton
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples
+
+logger = logging.getLogger(__name__)
 
 
 class AbaDashboard(ttk.Frame):
@@ -233,5 +237,5 @@ class AbaDashboard(ttk.Frame):
             ]
             self.table_pratos.construir_dados_tabela(dados_p)
 
-        except Exception:
-            traceback.print_exc()
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar estatísticas do dashboard.")

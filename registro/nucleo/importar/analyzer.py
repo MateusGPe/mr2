@@ -17,6 +17,8 @@ from registro.nucleo.importar.definitions import (
     REGEX_LIMPEZA_PRONTUARIO,
     CandidatoMatch,
     ItemRevisao,
+    ResolucaoUsuario,
+    TipoConflito,
 )
 
 
@@ -240,11 +242,11 @@ class AnalisadorSimplificado:
         self,
         id_temp: int,
         dados: Dict[str, Any],
-        tipo: str,
+        tipo: TipoConflito,
         candidatos: List[CandidatoMatch],
     ) -> ItemRevisao:
         """Helper para criar estrutura de ItemRevisao."""
-        resolucao = "CRIAR_NOVO"
+        resolucao: ResolucaoUsuario = "CRIAR_NOVO"
         id_vinculo = None
 
         if candidatos and (tipo == "MULTIPLOS_MATCHES" or tipo == "DADOS_DIVERGENTES"):

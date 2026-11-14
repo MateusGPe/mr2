@@ -272,13 +272,13 @@ def test_facade_operacoes_sessao_e_delegacoes(facade: FachadaRegistro, tmp_path)
     # Mocks de sincronização Google Sheets
     with (
         patch(
-            "registro.nucleo.service_logic.sincronizar_do_google_sheets"
+            "registro.nucleo.services.sync_service.sincronizar_do_google_sheets"
         ) as m_sync_do,
         patch(
-            "registro.nucleo.service_logic.sincronizar_para_google_sheets"
+            "registro.nucleo.services.sync_service.sincronizar_para_google_sheets"
         ) as m_sync_para,
         patch(
-            "registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets"
+            "registro.nucleo.services.sync_service.sincronizar_todas_sessoes_para_google_sheets"
         ) as m_sync_todas,
     ):
         facade.sincronizar_do_google_sheets()
@@ -339,13 +339,13 @@ def test_facade_sincronizacao_em_worker_thread(facade: FachadaRegistro):
         try:
             with (
                 patch(
-                    "registro.nucleo.service_logic.sincronizar_do_google_sheets"
+                    "registro.nucleo.services.sync_service.sincronizar_do_google_sheets"
                 ) as m_sync_do,
                 patch(
-                    "registro.nucleo.service_logic.sincronizar_para_google_sheets"
+                    "registro.nucleo.services.sync_service.sincronizar_para_google_sheets"
                 ) as m_sync_para,
                 patch(
-                    "registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets"
+                    "registro.nucleo.services.sync_service.sincronizar_todas_sessoes_para_google_sheets"
                 ) as m_sync_todas,
             ):
                 facade.sincronizar_do_google_sheets()
@@ -385,13 +385,13 @@ def test_facade_sincronizacao_em_worker_thread_com_nova_fachada():
         try:
             with (
                 patch(
-                    "registro.nucleo.service_logic.sincronizar_do_google_sheets"
+                    "registro.nucleo.services.sync_service.sincronizar_do_google_sheets"
                 ) as m_sync_do,
                 patch(
-                    "registro.nucleo.service_logic.sincronizar_para_google_sheets"
+                    "registro.nucleo.services.sync_service.sincronizar_para_google_sheets"
                 ) as m_sync_para,
                 patch(
-                    "registro.nucleo.service_logic.sincronizar_todas_sessoes_para_google_sheets"
+                    "registro.nucleo.services.sync_service.sincronizar_todas_sessoes_para_google_sheets"
                 ) as m_sync_todas,
                 patch("registro.nucleo.facade.criar_banco_de_dados_e_tabelas"),
                 patch("registro.nucleo.facade.SessaoLocal"),

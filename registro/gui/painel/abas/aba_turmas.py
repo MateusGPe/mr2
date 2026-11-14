@@ -4,13 +4,14 @@
 # SPDX-License-Identifier: MIT
 # Copyright (c) 2024-2026 Mateus G Pereira <mateus.pereira@ifsp.edu.br>
 
+import logging
 import tkinter as tk
-import traceback
 from datetime import datetime
 from pathlib import Path
 from tkinter import filedialog
 
 import ttkbootstrap as ttk
+from sqlalchemy.exc import SQLAlchemyError
 from ttkbootstrap.constants import EW, LEFT, NSEW, RIGHT, W, X
 from ttkbootstrap.dialogs import Messagebox
 
@@ -18,6 +19,8 @@ from registro.gui.comum.controles.rounded_button import RoundedButton
 from registro.gui.comum.controles.treeview_simples import TreeviewSimples
 from registro.gui.painel.dialogos import TurmaDialog, VincularAlunoDialog
 from registro.nucleo.facade import FachadaRegistro
+
+logger = logging.getLogger(__name__)
 
 
 class AbaTurmas(ttk.Frame):
@@ -216,8 +219,8 @@ class AbaTurmas(ttk.Frame):
                 for t in turmas
             ]
             self.turmas_table.construir_dados_tabela(dados)
-        except Exception:
-            traceback.print_exc()
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar turmas.")
         self._on_turma_select()
 
     def _on_turma_select(self, _=None):
@@ -267,8 +270,8 @@ class AbaTurmas(ttk.Frame):
                 for a in alunos
             ]
             self.alunos_turma_table.construir_dados_tabela(dados)
-        except Exception:
-            traceback.print_exc()
+        except (SQLAlchemyError, tk.TclError):
+            logger.exception("Erro ao carregar turmas.")
         self._on_aluno_turma_select()
 
     def _on_aluno_turma_select(self, _=None):
@@ -361,5 +364,6 @@ class AbaTurmas(ttk.Frame):
             Messagebox.show_info(
                 f"Turmas exportadas com sucesso em:\n{filepath}", "Sucesso"
             )
-        except Exception as e:
+        except (OSError, SQLAlchemyError, ValueError) as e:
+            logger.exception("Falha ao exportar turmas.")
             Messagebox.show_error(f"Falha ao exportar turmas: {e}", "Erro")

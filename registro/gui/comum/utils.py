@@ -137,7 +137,7 @@ def obter_caminho_documentos() -> str:
                 None, CSIDL_PERSONAL, None, SHGFP_TYPE_CURRENT, buf
             )
             caminho = Path(buf.value)
-        except Exception as e:  # pylint: disable=broad-exception-caught
+        except (OSError, ValueError, AttributeError) as e:
             logger.warning(
                 "Falha ao obter caminho de Documentos via API Windows: %s. Usando padrão.",
                 e,
@@ -197,7 +197,7 @@ def emitir_feedback_sonoro(sucesso: bool = True, widget: Optional[Any] = None) -
                 else config_audio.get("dur_erro_ms", 1000)
             )
             winsound.Beep(int(freq), int(dur))
-        except Exception as e:
+        except (ImportError, RuntimeError, OSError, ValueError) as e:
             logger.debug("Falha ao emitir feedback sonoro via winsound: %s", e)
     else:
         # Linux e outros sistemas Unix-like
@@ -206,7 +206,7 @@ def emitir_feedback_sonoro(sucesso: bool = True, widget: Optional[Any] = None) -
                 widget.bell()
             else:
                 print("\a", end="", flush=True)
-        except Exception as e:
+        except (OSError, RuntimeError, AttributeError) as e:
             logger.debug("Falha ao emitir feedback sonoro no Linux: %s", e)
 
 

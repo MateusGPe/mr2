@@ -8,6 +8,7 @@
 Diálogo de auditoria para confirmação e registro de motivo no cancelamento de consumo.
 """
 
+import contextlib
 import tkinter as tk
 from typing import Tuple
 
@@ -37,10 +38,8 @@ class DialogoConfirmarCancelamento(ttk.Toplevel):
         )
         super().__init__(top_parent)
         if top_parent:
-            try:
+            with contextlib.suppress(tk.TclError):
                 self.transient(top_parent)
-            except Exception:
-                pass
         self.grab_set()
         self.title("Confirmar Cancelamento")
         self.resizable(False, False)

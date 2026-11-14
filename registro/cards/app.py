@@ -149,7 +149,7 @@ class CardsApp(ttk.Window):
             bootstyle="outline-primary",
         )
         self.btn_turmas.pack(side=LEFT)
-        self.menu_turmas = ttk.Menu(self.btn_turmas, tearoff=0)
+        self.menu_turmas = ttk.Menu(self.btn_turmas, tearoff=False)
         self.btn_turmas.configure(menu=self.menu_turmas)
         self._atualizar_menu_turmas()
 
@@ -525,7 +525,7 @@ class CardsApp(ttk.Window):
         for idx, s in enumerate(self.students_filtered, 1):
             self.tree.insert(
                 "",
-                END,
+                "end",
                 values=(
                     idx,
                     s.get("register", ""),
